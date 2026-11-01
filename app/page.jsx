@@ -1,17 +1,5 @@
-import { UNITS } from '../lib/units.js';
+import Dashboard from '../components/Dashboard';
 
-export default function Home() {
-  return (
-    <main className="home">
-      <h1>Talent Acquisition dashboards</h1>
-      <p>Choose a payroll unit.</p>
-      <ul>
-        {Object.values(UNITS).map((u) => (
-          <li key={u.key}>
-            <a href={`/${u.key}/`}>{u.name}</a>
-          </li>
-        ))}
-      </ul>
-    </main>
-  );
+export default function HomePage() {
+  return <Dashboard unitKey="overall" unitName="Overall" />;
 }
