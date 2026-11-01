@@ -385,13 +385,13 @@ export default function Dashboard({ unitKey = 'overall' }) {
                       justifyContent: 'space-between',
                       padding: '14px 18px',
                       borderRadius: '10px',
-                      border: isSelected ? '2px solid #059669' : '1px solid rgba(128,128,128,0.25)',
-                      background: isSelected ? '#059669' : 'var(--card, #ffffff)',
-                      color: isSelected ? '#ffffff' : 'inherit',
+                      border: isSelected ? '2px solid #eab308' : '1px solid rgba(255, 255, 255, 0.14)',
+                      background: isSelected ? '#059669' : 'rgba(255, 255, 255, 0.05)',
+                      color: isSelected ? '#ffffff' : '#e2e8f0',
                       fontWeight: 600,
                       fontSize: '15px',
                       cursor: 'pointer',
-                      boxShadow: isSelected ? '0 4px 12px rgba(5, 150, 105, 0.25)' : 'none',
+                      boxShadow: isSelected ? '0 4px 12px rgba(5, 150, 105, 0.35)' : 'none',
                       transition: 'all 0.15s ease',
                     }}
                   >
@@ -399,11 +399,11 @@ export default function Dashboard({ unitKey = 'overall' }) {
                     <span
                       style={{
                         fontSize: '12px',
-                        fontWeight: 500,
-                        padding: '3px 9px',
+                        fontWeight: 600,
+                        padding: '3px 10px',
                         borderRadius: '999px',
-                        background: isSelected ? 'rgba(255,255,255,0.22)' : 'rgba(128,128,128,0.12)',
-                        color: isSelected ? '#ffffff' : 'inherit',
+                        background: isSelected ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.1)',
+                        color: isSelected ? '#ffffff' : '#cbd5e1',
                       }}
                     >
                       {fmt(slicerCounts[u.key])} open roles
