@@ -1,10 +1,14 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const nf = new Intl.NumberFormat('en-IN');
 const fmt = (n) => nf.format(n || 0);
 const norm = (s) => String(s ?? '').trim().toLowerCase();
+
+// Optional: Paste a Google OAuth Web Client ID here if you want a "Sign in with Google" button.
+// Leave as '' to use the instant work-email verification screen.
+const GOOGLE_CLIENT_ID = '';
 
 const STAGE_ORDER = [
   'shortlisting', 'screening', 'process ongoing', 'stage 1', 'stage 2', 'stage 3',
@@ -65,6 +69,167 @@ function niceCeil(n) {
   const p = Math.pow(10, Math.floor(Math.log10(n)));
   const f = n / p;
   return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p;
+}
+
+function decodeJwtPayload(token) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(window.atob(base64));
+  } catch {
+    return null;
+  }
+}
+
+/* ---------- Access Gate ---------- */
+
+function AccessGate({ children }) {
+  const [allowedUsers, setAllowedUsers] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [emailInput, setEmailInput] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [loadingAccess, setLoadingAccess] = useState(true);
+  const googleBtnRef = useRef(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('ta_dashboard_user');
+    if (saved) {
+      try { setCurrentUser(JSON.parse(saved)); } catch {}
+    }
+
+    fetch(`/data/access.json?t=${Date.now()}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { users: [] }))
+      .then((json) => {
+        setAllowedUsers(Array.isArray(json.users) ? json.users : []);
+        setLoadingAccess(false);
+      })
+      .catch(() => {
+        setAllowedUsers([]);
+        setLoadingAccess(false);
+      });
+  }, []);
+
+  const verifyEmail = useCallback((email, displayName) => {
+    const cleanEmail = norm(email);
+    if (!allowedUsers) return;
+
+    const match = allowedUsers.find((u) => norm(u.email) === cleanEmail);
+    if (match) {
+      const userObj = { email: cleanEmail, name: match.name || displayName || cleanEmail };
+      setCurrentUser(userObj);
+      localStorage.setItem('ta_dashboard_user', JSON.stringify(userObj));
+      setAuthError('');
+    } else {
+      setCurrentUser(null);
+      localStorage.removeItem('ta_dashboard_user');
+      setAuthError(`Access denied for "${cleanEmail}". Ask the TA admin to add your email to the "Access" tab in the TA data sheet and publish.`);
+    }
+  }, [allowedUsers]);
+
+  const isAuthorized = useMemo(() => {
+    if (!currentUser || !allowedUsers) return false;
+    return allowedUsers.some((u) => norm(u.email) === norm(currentUser.email));
+  }, [currentUser, allowedUsers]);
+
+  useEffect(() => {
+    if (loadingAccess || isAuthorized || !GOOGLE_CLIENT_ID.includes('.apps.googleusercontent.com')) return;
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.onload = () => {
+      if (window.google && googleBtnRef.current) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: (res) => {
+            const payload = decodeJwtPayload(res.credential);
+            if (payload?.email) verifyEmail(payload.email, payload.name);
+          },
+        });
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          theme: 'filled_black',
+          size: 'large',
+          width: 300,
+          text: 'signin_with',
+        });
+      }
+    };
+    document.body.appendChild(script);
+  }, [loadingAccess, isAuthorized, verifyEmail]);
+
+  const handleSignOut = () => {
+    localStorage.removeItem('ta_dashboard_user');
+    setCurrentUser(null);
+    setEmailInput('');
+    setAuthError('');
+  };
+
+  if (loadingAccess) {
+    return (
+      <div className="page">
+        <main className="wrap">
+          <p className="muted loading">Checking access permissions…</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (!isAuthorized) {
+    const useGoogleOAuth = GOOGLE_CLIENT_ID.includes('.apps.googleusercontent.com');
+
+    return (
+      <div className="page" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+        <div style={{ maxWidth: '430px', width: '100%', padding: '32px', borderRadius: '14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.14)', textAlign: 'center' }}>
+          <p className="kicker" style={{ marginBottom: '6px' }}>Talent Acquisition</p>
+          <h1 style={{ fontSize: '24px', marginBottom: '10px' }}>Authorized Access Only</h1>
+          <p className="muted" style={{ fontSize: '14px', marginBottom: '24px' }}>
+            Enter your approved email address to view the Masters’ Union & TETR recruitment dashboard.
+          </p>
+
+          {useGoogleOAuth ? (
+            <div ref={googleBtnRef} style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }} />
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                verifyEmail(emailInput);
+              }}
+              style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+            >
+              <input
+                type="email"
+                required
+                placeholder="Enter your work email"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                style={{ padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.22)', background: 'rgba(0,0,0,0.35)', color: '#fff', fontSize: '15px' }}
+              />
+              <button
+                type="submit"
+                style={{ padding: '12px 16px', borderRadius: '8px', border: '1px solid #eab308', background: '#059669', color: '#fff', fontWeight: 600, fontSize: '15px', cursor: 'pointer' }}
+              >
+                Verify Access
+              </button>
+            </form>
+          )}
+
+          {allowedUsers.length === 0 && !authError && (
+            <div style={{ marginTop: '16px', padding: '12px', borderRadius: '8px', background: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(234, 179, 8, 0.4)', color: '#fde047', fontSize: '13px' }}>
+              No emails published yet. Make sure your Google Sheet has an <b>Access</b> tab (Col A: Name, Col B: Email) and click <b>TA Dashboard &gt; Publish now</b>.
+            </div>
+          )}
+
+          {authError && (
+            <div style={{ marginTop: '16px', padding: '12px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#fca5a5', fontSize: '13px' }}>
+              {authError}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return children({ currentUser, onSignOut: handleSignOut });
 }
 
 /* ---------- small chart pieces ---------- */
@@ -199,7 +364,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
         throw new Error('No data has been published yet. In the TA data sheet, choose TA Dashboard > Publish now.');
       }
       if (!resMu.ok || !resTetr.ok) {
-        throw new Error(`Could not load the data. Try again in a minute.`);
+        throw new Error('Could not load the data. Try again in a minute.');
       }
 
       let muJson, tetrJson;
@@ -228,7 +393,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
     load(false);
   }, [load]);
 
-  // Combine or pick active dataset based on activeUnit slicer
   const data = useMemo(() => {
     const { mu, tetr } = datasets;
     if (!mu || !tetr) return null;
@@ -329,329 +493,351 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const currentMeta = UNIT_META[activeUnit] || UNIT_META.overall;
 
   return (
-    <div className="page">
-      <header className="top">
-        <div className="top-inner">
-          <div>
-            <p className="kicker">Talent Acquisition</p>
-            <h1>{currentMeta.title}</h1>
-          </div>
-          <div className="actions">
-            {data && <span className="stamp">Data as of {updated} IST</span>}
-            <button type="button" className="refresh" onClick={() => load(true)} disabled={refreshing}>
-              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" className={refreshing ? 'spin' : ''}>
-                <path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              {refreshing ? 'Refreshing…' : 'Refresh data'}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="wrap">
-        {error && (
-          <div className="alert" role="alert">
-            <strong>Could not load the dashboard.</strong> {error}
-            <button type="button" onClick={() => load(false)}>Try again</button>
-          </div>
-        )}
-        {notice && <div className="note" role="status">{notice}</div>}
-        {data?.source === 'mock' && <div className="note">Showing generated sample data, not your sheet.</div>}
-        {!data && !error && <p className="muted loading">Loading TA data…</p>}
-
-        {data && (
-          <>
-            {/* 3-Button Unit Slicer */}
-            <nav
-              aria-label="Payroll Unit Slicer"
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                gap: '12px',
-                marginBottom: '20px',
-              }}
-            >
-              {Object.values(UNIT_META).map((u) => {
-                const isSelected = activeUnit === u.key;
-                return (
+    <AccessGate>
+      {({ currentUser, onSignOut }) => (
+        <div className="page">
+          <header className="top">
+            <div className="top-inner">
+              <div>
+                <p className="kicker">Talent Acquisition</p>
+                <h1>{currentMeta.title}</h1>
+              </div>
+              <div className="actions" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                {data && <span className="stamp">Data as of {updated} IST</span>}
+                <button type="button" className="refresh" onClick={() => load(true)} disabled={refreshing}>
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" className={refreshing ? 'spin' : ''}>
+                    <path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  {refreshing ? 'Refreshing…' : 'Refresh data'}
+                </button>
+                {currentUser && (
                   <button
-                    key={u.key}
                     type="button"
-                    aria-pressed={isSelected}
-                    onClick={() => handleSelectUnit(u.key)}
+                    onClick={onSignOut}
+                    title={`Signed in as ${currentUser.email}`}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '14px 18px',
-                      borderRadius: '10px',
-                      border: isSelected ? '2px solid #eab308' : '1px solid rgba(255, 255, 255, 0.14)',
-                      background: isSelected ? '#059669' : 'rgba(255, 255, 255, 0.05)',
-                      color: isSelected ? '#ffffff' : '#e2e8f0',
-                      fontWeight: 600,
-                      fontSize: '15px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      background: 'rgba(255,255,255,0.06)',
+                      color: '#cbd5e1',
+                      fontSize: '13px',
                       cursor: 'pointer',
-                      boxShadow: isSelected ? '0 4px 12px rgba(5, 150, 105, 0.35)' : 'none',
-                      transition: 'all 0.15s ease',
                     }}
                   >
-                    <span>{u.label}</span>
-                    <span
-                      style={{
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        padding: '3px 10px',
-                        borderRadius: '999px',
-                        background: isSelected ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.1)',
-                        color: isSelected ? '#ffffff' : '#cbd5e1',
-                      }}
-                    >
-                      {fmt(slicerCounts[u.key])} open roles
-                    </span>
+                    {currentUser.name} · Sign out
                   </button>
-                );
-              })}
-            </nav>
-
-            <nav className="chips" aria-label="Business Unit">
-              {['all', ...data.businessUnits.map((b) => b.label)].map((label) => (
-                <button
-                  key={label}
-                  type="button"
-                  className={bu === label ? 'chip on' : 'chip'}
-                  aria-pressed={bu === label}
-                  onClick={() => { setBu(label); setShowAll(false); }}
-                >
-                  {label === 'all' ? 'All Business Units' : label}
-                </button>
-              ))}
-            </nav>
-
-            <section aria-label="Manpower summary" className="kpis">
-              <div><span>Open roles</span><b>{fmt(kpi.openRoles)}</b>{kpi.needToClose > 0 && <small>{fmt(kpi.needToClose)} need to close</small>}</div>
-              <div><span>Total positions</span><b>{fmt(kpi.total)}</b></div>
-              <div><span>Yet to offer</span><b>{fmt(kpi.yetToOffer)}</b></div>
-              <div><span>Offered</span><b>{fmt(kpi.offered)}</b></div>
-              <div><span>Joined</span><b>{fmt(kpi.joined)}</b></div>
-              <div className="hl"><span>Pending positions</span><b>{fmt(kpi.pending)}</b></div>
-            </section>
-
-            <section>
-              <h2>Manpower by Business Unit</h2>
-              <div className="table-scroll">
-                <table className="bu-table">
-                  <thead>
-                    <tr>
-                      <th>Business Unit</th>
-                      <th className="n">Open roles</th>
-                      <th className="n">Total positions</th>
-                      <th className="n">Yet to offer</th>
-                      <th className="n">Offered</th>
-                      <th className="n">Joined</th>
-                      <th className="n">Pending</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeUnit === 'overall' ? (
-                      <>
-                        {datasets.mu.businessUnits.map((b) => (
-                          <tr key={`mu-${b.label}`} className={bu === b.label ? 'sel' : ''}>
-                            <td>
-                              <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
-                                {b.label}
-                              </button>
-                            </td>
-                            <td className="n">{fmt(b.manpower.openRoles)}</td>
-                            <td className="n">{fmt(b.manpower.total)}</td>
-                            <td className="n">{fmt(b.manpower.yetToOffer)}</td>
-                            <td className="n">{fmt(b.manpower.offered)}</td>
-                            <td className="n">{fmt(b.manpower.joined)}</td>
-                            <td className="n">{fmt(b.manpower.pending)}</td>
-                          </tr>
-                        ))}
-                        {muTotals && (
-                          <tr style={{ fontWeight: 600, background: 'rgba(128,128,128,0.08)' }}>
-                            <td>Subtotal · Masters’ Union</td>
-                            <td className="n">{fmt(muTotals.openRoles)}</td>
-                            <td className="n">{fmt(muTotals.total)}</td>
-                            <td className="n">{fmt(muTotals.yetToOffer)}</td>
-                            <td className="n">{fmt(muTotals.offered)}</td>
-                            <td className="n">{fmt(muTotals.joined)}</td>
-                            <td className="n">{fmt(muTotals.pending)}</td>
-                          </tr>
-                        )}
-                        {datasets.tetr.businessUnits.map((b) => (
-                          <tr key={`tetr-${b.label}`} className={bu === b.label ? 'sel' : ''}>
-                            <td>
-                              <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
-                                {b.label}
-                              </button>
-                            </td>
-                            <td className="n">{fmt(b.manpower.openRoles)}</td>
-                            <td className="n">{fmt(b.manpower.total)}</td>
-                            <td className="n">{fmt(b.manpower.yetToOffer)}</td>
-                            <td className="n">{fmt(b.manpower.offered)}</td>
-                            <td className="n">{fmt(b.manpower.joined)}</td>
-                            <td className="n">{fmt(b.manpower.pending)}</td>
-                          </tr>
-                        ))}
-                        {tetrTotals && (
-                          <tr style={{ fontWeight: 600, background: 'rgba(128,128,128,0.08)' }}>
-                            <td>Subtotal · TETR</td>
-                            <td className="n">{fmt(tetrTotals.openRoles)}</td>
-                            <td className="n">{fmt(tetrTotals.total)}</td>
-                            <td className="n">{fmt(tetrTotals.yetToOffer)}</td>
-                            <td className="n">{fmt(tetrTotals.offered)}</td>
-                            <td className="n">{fmt(tetrTotals.joined)}</td>
-                            <td className="n">{fmt(tetrTotals.pending)}</td>
-                          </tr>
-                        )}
-                      </>
-                    ) : (
-                      data.businessUnits.map((b) => (
-                        <tr key={b.label} className={bu === b.label ? 'sel' : ''}>
-                          <td>
-                            <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
-                              {b.label}
-                            </button>
-                          </td>
-                          <td className="n">{fmt(b.manpower.openRoles)}</td>
-                          <td className="n">{fmt(b.manpower.total)}</td>
-                          <td className="n">{fmt(b.manpower.yetToOffer)}</td>
-                          <td className="n">{fmt(b.manpower.offered)}</td>
-                          <td className="n">{fmt(b.manpower.joined)}</td>
-                          <td className="n">{fmt(b.manpower.pending)}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <td>{activeUnit === 'overall' ? 'Grand Total (MU + TETR)' : `All ${currentMeta.label} Business Units`}</td>
-                      <td className="n">{fmt(allTotals.openRoles)}</td>
-                      <td className="n">{fmt(allTotals.total)}</td>
-                      <td className="n">{fmt(allTotals.yetToOffer)}</td>
-                      <td className="n">{fmt(allTotals.offered)}</td>
-                      <td className="n">{fmt(allTotals.joined)}</td>
-                      <td className="n">{fmt(allTotals.pending)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
+                )}
               </div>
-            </section>
+            </div>
+          </header>
 
-            <section>
-              <h2>Candidate pipeline{bu !== 'all' ? ` · ${bu}` : ''}</h2>
-              <div className="figs">
-                <div><b>{fmt(cand.total)}</b><span>candidates in total</span></div>
-                <div><b>{fmt(cand.last7)}</b><span>applied in the last 7 days</span></div>
-                <div><b>{fmt(cand.last30)}</b><span>applied in the last 30 days</span></div>
+          <main className="wrap">
+            {error && (
+              <div className="alert" role="alert">
+                <strong>Could not load the dashboard.</strong> {error}
+                <button type="button" onClick={() => load(false)}>Try again</button>
               </div>
-              <div className="grid2">
-                <div className="panel">
-                  <h3>Applications per week</h3>
-                  <WeeklyChart weeks={cand.weeks} />
-                </div>
-                <div className="panel">
-                  <h3>Candidates by stage</h3>
-                  <Bars items={cand.stages} total={cand.total} />
-                </div>
-                <div className="panel">
-                  <h3>Source type</h3>
-                  <Bars items={cand.sourceTypes} total={cand.total} />
-                </div>
-                <div className="panel">
-                  <h3>Top sources</h3>
-                  <Bars items={cand.sources} />
-                </div>
-                <div className="panel">
-                  <h3>Candidates sourced by recruiter</h3>
-                  <Bars items={cand.recruiters} />
-                </div>
-                <div className="panel">
-                  <h3>Pre-offer status</h3>
-                  <Bars items={cand.preOffer} total={cand.preOffer.reduce((a, [, v]) => a + v, 0)} />
-                </div>
-              </div>
-            </section>
-
-            <section>
-              <h2>Jobs</h2>
-              <div className="filters">
-                <input
-                  type="search"
-                  placeholder="Search Job ID, role or department"
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); setShowAll(false); }}
-                  aria-label="Search jobs"
-                />
-                <select value={status} onChange={(e) => { setStatus(e.target.value); setShowAll(false); }} aria-label="Job status">
-                  <option value="all">All statuses</option>
-                  <option value="open">Open</option>
-                  <option value="need to close">Need to close</option>
-                  <option value="closed">Closed</option>
-                </select>
-                <span className="muted">{fmt(jobs.length)} jobs</span>
-              </div>
-              <div className="table-scroll">
-                <table className="jobs">
-                  <thead>
-                    <tr>
-                      <th>Job ID</th>
-                      <th>Role</th>
-                      <th>Cat.</th>
-                      <th>Business Unit</th>
-                      <th>Department</th>
-                      <th>Status</th>
-                      <th className="n">Total</th>
-                      <th className="n">Yet to offer</th>
-                      <th className="n">Offered</th>
-                      <th className="n">Joined</th>
-                      <th className="n">Pending</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleJobs.map((j) => (
-                      <tr key={`${j.unitKey || activeUnit}-${j.jobId}`}>
-                        <td className="mono">{j.jobId}</td>
-                        <td>{j.role || '—'}</td>
-                        <td>{j.category || '—'}</td>
-                        <td>{j.businessUnit}</td>
-                        <td>{j.department}</td>
-                        <td><StatusBadge status={j.status} /></td>
-                        <td className="n">{fmt(j.total)}</td>
-                        <td className="n">{fmt(j.yetToOffer)}</td>
-                        <td className="n">{fmt(j.offered)}</td>
-                        <td className="n">{fmt(j.joined)}</td>
-                        <td className="n strong">{fmt(j.pending)}</td>
-                      </tr>
-                    ))}
-                    {jobs.length === 0 && (
-                      <tr><td colSpan={11} className="muted center">No jobs match these filters.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              {jobs.length > 40 && (
-                <button type="button" className="more" onClick={() => setShowAll(!showAll)}>
-                  {showAll ? 'Show fewer jobs' : `Show all ${fmt(jobs.length)} jobs`}
-                </button>
-              )}
-            </section>
-
-            {checks.length > 0 && (
-              <details className="checks">
-                <summary>{checks.length} {checks.length === 1 ? 'row needs' : 'rows need'} a look in the sheet</summary>
-                <ul>
-                  {checks.map((c, i) => (
-                    <li key={`${c.jobId}-${i}`}><span className="mono">{c.jobId}</span> · {c.businessUnit} · {c.issue}</li>
-                  ))}
-                </ul>
-              </details>
             )}
-          </>
-        )}
-      </main>
-    </div>
+            {notice && <div className="note" role="status">{notice}</div>}
+            {data?.source === 'mock' && <div className="note">Showing generated sample data, not your sheet.</div>}
+            {!data && !error && <p className="muted loading">Loading TA data…</p>}
+
+            {data && (
+              <>
+                {/* 3-Button Unit Slicer */}
+                <nav
+                  aria-label="Payroll Unit Slicer"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                    gap: '12px',
+                    marginBottom: '20px',
+                  }}
+                >
+                  {Object.values(UNIT_META).map((u) => {
+                    const isSelected = activeUnit === u.key;
+                    return (
+                      <button
+                        key={u.key}
+                        type="button"
+                        aria-pressed={isSelected}
+                        onClick={() => handleSelectUnit(u.key)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '14px 18px',
+                          borderRadius: '10px',
+                          border: isSelected ? '2px solid #eab308' : '1px solid rgba(255, 255, 255, 0.14)',
+                          background: isSelected ? '#059669' : 'rgba(255, 255, 255, 0.05)',
+                          color: isSelected ? '#ffffff' : '#e2e8f0',
+                          fontWeight: 600,
+                          fontSize: '15px',
+                          cursor: 'pointer',
+                          boxShadow: isSelected ? '0 4px 12px rgba(5, 150, 105, 0.35)' : 'none',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <span>{u.label}</span>
+                        <span
+                          style={{
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            padding: '3px 10px',
+                            borderRadius: '999px',
+                            background: isSelected ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.1)',
+                            color: isSelected ? '#ffffff' : '#cbd5e1',
+                          }}
+                        >
+                          {fmt(slicerCounts[u.key])} open roles
+                        </span>
+                      </button>
+                    );
+                  })}
+                </nav>
+
+                <nav className="chips" aria-label="Business Unit">
+                  {['all', ...data.businessUnits.map((b) => b.label)].map((label) => (
+                    <button
+                      key={label}
+                      type="button"
+                      className={bu === label ? 'chip on' : 'chip'}
+                      aria-pressed={bu === label}
+                      onClick={() => { setBu(label); setShowAll(false); }}
+                    >
+                      {label === 'all' ? 'All Business Units' : label}
+                    </button>
+                  ))}
+                </nav>
+
+                <section aria-label="Manpower summary" className="kpis">
+                  <div><span>Open roles</span><b>{fmt(kpi.openRoles)}</b>{kpi.needToClose > 0 && <small>{fmt(kpi.needToClose)} need to close</small>}</div>
+                  <div><span>Total positions</span><b>{fmt(kpi.total)}</b></div>
+                  <div><span>Yet to offer</span><b>{fmt(kpi.yetToOffer)}</b></div>
+                  <div><span>Offered</span><b>{fmt(kpi.offered)}</b></div>
+                  <div><span>Joined</span><b>{fmt(kpi.joined)}</b></div>
+                  <div className="hl"><span>Pending positions</span><b>{fmt(kpi.pending)}</b></div>
+                </section>
+
+                <section>
+                  <h2>Manpower by Business Unit</h2>
+                  <div className="table-scroll">
+                    <table className="bu-table">
+                      <thead>
+                        <tr>
+                          <th>Business Unit</th>
+                          <th className="n">Open roles</th>
+                          <th className="n">Total positions</th>
+                          <th className="n">Yet to offer</th>
+                          <th className="n">Offered</th>
+                          <th className="n">Joined</th>
+                          <th className="n">Pending</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeUnit === 'overall' ? (
+                          <>
+                            {datasets.mu.businessUnits.map((b) => (
+                              <tr key={`mu-${b.label}`} className={bu === b.label ? 'sel' : ''}>
+                                <td>
+                                  <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
+                                    {b.label}
+                                  </button>
+                                </td>
+                                <td className="n">{fmt(b.manpower.openRoles)}</td>
+                                <td className="n">{fmt(b.manpower.total)}</td>
+                                <td className="n">{fmt(b.manpower.yetToOffer)}</td>
+                                <td className="n">{fmt(b.manpower.offered)}</td>
+                                <td className="n">{fmt(b.manpower.joined)}</td>
+                                <td className="n">{fmt(b.manpower.pending)}</td>
+                              </tr>
+                            ))}
+                            {muTotals && (
+                              <tr style={{ fontWeight: 600, background: 'rgba(128,128,128,0.08)' }}>
+                                <td>Subtotal · Masters’ Union</td>
+                                <td className="n">{fmt(muTotals.openRoles)}</td>
+                                <td className="n">{fmt(muTotals.total)}</td>
+                                <td className="n">{fmt(muTotals.yetToOffer)}</td>
+                                <td className="n">{fmt(muTotals.offered)}</td>
+                                <td className="n">{fmt(muTotals.joined)}</td>
+                                <td className="n">{fmt(muTotals.pending)}</td>
+                              </tr>
+                            )}
+                            {datasets.tetr.businessUnits.map((b) => (
+                              <tr key={`tetr-${b.label}`} className={bu === b.label ? 'sel' : ''}>
+                                <td>
+                                  <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
+                                    {b.label}
+                                  </button>
+                                </td>
+                                <td className="n">{fmt(b.manpower.openRoles)}</td>
+                                <td className="n">{fmt(b.manpower.total)}</td>
+                                <td className="n">{fmt(b.manpower.yetToOffer)}</td>
+                                <td className="n">{fmt(b.manpower.offered)}</td>
+                                <td className="n">{fmt(b.manpower.joined)}</td>
+                                <td className="n">{fmt(b.manpower.pending)}</td>
+                              </tr>
+                            ))}
+                            {tetrTotals && (
+                              <tr style={{ fontWeight: 600, background: 'rgba(128,128,128,0.08)' }}>
+                                <td>Subtotal · TETR</td>
+                                <td className="n">{fmt(tetrTotals.openRoles)}</td>
+                                <td className="n">{fmt(tetrTotals.total)}</td>
+                                <td className="n">{fmt(tetrTotals.yetToOffer)}</td>
+                                <td className="n">{fmt(tetrTotals.offered)}</td>
+                                <td className="n">{fmt(tetrTotals.joined)}</td>
+                                <td className="n">{fmt(tetrTotals.pending)}</td>
+                              </tr>
+                            )}
+                          </>
+                        ) : (
+                          data.businessUnits.map((b) => (
+                            <tr key={b.label} className={bu === b.label ? 'sel' : ''}>
+                              <td>
+                                <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
+                                  {b.label}
+                                </button>
+                              </td>
+                              <td className="n">{fmt(b.manpower.openRoles)}</td>
+                              <td className="n">{fmt(b.manpower.total)}</td>
+                              <td className="n">{fmt(b.manpower.yetToOffer)}</td>
+                              <td className="n">{fmt(b.manpower.offered)}</td>
+                              <td className="n">{fmt(b.manpower.joined)}</td>
+                              <td className="n">{fmt(b.manpower.pending)}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <td>{activeUnit === 'overall' ? 'Grand Total (MU + TETR)' : `All ${currentMeta.label} Business Units`}</td>
+                          <td className="n">{fmt(allTotals.openRoles)}</td>
+                          <td className="n">{fmt(allTotals.total)}</td>
+                          <td className="n">{fmt(allTotals.yetToOffer)}</td>
+                          <td className="n">{fmt(allTotals.offered)}</td>
+                          <td className="n">{fmt(allTotals.joined)}</td>
+                          <td className="n">{fmt(allTotals.pending)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </section>
+
+                <section>
+                  <h2>Candidate pipeline{bu !== 'all' ? ` · ${bu}` : ''}</h2>
+                  <div className="figs">
+                    <div><b>{fmt(cand.total)}</b><span>candidates in total</span></div>
+                    <div><b>{fmt(cand.last7)}</b><span>applied in the last 7 days</span></div>
+                    <div><b>{fmt(cand.last30)}</b><span>applied in the last 30 days</span></div>
+                  </div>
+                  <div className="grid2">
+                    <div className="panel">
+                      <h3>Applications per week</h3>
+                      <WeeklyChart weeks={cand.weeks} />
+                    </div>
+                    <div className="panel">
+                      <h3>Candidates by stage</h3>
+                      <Bars items={cand.stages} total={cand.total} />
+                    </div>
+                    <div className="panel">
+                      <h3>Source type</h3>
+                      <Bars items={cand.sourceTypes} total={cand.total} />
+                    </div>
+                    <div className="panel">
+                      <h3>Top sources</h3>
+                      <Bars items={cand.sources} />
+                    </div>
+                    <div className="panel">
+                      <h3>Candidates sourced by recruiter</h3>
+                      <Bars items={cand.recruiters} />
+                    </div>
+                    <div className="panel">
+                      <h3>Pre-offer status</h3>
+                      <Bars items={cand.preOffer} total={cand.preOffer.reduce((a, [, v]) => a + v, 0)} />
+                    </div>
+                  </div>
+                </section>
+
+                <section>
+                  <h2>Jobs</h2>
+                  <div className="filters">
+                    <input
+                      type="search"
+                      placeholder="Search Job ID, role or department"
+                      value={search}
+                      onChange={(e) => { setSearch(e.target.value); setShowAll(false); }}
+                      aria-label="Search jobs"
+                    />
+                    <select value={status} onChange={(e) => { setStatus(e.target.value); setShowAll(false); }} aria-label="Job status">
+                      <option value="all">All statuses</option>
+                      <option value="open">Open</option>
+                      <option value="need to close">Need to close</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                    <span className="muted">{fmt(jobs.length)} jobs</span>
+                  </div>
+                  <div className="table-scroll">
+                    <table className="jobs">
+                      <thead>
+                        <tr>
+                          <th>Job ID</th>
+                          <th>Role</th>
+                          <th>Cat.</th>
+                          <th>Business Unit</th>
+                          <th>Department</th>
+                          <th>Status</th>
+                          <th className="n">Total</th>
+                          <th className="n">Yet to offer</th>
+                          <th className="n">Offered</th>
+                          <th className="n">Joined</th>
+                          <th className="n">Pending</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visibleJobs.map((j) => (
+                          <tr key={`${j.unitKey || activeUnit}-${j.jobId}`}>
+                            <td className="mono">{j.jobId}</td>
+                            <td>{j.role || '—'}</td>
+                            <td>{j.category || '—'}</td>
+                            <td>{j.businessUnit}</td>
+                            <td>{j.department}</td>
+                            <td><StatusBadge status={j.status} /></td>
+                            <td className="n">{fmt(j.total)}</td>
+                            <td className="n">{fmt(j.yetToOffer)}</td>
+                            <td className="n">{fmt(j.offered)}</td>
+                            <td className="n">{fmt(j.joined)}</td>
+                            <td className="n strong">{fmt(j.pending)}</td>
+                          </tr>
+                        ))}
+                        {jobs.length === 0 && (
+                          <tr><td colSpan={11} className="muted center">No jobs match these filters.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  {jobs.length > 40 && (
+                    <button type="button" className="more" onClick={() => setShowAll(!showAll)}>
+                      {showAll ? 'Show fewer jobs' : `Show all ${fmt(jobs.length)} jobs`}
+                    </button>
+                  )}
+                </section>
+
+                {checks.length > 0 && (
+                  <details className="checks">
+                    <summary>{checks.length} {checks.length === 1 ? 'row needs' : 'rows need'} a look in the sheet</summary>
+                    <ul>
+                      {checks.map((c, i) => (
+                        <li key={`${c.jobId}-${i}`}><span className="mono">{c.jobId}</span> · {c.businessUnit} · {c.issue}</li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </>
+            )}
+          </main>
+        </div>
+      )}
+    </AccessGate>
   );
 }
