@@ -92,7 +92,6 @@ function matchesMetric(candidate, metricType) {
     return finalStat.includes('join') || finalStat.includes('activated') || finalStat.includes('active');
   }
   if (metricType === 'offered') {
-    // Candidates currently in the offered stage (not yet joined, not rejected)
     return (
       finalStat.includes('offer') ||
       finalStat.includes('pending list') ||
@@ -109,12 +108,9 @@ function matchesMetric(candidate, metricType) {
       !finalStat.includes('pending')
     );
   }
-  // Example clean code block around line 110-115
-        return true;
-      });
-  }, [buLabel, allJobs]);
+  return true;
+}
 
-  /* ---------- Access Gate ---------- */
 /* ---------- Access Gate ---------- */
 
 function AccessGate({ children }) {
