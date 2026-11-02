@@ -86,27 +86,31 @@ function decodeJwtPayload(token) {
 }
 
 function matchesMetric(candidate, metricType) {
-  const s = norm(candidate.status);
-  const pre = norm(candidate.preOfferStatus);
+  const finalStat = norm(candidate.finalStatus || candidate.status);
+
   if (metricType === 'joined') {
-    return s.includes('join') || s.includes('activated') || Boolean(candidate.joiningDate && s.includes('active'));
+    return finalStat.includes('join') || finalStat.includes('activated') || finalStat.includes('active');
   }
   if (metricType === 'offered') {
-    if (s.includes('reject') || s.includes('withdrawn') || s.includes('expired') || s.includes('dropped')) return false;
+    // Candidates currently in the offered stage (not yet joined, not rejected)
     return (
-      s.includes('offer') ||
-      s.includes('pending list') ||
-      Boolean(candidate.offerDate) ||
-      Boolean(candidate.offeredCtc)
-    );
+      finalStat.includes('offer') ||
+      finalStat.includes('pending list') ||
+      finalStat.includes('make offer') ||
+      finalStat.includes('offered')
+    ) && !finalStat.includes('join') && !finalStat.includes('reject');
   }
   if (metricType === 'yetToOffer') {
-    if (s.includes('reject') || s.includes('withdrawn') || s.includes('expired') || s.includes('dropped')) return false;
-    if (s.includes('join') || s.includes('activated') || s.includes('offer') || s.includes('pending list')) return false;
-    return true || pre.length > 0;
+    return (
+      !finalStat.includes('offer') &&
+      !finalStat.includes('join') &&
+      !finalStat.includes('reject') &&
+      !finalStat.includes('activated') &&
+      !finalStat.includes('pending')
+    );
   }
   return true;
-}
+}}
 
 /* ---------- Access Gate ---------- */
 
