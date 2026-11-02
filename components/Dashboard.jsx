@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const nf = new Intl.NumberFormat('en-IN');
 const fmt = (n) => nf.format(n || 0);
@@ -232,7 +232,67 @@ function AccessGate({ children }) {
   return children({ currentUser, onSignOut: handleSignOut });
 }
 
-/* ---------- small chart pieces ---------- */
+/* ---------- small chart pieces & expandable rows ---------- */
+
+function BuJobsRow({ buLabel, allJobs }) {
+  const buJobs = useMemo(() => {
+    return (allJobs || [])
+      .filter((j) => j.businessUnit === buLabel)
+      .sort((a, b) => {
+        const deptCmp = norm(a.department).localeCompare(norm(b.department));
+        if (deptCmp !== 0) return deptCmp;
+        const roleCmp = norm(a.role).localeCompare(norm(b.role));
+        if (roleCmp !== 0) return roleCmp;
+        return norm(a.jobId).localeCompare(norm(b.jobId));
+      });
+  }, [buLabel, allJobs]);
+
+  if (!buJobs.length) return null;
+
+  return (
+    <tr>
+      <td colSpan={7} style={{ padding: '14px 18px', background: 'rgba(0, 0, 0, 0.35)', borderBottom: '2px solid rgba(255,255,255,0.08)' }}>
+        <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '10px', color: '#eab308', letterSpacing: '0.02em' }}>
+          {buLabel} — {fmt(buJobs.length)} Jobs (Sorted by Department)
+        </div>
+        <div className="table-scroll">
+          <table className="jobs" style={{ margin: 0, width: '100%' }}>
+            <thead>
+              <tr>
+                <th>Department</th>
+                <th>Job ID</th>
+                <th>Role</th>
+                <th>Cat.</th>
+                <th>Status</th>
+                <th className="n">Total</th>
+                <th className="n">Yet to offer</th>
+                <th className="n">Offered</th>
+                <th className="n">Joined</th>
+                <th className="n">Pending</th>
+              </tr>
+            </thead>
+            <tbody>
+              {buJobs.map((j) => (
+                <tr key={`${j.unitKey || 'u'}-${j.jobId}`}>
+                  <td style={{ fontWeight: 600, color: '#f8fafc' }}>{j.department || '—'}</td>
+                  <td className="mono">{j.jobId}</td>
+                  <td>{j.role || '—'}</td>
+                  <td>{j.category || '—'}</td>
+                  <td><StatusBadge status={j.status} /></td>
+                  <td className="n">{fmt(j.total)}</td>
+                  <td className="n">{fmt(j.yetToOffer)}</td>
+                  <td className="n">{fmt(j.offered)}</td>
+                  <td className="n">{fmt(j.joined)}</td>
+                  <td className="n strong">{fmt(j.pending)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </td>
+    </tr>
+  );
+}
 
 function Bars({ items, total, empty = 'No data yet' }) {
   if (!items.length) return <p className="muted">{empty}</p>;
@@ -470,12 +530,20 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const jobs = useMemo(() => {
     if (!data) return [];
     const q = norm(search);
-    return data.jobs.filter(
-      (j) =>
-        (bu === 'all' || j.businessUnit === bu) &&
-        (status === 'all' || norm(j.status) === status) &&
-        (!q || [j.jobId, j.role, j.department, j.businessUnit].some((v) => norm(v).includes(q)))
-    );
+    return data.jobs
+      .filter(
+        (j) =>
+          (bu === 'all' || j.businessUnit === bu) &&
+          (status === 'all' || norm(j.status) === status) &&
+          (!q || [j.jobId, j.role, j.department, j.businessUnit].some((v) => norm(v).includes(q)))
+      )
+      .sort((a, b) => {
+        const deptCmp = norm(a.department).localeCompare(norm(b.department));
+        if (deptCmp !== 0) return deptCmp;
+        const roleCmp = norm(a.role).localeCompare(norm(b.role));
+        if (roleCmp !== 0) return roleCmp;
+        return norm(a.jobId).localeCompare(norm(b.jobId));
+      });
   }, [data, bu, status, search]);
 
   const checks = useMemo(
@@ -639,19 +707,22 @@ export default function Dashboard({ unitKey = 'overall' }) {
                         {activeUnit === 'overall' ? (
                           <>
                             {datasets.mu.businessUnits.map((b) => (
-                              <tr key={`mu-${b.label}`} className={bu === b.label ? 'sel' : ''}>
-                                <td>
-                                  <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
-                                    {b.label}
-                                  </button>
-                                </td>
-                                <td className="n">{fmt(b.manpower.openRoles)}</td>
-                                <td className="n">{fmt(b.manpower.total)}</td>
-                                <td className="n">{fmt(b.manpower.yetToOffer)}</td>
-                                <td className="n">{fmt(b.manpower.offered)}</td>
-                                <td className="n">{fmt(b.manpower.joined)}</td>
-                                <td className="n">{fmt(b.manpower.pending)}</td>
-                              </tr>
+                              <Fragment key={`mu-${b.label}`}>
+                                <tr className={bu === b.label ? 'sel' : ''}>
+                                  <td>
+                                    <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
+                                      {b.label} {bu === b.label ? '▼' : '▶'}
+                                    </button>
+                                  </td>
+                                  <td className="n">{fmt(b.manpower.openRoles)}</td>
+                                  <td className="n">{fmt(b.manpower.total)}</td>
+                                  <td className="n">{fmt(b.manpower.yetToOffer)}</td>
+                                  <td className="n">{fmt(b.manpower.offered)}</td>
+                                  <td className="n">{fmt(b.manpower.joined)}</td>
+                                  <td className="n">{fmt(b.manpower.pending)}</td>
+                                </tr>
+                                {bu === b.label && <BuJobsRow buLabel={b.label} allJobs={datasets.mu.jobs} />}
+                              </Fragment>
                             ))}
                             {muTotals && (
                               <tr style={{ fontWeight: 600, background: 'rgba(128,128,128,0.08)' }}>
@@ -665,19 +736,22 @@ export default function Dashboard({ unitKey = 'overall' }) {
                               </tr>
                             )}
                             {datasets.tetr.businessUnits.map((b) => (
-                              <tr key={`tetr-${b.label}`} className={bu === b.label ? 'sel' : ''}>
-                                <td>
-                                  <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
-                                    {b.label}
-                                  </button>
-                                </td>
-                                <td className="n">{fmt(b.manpower.openRoles)}</td>
-                                <td className="n">{fmt(b.manpower.total)}</td>
-                                <td className="n">{fmt(b.manpower.yetToOffer)}</td>
-                                <td className="n">{fmt(b.manpower.offered)}</td>
-                                <td className="n">{fmt(b.manpower.joined)}</td>
-                                <td className="n">{fmt(b.manpower.pending)}</td>
-                              </tr>
+                              <Fragment key={`tetr-${b.label}`}>
+                                <tr className={bu === b.label ? 'sel' : ''}>
+                                  <td>
+                                    <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
+                                      {b.label} {bu === b.label ? '▼' : '▶'}
+                                    </button>
+                                  </td>
+                                  <td className="n">{fmt(b.manpower.openRoles)}</td>
+                                  <td className="n">{fmt(b.manpower.total)}</td>
+                                  <td className="n">{fmt(b.manpower.yetToOffer)}</td>
+                                  <td className="n">{fmt(b.manpower.offered)}</td>
+                                  <td className="n">{fmt(b.manpower.joined)}</td>
+                                  <td className="n">{fmt(b.manpower.pending)}</td>
+                                </tr>
+                                {bu === b.label && <BuJobsRow buLabel={b.label} allJobs={datasets.tetr.jobs} />}
+                              </Fragment>
                             ))}
                             {tetrTotals && (
                               <tr style={{ fontWeight: 600, background: 'rgba(128,128,128,0.08)' }}>
@@ -693,19 +767,22 @@ export default function Dashboard({ unitKey = 'overall' }) {
                           </>
                         ) : (
                           data.businessUnits.map((b) => (
-                            <tr key={b.label} className={bu === b.label ? 'sel' : ''}>
-                              <td>
-                                <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
-                                  {b.label}
-                                </button>
-                              </td>
-                              <td className="n">{fmt(b.manpower.openRoles)}</td>
-                              <td className="n">{fmt(b.manpower.total)}</td>
-                              <td className="n">{fmt(b.manpower.yetToOffer)}</td>
-                              <td className="n">{fmt(b.manpower.offered)}</td>
-                              <td className="n">{fmt(b.manpower.joined)}</td>
-                              <td className="n">{fmt(b.manpower.pending)}</td>
-                            </tr>
+                            <Fragment key={b.label}>
+                              <tr className={bu === b.label ? 'sel' : ''}>
+                                <td>
+                                  <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
+                                    {b.label} {bu === b.label ? '▼' : '▶'}
+                                  </button>
+                                </td>
+                                <td className="n">{fmt(b.manpower.openRoles)}</td>
+                                <td className="n">{fmt(b.manpower.total)}</td>
+                                <td className="n">{fmt(b.manpower.yetToOffer)}</td>
+                                <td className="n">{fmt(b.manpower.offered)}</td>
+                                <td className="n">{fmt(b.manpower.joined)}</td>
+                                <td className="n">{fmt(b.manpower.pending)}</td>
+                              </tr>
+                              {bu === b.label && <BuJobsRow buLabel={b.label} allJobs={data.jobs} />}
+                            </Fragment>
                           ))
                         )}
                       </tbody>
