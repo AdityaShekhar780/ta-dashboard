@@ -6,8 +6,6 @@ const nf = new Intl.NumberFormat('en-IN');
 const fmt = (n) => nf.format(n || 0);
 const norm = (s) => String(s ?? '').trim().toLowerCase();
 
-// Optional: Paste a Google OAuth Web Client ID here if you want a "Sign in with Google" button.
-// Leave as '' to use the instant work-email verification screen.
 const GOOGLE_CLIENT_ID = '';
 
 const STAGE_ORDER = [
@@ -22,6 +20,12 @@ const UNIT_META = {
   overall: { key: 'overall', label: 'Overall', title: 'Overall (Masters’ Union & TETR)' },
   mu: { key: 'mu', label: 'Masters’ Union', title: 'Masters’ Union' },
   tetr: { key: 'tetr', label: 'TETR', title: 'TETR' },
+};
+
+const METRIC_LABELS = {
+  yetToOffer: 'Yet to Offer',
+  offered: 'Offered',
+  joined: 'Joined',
 };
 
 function sumManpower(bus) {
@@ -79,6 +83,29 @@ function decodeJwtPayload(token) {
   } catch {
     return null;
   }
+}
+
+function matchesMetric(candidate, metricType) {
+  const s = norm(candidate.status);
+  const pre = norm(candidate.preOfferStatus);
+  if (metricType === 'joined') {
+    return s.includes('join') || s.includes('activated') || Boolean(candidate.joiningDate && s.includes('active'));
+  }
+  if (metricType === 'offered') {
+    if (s.includes('reject') || s.includes('withdrawn') || s.includes('expired') || s.includes('dropped')) return false;
+    return (
+      s.includes('offer') ||
+      s.includes('pending list') ||
+      Boolean(candidate.offerDate) ||
+      Boolean(candidate.offeredCtc)
+    );
+  }
+  if (metricType === 'yetToOffer') {
+    if (s.includes('reject') || s.includes('withdrawn') || s.includes('expired') || s.includes('dropped')) return false;
+    if (s.includes('join') || s.includes('activated') || s.includes('offer') || s.includes('pending list')) return false;
+    return true || pre.length > 0;
+  }
+  return true;
 }
 
 /* ---------- Access Gate ---------- */
@@ -232,9 +259,200 @@ function AccessGate({ children }) {
   return children({ currentUser, onSignOut: handleSignOut });
 }
 
+/* ---------- Candidate Details Modal ---------- */
+
+function CandidateModal({ modalData, onClose }) {
+  const [showAllCandidates, setShowAllCandidates] = useState(false);
+
+  if (!modalData) return null;
+
+  const { title, subtitle, candidates = [], metricType } = modalData;
+  const filteredCandidates = candidates.filter((c) => matchesMetric(c, metricType));
+  const listToShow = showAllCandidates || filteredCandidates.length === 0 ? candidates : filteredCandidates;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.75)',
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#0f172a',
+          border: '1px solid rgba(255, 255, 255, 0.18)',
+          borderRadius: '12px',
+          width: '100%',
+          maxWidth: '1120px',
+          maxHeight: '85vh',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
+        }}
+      >
+        <div
+          style={{
+            padding: '18px 22px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: '#eab308', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              {METRIC_LABELS[metricType] || 'Candidates'} · {subtitle}
+            </div>
+            <h3 style={{ margin: '4px 0 0', fontSize: '18px', color: '#ffffff' }}>
+              {title}
+            </h3>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {candidates.length > filteredCandidates.length && (
+              <button
+                type="button"
+                onClick={() => setShowAllCandidates(!showAllCandidates)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  background: 'rgba(255,255,255,0.06)',
+                  color: '#e2e8f0',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                }}
+              >
+                {showAllCandidates
+                  ? `Show ${METRIC_LABELS[metricType]} only (${filteredCandidates.length})`
+                  : `Show all ${candidates.length} candidates`}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close modal"
+              style={{
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: '8px',
+                color: '#fff',
+                width: '34px',
+                height: '34px',
+                fontSize: '18px',
+                cursor: 'pointer',
+              }}
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+
+        <div style={{ padding: '18px 22px', overflowY: 'auto', flex: 1 }}>
+          {listToShow.length === 0 ? (
+            <p className="muted" style={{ textAlign: 'center', padding: '24px 0' }}>
+              No candidate details found in the published JSON yet. Make sure you updated <b>Code.gs</b> in your Google Sheet and clicked <b>TA Dashboard &gt; Publish now</b>.
+            </p>
+          ) : (
+            <div className="table-scroll">
+              <table className="jobs" style={{ margin: 0, width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th>Job ID</th>
+                    <th>Candidate Name</th>
+                    <th>Contact Number</th>
+                    <th>Email ID</th>
+                    <th>Status</th>
+                    <th>Recruiter</th>
+                    <th>Offer Shared Date</th>
+                    <th>Date Of Joining</th>
+                    <th className="n">Previous CTC</th>
+                    <th className="n">Offered CTC</th>
+                    <th className="n">Increment %</th>
+                    <th>Reporting Manager</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listToShow.map((c, idx) => (
+                    <tr key={`${c.jobId || 'j'}-${c.email || c.name || 'cand'}-${idx}`}>
+                      <td className="mono">{c.jobId || '—'}</td>
+                      <td style={{ fontWeight: 600, color: '#f8fafc' }}>{c.name || '—'}</td>
+                      <td className="mono">{c.phone || '—'}</td>
+                      <td>{c.email || '—'}</td>
+                      <td><StatusBadge status={c.status} /></td>
+                      <td>{c.recruiter || '—'}</td>
+                      <td>{c.offerDate || '—'}</td>
+                      <td>{c.joiningDate || '—'}</td>
+                      <td className="n">{c.previousCtc || '—'}</td>
+                      <td className="n">{c.offeredCtc || '—'}</td>
+                      <td
+                        className="n"
+                        style={{
+                          fontWeight: 600,
+                          color:
+                            c.incrementPct === null || c.incrementPct === undefined
+                              ? '#94a3b8'
+                              : c.incrementPct >= 0
+                              ? '#34d399'
+                              : '#f87171',
+                        }}
+                      >
+                        {c.incrementPct !== null && c.incrementPct !== undefined
+                          ? `${c.incrementPct > 0 ? '+' : ''}${c.incrementPct}%`
+                          : '—'}
+                      </td>
+                      <td>{c.manager || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- small chart pieces & expandable rows ---------- */
 
-function BuJobsRow({ buLabel, allJobs }) {
+function MetricCellButton({ value, onClick }) {
+  const numVal = Number(value) || 0;
+  if (numVal <= 0) return <span>{fmt(numVal)}</span>;
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      title="Click to view candidate details"
+      style={{
+        display: 'inline-block',
+        background: 'rgba(56, 189, 248, 0.16)',
+        border: '1px solid #38bdf8',
+        borderRadius: '6px',
+        padding: '2px 9px',
+        color: '#38bdf8',
+        fontWeight: 700,
+        fontSize: '13px',
+        cursor: 'pointer',
+      }}
+    >
+      {fmt(numVal)}
+    </button>
+  );
+}
+
+function BuJobsRow({ buLabel, allJobs, onOpenJobModal }) {
   const buJobs = useMemo(() => {
     return (allJobs || [])
       .filter((j) => j.businessUnit === buLabel)
@@ -253,7 +471,7 @@ function BuJobsRow({ buLabel, allJobs }) {
     <tr>
       <td colSpan={7} style={{ padding: '14px 18px', background: 'rgba(0, 0, 0, 0.35)', borderBottom: '2px solid rgba(255,255,255,0.08)' }}>
         <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '10px', color: '#eab308', letterSpacing: '0.02em' }}>
-          {buLabel} — {fmt(buJobs.length)} Jobs (Sorted by Department)
+          {buLabel} — {fmt(buJobs.length)} Jobs (Sorted by Department · Click any blue pill under Yet to offer / Offered / Joined)
         </div>
         <div className="table-scroll">
           <table className="jobs" style={{ margin: 0, width: '100%' }}>
@@ -280,9 +498,15 @@ function BuJobsRow({ buLabel, allJobs }) {
                   <td>{j.category || '—'}</td>
                   <td><StatusBadge status={j.status} /></td>
                   <td className="n">{fmt(j.total)}</td>
-                  <td className="n">{fmt(j.yetToOffer)}</td>
-                  <td className="n">{fmt(j.offered)}</td>
-                  <td className="n">{fmt(j.joined)}</td>
+                  <td className="n">
+                    <MetricCellButton value={j.yetToOffer} onClick={() => onOpenJobModal(j, 'yetToOffer')} />
+                  </td>
+                  <td className="n">
+                    <MetricCellButton value={j.offered} onClick={() => onOpenJobModal(j, 'offered')} />
+                  </td>
+                  <td className="n">
+                    <MetricCellButton value={j.joined} onClick={() => onOpenJobModal(j, 'joined')} />
+                  </td>
                   <td className="n strong">{fmt(j.pending)}</td>
                 </tr>
               ))}
@@ -393,7 +617,31 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [showAll, setShowAll] = useState(false);
+  const [modalData, setModalData] = useState(null);
   const lastStamp = useRef('');
+
+  const openJobModal = useCallback((job, metricType) => {
+    const candidates = (job.candidates || []).map((c) => ({ ...c, jobId: job.jobId, role: job.role }));
+    setModalData({
+      title: `${job.jobId} — ${job.role || 'Role'} (${job.department || 'Department'})`,
+      subtitle: job.businessUnit,
+      candidates,
+      metricType,
+    });
+  }, []);
+
+  const openBuModal = useCallback((buLabel, unitJobs, metricType) => {
+    const buJobs = (unitJobs || []).filter((j) => j.businessUnit === buLabel);
+    const candidates = buJobs.flatMap((j) =>
+      (j.candidates || []).map((c) => ({ ...c, jobId: j.jobId, role: j.role }))
+    );
+    setModalData({
+      title: `${buLabel} — All ${METRIC_LABELS[metricType]} Candidates`,
+      subtitle: buLabel,
+      candidates,
+      metricType,
+    });
+  }, []);
 
   const handleSelectUnit = (key) => {
     setActiveUnit(key);
@@ -716,12 +964,24 @@ export default function Dashboard({ unitKey = 'overall' }) {
                                   </td>
                                   <td className="n">{fmt(b.manpower.openRoles)}</td>
                                   <td className="n">{fmt(b.manpower.total)}</td>
-                                  <td className="n">{fmt(b.manpower.yetToOffer)}</td>
-                                  <td className="n">{fmt(b.manpower.offered)}</td>
-                                  <td className="n">{fmt(b.manpower.joined)}</td>
+                                  <td className="n">
+                                    <MetricCellButton value={b.manpower.yetToOffer} onClick={() => openBuModal(b.label, datasets.mu.jobs, 'yetToOffer')} />
+                                  </td>
+                                  <td className="n">
+                                    <MetricCellButton value={b.manpower.offered} onClick={() => openBuModal(b.label, datasets.mu.jobs, 'offered')} />
+                                  </td>
+                                  <td className="n">
+                                    <MetricCellButton value={b.manpower.joined} onClick={() => openBuModal(b.label, datasets.mu.jobs, 'joined')} />
+                                  </td>
                                   <td className="n">{fmt(b.manpower.pending)}</td>
                                 </tr>
-                                {bu === b.label && <BuJobsRow buLabel={b.label} allJobs={datasets.mu.jobs} />}
+                                {bu === b.label && (
+                                  <BuJobsRow
+                                    buLabel={b.label}
+                                    allJobs={datasets.mu.jobs}
+                                    onOpenJobModal={openJobModal}
+                                  />
+                                )}
                               </Fragment>
                             ))}
                             {muTotals && (
@@ -745,12 +1005,24 @@ export default function Dashboard({ unitKey = 'overall' }) {
                                   </td>
                                   <td className="n">{fmt(b.manpower.openRoles)}</td>
                                   <td className="n">{fmt(b.manpower.total)}</td>
-                                  <td className="n">{fmt(b.manpower.yetToOffer)}</td>
-                                  <td className="n">{fmt(b.manpower.offered)}</td>
-                                  <td className="n">{fmt(b.manpower.joined)}</td>
+                                  <td className="n">
+                                    <MetricCellButton value={b.manpower.yetToOffer} onClick={() => openBuModal(b.label, datasets.tetr.jobs, 'yetToOffer')} />
+                                  </td>
+                                  <td className="n">
+                                    <MetricCellButton value={b.manpower.offered} onClick={() => openBuModal(b.label, datasets.tetr.jobs, 'offered')} />
+                                  </td>
+                                  <td className="n">
+                                    <MetricCellButton value={b.manpower.joined} onClick={() => openBuModal(b.label, datasets.tetr.jobs, 'joined')} />
+                                  </td>
                                   <td className="n">{fmt(b.manpower.pending)}</td>
                                 </tr>
-                                {bu === b.label && <BuJobsRow buLabel={b.label} allJobs={datasets.tetr.jobs} />}
+                                {bu === b.label && (
+                                  <BuJobsRow
+                                    buLabel={b.label}
+                                    allJobs={datasets.tetr.jobs}
+                                    onOpenJobModal={openJobModal}
+                                  />
+                                )}
                               </Fragment>
                             ))}
                             {tetrTotals && (
@@ -776,12 +1048,24 @@ export default function Dashboard({ unitKey = 'overall' }) {
                                 </td>
                                 <td className="n">{fmt(b.manpower.openRoles)}</td>
                                 <td className="n">{fmt(b.manpower.total)}</td>
-                                <td className="n">{fmt(b.manpower.yetToOffer)}</td>
-                                <td className="n">{fmt(b.manpower.offered)}</td>
-                                <td className="n">{fmt(b.manpower.joined)}</td>
+                                <td className="n">
+                                  <MetricCellButton value={b.manpower.yetToOffer} onClick={() => openBuModal(b.label, data.jobs, 'yetToOffer')} />
+                                </td>
+                                <td className="n">
+                                  <MetricCellButton value={b.manpower.offered} onClick={() => openBuModal(b.label, data.jobs, 'offered')} />
+                                </td>
+                                <td className="n">
+                                  <MetricCellButton value={b.manpower.joined} onClick={() => openBuModal(b.label, data.jobs, 'joined')} />
+                                </td>
                                 <td className="n">{fmt(b.manpower.pending)}</td>
                               </tr>
-                              {bu === b.label && <BuJobsRow buLabel={b.label} allJobs={data.jobs} />}
+                              {bu === b.label && (
+                                <BuJobsRow
+                                  buLabel={b.label}
+                                  allJobs={data.jobs}
+                                  onOpenJobModal={openJobModal}
+                                />
+                              )}
                             </Fragment>
                           ))
                         )}
@@ -881,9 +1165,15 @@ export default function Dashboard({ unitKey = 'overall' }) {
                             <td>{j.department}</td>
                             <td><StatusBadge status={j.status} /></td>
                             <td className="n">{fmt(j.total)}</td>
-                            <td className="n">{fmt(j.yetToOffer)}</td>
-                            <td className="n">{fmt(j.offered)}</td>
-                            <td className="n">{fmt(j.joined)}</td>
+                            <td className="n">
+                              <MetricCellButton value={j.yetToOffer} onClick={() => openJobModal(j, 'yetToOffer')} />
+                            </td>
+                            <td className="n">
+                              <MetricCellButton value={j.offered} onClick={() => openJobModal(j, 'offered')} />
+                            </td>
+                            <td className="n">
+                              <MetricCellButton value={j.joined} onClick={() => openJobModal(j, 'joined')} />
+                            </td>
                             <td className="n strong">{fmt(j.pending)}</td>
                           </tr>
                         ))}
@@ -913,6 +1203,13 @@ export default function Dashboard({ unitKey = 'overall' }) {
               </>
             )}
           </main>
+
+          {modalData && (
+            <CandidateModal
+              modalData={modalData}
+              onClose={() => setModalData(null)}
+            />
+          )}
         </div>
       )}
     </AccessGate>
