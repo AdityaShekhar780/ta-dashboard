@@ -109,9 +109,12 @@ function matchesMetric(candidate, metricType) {
       !finalStat.includes('pending')
     );
   }
-  return true;
-}}
+  // Example clean code block around line 110-115
+        return true;
+      });
+  }, [buLabel, allJobs]);
 
+  /* ---------- Access Gate ---------- */
 /* ---------- Access Gate ---------- */
 
 function AccessGate({ children }) {
