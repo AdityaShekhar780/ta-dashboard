@@ -25,7 +25,7 @@ const UNIT_META = {
 const METRIC_LABELS = {
   yetToOffer: 'Yet to Offer',
   offered: 'Offered',
-  joined: 'Joined',
+  joined: 'Joined (Current Month)',
 };
 
 function sumManpower(bus) {
@@ -85,11 +85,32 @@ function decodeJwtPayload(token) {
   }
 }
 
+// Helper to check if a date string falls within the current calendar month and year
+function isCurrentMonth(dateStr) {
+  if (!dateStr) return false;
+  let d = new Date(dateStr);
+  if (isNaN(d.getTime())) {
+    const parts = dateStr.split(/[-/]/);
+    if (parts.length === 3) {
+      if (parts[2].length === 4) {
+        d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+      } else if (parts[0].length === 4) {
+        d = new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
+      }
+    }
+  }
+  if (isNaN(d.getTime())) return false;
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+}
+
 function matchesMetric(candidate, metricType) {
   const finalStat = norm(candidate.finalStatus || candidate.status);
 
   if (metricType === 'joined') {
-    return finalStat.includes('join') || finalStat.includes('activated') || finalStat.includes('active');
+    const isJoined = finalStat.includes('join') || finalStat.includes('activated') || finalStat.includes('active');
+    if (!isJoined) return false;
+    return isCurrentMonth(candidate.joiningDate);
   }
   if (metricType === 'offered') {
     return (
@@ -322,8 +343,8 @@ function CandidateModal({ modalData, onClose }) {
                 }}
               >
                 {showAllCandidates
-                  ? `Show ${METRIC_LABELS[metricType]} only (${filteredCandidates.length})`
-                  : `Show all ${candidates.length} candidates`}
+                  ? `Show current month only (${filteredCandidates.length})`
+                  : `Show all joined candidates (${candidates.length})`}
               </button>
             )}
             <button
@@ -349,7 +370,7 @@ function CandidateModal({ modalData, onClose }) {
         <div style={{ padding: '18px 22px', overflowY: 'auto', flex: 1 }}>
           {listToShow.length === 0 ? (
             <p className="muted" style={{ textAlign: 'center', padding: '24px 0' }}>
-              No candidate records found for this metric.
+              No candidate records found for this metric in the current month.
             </p>
           ) : (
             <div className="table-scroll">
@@ -609,7 +630,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const [showAll, setShowAll] = useState(false);
   const [modalData, setModalData] = useState(null);
   
-  // Theme state: defaults to 'dark', or saved preference
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('ta_dashboard_theme') || 'dark';
@@ -825,7 +845,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
     <AccessGate>
       {({ currentUser, onSignOut }) => (
         <div className={`page ${theme === 'light' ? 'light-mode-forced' : ''}`} style={theme === 'light' ? { background: '#f8fafc', color: '#0f172a' } : {}}>
-          {/* Inline style overrides for light mode elements if global CSS class needs assistance */}
           <style jsx global>{`
             .page.light-mode-forced {
               background-color: #f1f5f9 !important;
@@ -886,7 +905,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
               <div className="actions" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 {data && <span className="stamp">Data as of {updated} IST</span>}
                 
-                {/* Dark / Light Mode Toggle Button */}
                 <button
                   type="button"
                   onClick={toggleTheme}
