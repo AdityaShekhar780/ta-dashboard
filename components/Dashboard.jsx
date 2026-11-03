@@ -38,7 +38,6 @@ function decodeJwtPayload(token) {
   }
 }
 
-// Parse sheet date ("02-11-2026", "02/11/2026", or "2026-11-02") into "YYYY-MM-DD"
 function toIsoDateStr(raw) {
   const s = String(raw ?? '').trim();
   if (!s || s === '—' || s === '-') return null;
@@ -73,10 +72,8 @@ function toIsoDateStr(raw) {
 function isJoinedThisMonth(dateStr) {
   const iso = toIsoDateStr(dateStr);
   if (!iso) return false;
-
   const today = todayIST();
   const currentYearMonth = today.slice(0, 7);
-
   return iso.slice(0, 7) === currentYearMonth && iso <= today;
 }
 
@@ -332,7 +329,7 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal }) {
 
   return (
     <tr>
-      <td colSpan={7} style={{ padding: '14px 18px', background: 'rgba(0, 0, 0, 0.2)', borderBottom: '2px solid rgba(128,128,128,0.15)' }}>
+      <td colSpan={17} style={{ padding: '14px 18px', background: 'rgba(0, 0, 0, 0.2)', borderBottom: '2px solid rgba(128,128,128,0.15)' }}>
         <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '10px', color: '#eab308', letterSpacing: '0.02em' }}>
           {buLabel} — {fmt(buJobs.length)} Jobs (Sorted by Department)
         </div>
@@ -346,6 +343,16 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal }) {
                 <th>Cat.</th>
                 <th>Status</th>
                 <th className="n">Total</th>
+                <th className="n" title="Req Activation Date">Req Act.</th>
+                <th className="n" title="Top of Funnel">Top Funnel</th>
+                <th className="n" title="TA Shortlisted">TA Short.</th>
+                <th className="n" title="Resume Screen Pending">Resume Pend.</th>
+                <th className="n" title="Candidates in R1">R1 Cand.</th>
+                <th className="n" title="R1 Select">R1 Sel.</th>
+                <th className="n" title="Candidates in R2">R2 Cand.</th>
+                <th className="n" title="R2 Select">R2 Sel.</th>
+                <th className="n" title="Candidates in R3">R3 Cand.</th>
+                <th className="n" title="R3 Select">R3 Sel.</th>
                 <th className="n">Yet to offer</th>
                 <th className="n">Offered</th>
                 <th className="n">Joined</th>
@@ -361,6 +368,16 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal }) {
                   <td>{j.category || '—'}</td>
                   <td><StatusBadge status={j.status} /></td>
                   <td className="n">{fmt(j.total)}</td>
+                  <td className="n" style={{ fontSize: '12px' }}>{j.reqActivationDate || '—'}</td>
+                  <td className="n">{fmt(j.topOfFunnel)}</td>
+                  <td className="n">{fmt(j.taShortlisted)}</td>
+                  <td className="n">{fmt(j.resumeScreenPending)}</td>
+                  <td className="n">{fmt(j.candidatesR1)}</td>
+                  <td className="n">{fmt(j.r1Select)}</td>
+                  <td className="n">{fmt(j.candidatesR2)}</td>
+                  <td className="n">{fmt(j.r2Select)}</td>
+                  <td className="n">{fmt(j.candidatesR3)}</td>
+                  <td className="n">{fmt(j.r3Select)}</td>
                   <td className="n"><MetricCellButton value={j.yetToOffer} onClick={() => onOpenJobModal(j, 'yetToOffer')} /></td>
                   <td className="n"><MetricCellButton value={j.offered} onClick={() => onOpenJobModal(j, 'offered')} /></td>
                   <td className="n"><MetricCellButton value={j.joined} onClick={() => onOpenJobModal(j, 'joined')} /></td>
@@ -890,70 +907,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
                       </tfoot>
                     </table>
                   </div>
-                </section>
-
-                <section>
-                  <h2>Jobs</h2>
-                  <div className="filters">
-                    <input
-                      type="search"
-                      placeholder="Search Job ID, role or department"
-                      value={search}
-                      onChange={(e) => { setSearch(e.target.value); setShowAll(false); }}
-                      aria-label="Search jobs"
-                    />
-                    <select value={status} onChange={(e) => { setStatus(e.target.value); setShowAll(false); }} aria-label="Job status">
-                      <option value="all">All statuses</option>
-                      <option value="open">Open</option>
-                      <option value="need to close">Need to close</option>
-                      <option value="closed">Closed</option>
-                    </select>
-                    <span className="muted">{fmt(jobs.length)} jobs</span>
-                  </div>
-                  <div className="table-scroll">
-                    <table className="jobs">
-                      <thead>
-                        <tr>
-                          <th>Job ID</th>
-                          <th>Role</th>
-                          <th>Cat.</th>
-                          <th>Business Unit</th>
-                          <th>Department</th>
-                          <th>Status</th>
-                          <th className="n">Total</th>
-                          <th className="n">Yet to offer</th>
-                          <th className="n">Offered</th>
-                          <th className="n">Joined</th>
-                          <th className="n">Pending</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {visibleJobs.map((j) => (
-                          <tr key={`${j.unitKey || activeUnit}-${j.jobId}`}>
-                            <td className="mono">{j.jobId}</td>
-                            <td>{j.role || '—'}</td>
-                            <td>{j.category || '—'}</td>
-                            <td>{j.businessUnit}</td>
-                            <td>{j.department}</td>
-                            <td><StatusBadge status={j.status} /></td>
-                            <td className="n">{fmt(j.total)}</td>
-                            <td className="n"><MetricCellButton value={j.yetToOffer} onClick={() => openJobModal(j, 'yetToOffer')} /></td>
-                            <td className="n"><MetricCellButton value={j.offered} onClick={() => openJobModal(j, 'offered')} /></td>
-                            <td className="n"><MetricCellButton value={j.joined} onClick={() => openJobModal(j, 'joined')} /></td>
-                            <td className="n strong">{fmt(j.pending)}</td>
-                          </tr>
-                        ))}
-                        {jobs.length === 0 && (
-                          <tr><td colSpan={11} className="muted center">No jobs match these filters.</td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                  {jobs.length > 40 && (
-                    <button type="button" className="more" onClick={() => setShowAll(!showAll)}>
-                      {showAll ? 'Show fewer jobs' : `Show all ${fmt(jobs.length)} jobs`}
-                    </button>
-                  )}
                 </section>
 
                 {checks.length > 0 && (
