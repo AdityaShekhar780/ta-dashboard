@@ -85,53 +85,102 @@ function decodeJwtPayload(token) {
   }
 }
 
-// Strict check: must be in the current calendar month/year AND on or before today's date (no future joiners, no past months)
-function isJoinedThisMonth(dateStr) {
-  if (!dateStr) return false;
-  let d = new Date(dateStr);
-  if (isNaN(d.getTime())) {
-    const parts = dateStr.split(/[-/]/);
-    if (parts.length === 3) {
-      if (parts[2].length === 4) {
-        d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-      } else if (parts[0].length === 4) {
-        d = new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
-      }
-    }
-  }
-  if (isNaN(d.getTime())) return false;
+// Parse sheet date ("02-11-2026", "02/11/2026", or "2026-11-02") into "YYYY-MM-DD"
+function toIsoDateStr(raw) {
+  const s = String(raw ?? '').trim();
+  if (!s || s === '—' || s === '-') return null;
 
-  const now = new Date();
-  const isSameMonthYear = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-  
-  return isSameMonthYear && d <= now;
+  // Match DD-MM-YYYY or DD/MM/YYYY FIRST so JS doesn't misread it as MM-DD-YYYY
+  let m = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/.exec(s);
+  if (m) {
+    const day = m[1].padStart(2, '0');
+    const month = m[2].padStart(2, '0');
+    const year = m[3];
+    return `${year}-${month}-${day}`;
+  }
+
+  // Match YYYY-MM-DD
+  m = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(s);
+  if (m) {
+    const year = m[1];
+    const month = m[2].padStart(2, '0');
+    const day = m[3].padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  // Fallback for text dates like "2 Nov 2026"
+  const parsed = new Date(s);
+  if (!isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const mo = String(parsed.getMonth() + 1).padStart(2, '0');
+    const da = String(parsed.getDate()).padStart(2, '0');
+    return `${y}-${mo}-${da}`;
+  }
+
+  return null;
+}
+
+// Strict check: must be in the current calendar month/year (IST) AND on or before today (IST)
+function isJoinedThisMonth(dateStr) {
+  const iso = toIsoDateStr(dateStr);
+  if (!iso) return false;
+
+  const today = todayIST(); // e.g. "2026-11-03"
+  const currentYearMonth = today.slice(0, 7); // e.g. "2026-11"
+
+  return iso.slice(0, 7) === currentYearMonth && iso <= today;
 }
 
 function matchesMetric(candidate, metricType) {
-  const finalStat = norm(candidate.finalStatus || candidate.status);
+  const finalStat = norm(candidate.finalStatus);
+  const rawStat = norm(candidate.status);
+  const effectiveStat = finalStat || rawStat;
 
   if (metricType === 'joined') {
-    const isJoined = finalStat.includes('join') || finalStat.includes('activated') || finalStat.includes('active');
-    if (!isJoined) return false;
+    const isJoinedStatus =
+      effectiveStat.includes('join') ||
+      effectiveStat.includes('activated') ||
+      effectiveStat === 'active' ||
+      rawStat.includes('activated');
+    if (!isJoinedStatus) return false;
     return isJoinedThisMonth(candidate.joiningDate);
   }
+
   if (metricType === 'offered') {
+    if (finalStat) {
+      return (
+        finalStat.includes('offer') &&
+        !finalStat.includes('join') &&
+        !finalStat.includes('reject') &&
+        !finalStat.includes('drop') &&
+        !finalStat.includes('withdraw') &&
+        !finalStat.includes('expir')
+      );
+    }
     return (
-      finalStat.includes('offer') ||
-      finalStat.includes('pending list') ||
-      finalStat.includes('make offer') ||
-      finalStat.includes('offered')
-    ) && !finalStat.includes('join') && !finalStat.includes('reject');
-  }
-  if (metricType === 'yetToOffer') {
-    return (
-      !finalStat.includes('offer') &&
-      !finalStat.includes('join') &&
-      !finalStat.includes('reject') &&
-      !finalStat.includes('activated') &&
-      !finalStat.includes('pending')
+      (rawStat.includes('offer') || rawStat.includes('pending list')) &&
+      !rawStat.includes('join') &&
+      !rawStat.includes('activated') &&
+      !rawStat.includes('reject') &&
+      !rawStat.includes('drop') &&
+      !rawStat.includes('withdraw') &&
+      !rawStat.includes('expir')
     );
   }
+
+  if (metricType === 'yetToOffer') {
+    return (
+      !effectiveStat.includes('offer') &&
+      !effectiveStat.includes('join') &&
+      !effectiveStat.includes('reject') &&
+      !effectiveStat.includes('activated') &&
+      !effectiveStat.includes('pending') &&
+      !effectiveStat.includes('withdrawn') &&
+      !effectiveStat.includes('dropped') &&
+      !effectiveStat.includes('expired')
+    );
+  }
+
   return true;
 }
 
@@ -277,11 +326,17 @@ function AccessGate({ children }) {
 function CandidateModal({ modalData, onClose }) {
   const [showAllCandidates, setShowAllCandidates] = useState(false);
 
+  useEffect(() => {
+    setShowAllCandidates(false);
+  }, [modalData]);
+
   if (!modalData) return null;
 
   const { title, subtitle, candidates = [], metricType } = modalData;
   const filteredCandidates = candidates.filter((c) => matchesMetric(c, metricType));
-  const listToShow = showAllCandidates || filteredCandidates.length === 0 ? candidates : filteredCandidates;
+  
+  // Strictly show only filteredCandidates unless user explicitly clicks "Show all"
+  const listToShow = showAllCandidates ? candidates : filteredCandidates;
 
   return (
     <div
@@ -324,7 +379,7 @@ function CandidateModal({ modalData, onClose }) {
         >
           <div>
             <div style={{ fontSize: '12px', fontWeight: 600, color: '#eab308', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              {METRIC_LABELS[metricType] || 'Candidates'} · {subtitle}
+              {METRIC_LABELS[metricType] || 'Candidates'} ({filteredCandidates.length}) · {subtitle}
             </div>
             <h3 style={{ margin: '4px 0 0', fontSize: '18px' }}>
               {title}
@@ -346,8 +401,8 @@ function CandidateModal({ modalData, onClose }) {
                 }}
               >
                 {showAllCandidates
-                  ? `Show current month only (${filteredCandidates.length})`
-                  : `Show all joined candidates (${candidates.length})`}
+                  ? `Show ${METRIC_LABELS[metricType]} only (${filteredCandidates.length})`
+                  : `Show all candidates for this role (${candidates.length})`}
               </button>
             )}
             <button
@@ -373,7 +428,7 @@ function CandidateModal({ modalData, onClose }) {
         <div style={{ padding: '18px 22px', overflowY: 'auto', flex: 1 }}>
           {listToShow.length === 0 ? (
             <p className="muted" style={{ textAlign: 'center', padding: '24px 0' }}>
-              No candidate records found for this metric in the current month.
+              No candidates match <b>{METRIC_LABELS[metricType]}</b> for this selection.
             </p>
           ) : (
             <div className="table-scroll">
@@ -401,7 +456,7 @@ function CandidateModal({ modalData, onClose }) {
                       <td style={{ fontWeight: 600 }}>{c.name || '—'}</td>
                       <td className="mono">{c.phone || '—'}</td>
                       <td>{c.email || '—'}</td>
-                      <td><StatusBadge status={c.status} /></td>
+                      <td><StatusBadge status={c.finalStatus || c.status} /></td>
                       <td>{c.recruiter || '—'}</td>
                       <td>{c.offerDate || '—'}</td>
                       <td>{c.joiningDate || '—'}</td>
