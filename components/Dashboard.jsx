@@ -85,8 +85,8 @@ function decodeJwtPayload(token) {
   }
 }
 
-// Helper to check if a date string falls within the current calendar month and year
-function isCurrentMonth(dateStr) {
+// Strict check: must be in the current calendar month/year AND on or before today's date (no future joiners, no past months)
+function isJoinedThisMonth(dateStr) {
   if (!dateStr) return false;
   let d = new Date(dateStr);
   if (isNaN(d.getTime())) {
@@ -100,8 +100,11 @@ function isCurrentMonth(dateStr) {
     }
   }
   if (isNaN(d.getTime())) return false;
+
   const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  const isSameMonthYear = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  
+  return isSameMonthYear && d <= now;
 }
 
 function matchesMetric(candidate, metricType) {
@@ -110,7 +113,7 @@ function matchesMetric(candidate, metricType) {
   if (metricType === 'joined') {
     const isJoined = finalStat.includes('join') || finalStat.includes('activated') || finalStat.includes('active');
     if (!isJoined) return false;
-    return isCurrentMonth(candidate.joiningDate);
+    return isJoinedThisMonth(candidate.joiningDate);
   }
   if (metricType === 'offered') {
     return (
