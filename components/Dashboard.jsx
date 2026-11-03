@@ -8,14 +8,6 @@ const norm = (s) => String(s ?? '').trim().toLowerCase();
 
 const GOOGLE_CLIENT_ID = '';
 
-const STAGE_ORDER = [
-  'shortlisting', 'screening', 'process ongoing', 'stage 1', 'stage 2', 'stage 3',
-  'make offer', 'pending for offer', 'offer accepted and to be added to the pending list',
-  'in the pending list', 'activated', 'on hold',
-  'rejected in the process', 'withdrawn by candidate', 'withdrawn by employer',
-  'offer rejected by the candidate', 'offer withdrawn', 'offer expired', 'offer dropped',
-];
-
 const UNIT_META = {
   overall: { key: 'overall', label: 'Overall', title: 'Overall (Masters’ Union & TETR)' },
   mu: { key: 'mu', label: 'Masters’ Union', title: 'Masters’ Union' },
@@ -34,46 +26,7 @@ function sumManpower(bus) {
   return out;
 }
 
-function mergeMaps(bus, field) {
-  const out = {};
-  for (const b of bus) {
-    for (const [k, v] of Object.entries(b.candidates[field] || {})) out[k] = (out[k] || 0) + v;
-  }
-  return out;
-}
-
-const byCount = (map) => Object.entries(map).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-
-function byStage(map) {
-  const rank = (label) => {
-    const i = STAGE_ORDER.indexOf(norm(label));
-    return i === -1 ? 100 : i;
-  };
-  return Object.entries(map).sort((a, b) => rank(a[0]) - rank(b[0]) || b[1] - a[1]);
-}
-
 const todayIST = () => new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
-
-function addDays(iso, n) {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-}
-
-function mondayOf(iso) {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
-  return d.toISOString().slice(0, 10);
-}
-
-const shortDate = (iso) =>
-  new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-
-function niceCeil(n) {
-  const p = Math.pow(10, Math.floor(Math.log10(n)));
-  const f = n / p;
-  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p;
-}
 
 function decodeJwtPayload(token) {
   try {
@@ -90,7 +43,6 @@ function toIsoDateStr(raw) {
   const s = String(raw ?? '').trim();
   if (!s || s === '—' || s === '-') return null;
 
-  // Match DD-MM-YYYY or DD/MM/YYYY FIRST so JS doesn't misread it as MM-DD-YYYY
   let m = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/.exec(s);
   if (m) {
     const day = m[1].padStart(2, '0');
@@ -99,7 +51,6 @@ function toIsoDateStr(raw) {
     return `${year}-${month}-${day}`;
   }
 
-  // Match YYYY-MM-DD
   m = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(s);
   if (m) {
     const year = m[1];
@@ -108,7 +59,6 @@ function toIsoDateStr(raw) {
     return `${year}-${month}-${day}`;
   }
 
-  // Fallback for text dates like "2 Nov 2026"
   const parsed = new Date(s);
   if (!isNaN(parsed.getTime())) {
     const y = parsed.getFullYear();
@@ -120,13 +70,12 @@ function toIsoDateStr(raw) {
   return null;
 }
 
-// Strict check: must be in the current calendar month/year (IST) AND on or before today (IST)
 function isJoinedThisMonth(dateStr) {
   const iso = toIsoDateStr(dateStr);
   if (!iso) return false;
 
-  const today = todayIST(); // e.g. "2026-11-03"
-  const currentYearMonth = today.slice(0, 7); // e.g. "2026-11"
+  const today = todayIST();
+  const currentYearMonth = today.slice(0, 7);
 
   return iso.slice(0, 7) === currentYearMonth && iso <= today;
 }
@@ -176,7 +125,6 @@ function matchesMetric(candidate, metricType) {
   }
 
   if (metricType === 'yetToOffer') {
-    // Strictly match candidates whose status is explicitly "Yet to Offer" (or "Pending for Offer" / "Make Offer")
     const isYetToOfferFinal =
       finalStat === 'yet to offer' ||
       finalStat.includes('yet to offer') ||
@@ -212,7 +160,6 @@ function AccessGate({ children }) {
   const [emailInput, setEmailInput] = useState('');
   const [authError, setAuthError] = useState('');
   const [loadingAccess, setLoadingAccess] = useState(true);
-  const googleBtnRef = useRef(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('ta_dashboard_user');
@@ -232,20 +179,20 @@ function AccessGate({ children }) {
       });
   }, []);
 
-  const verifyEmail = useCallback((email, displayName) => {
+  const verifyEmail = useCallback((email) => {
     const cleanEmail = norm(email);
     if (!allowedUsers) return;
 
     const match = allowedUsers.find((u) => norm(u.email) === cleanEmail);
     if (match) {
-      const userObj = { email: cleanEmail, name: match.name || displayName || cleanEmail };
+      const userObj = { email: cleanEmail, name: match.name || cleanEmail };
       setCurrentUser(userObj);
       localStorage.setItem('ta_dashboard_user', JSON.stringify(userObj));
       setAuthError('');
     } else {
       setCurrentUser(null);
       localStorage.removeItem('ta_dashboard_user');
-      setAuthError(`Access denied for "${cleanEmail}". Ask the TA admin to add your email to the "Access" tab in the TA data sheet and publish.`);
+      setAuthError(`Access denied for "${cleanEmail}". Ask the TA admin to add your email to the "Access" tab.`);
     }
   }, [allowedUsers]);
 
@@ -254,47 +201,8 @@ function AccessGate({ children }) {
     return allowedUsers.some((u) => norm(u.email) === norm(currentUser.email));
   }, [currentUser, allowedUsers]);
 
-  useEffect(() => {
-    if (loadingAccess || isAuthorized || !GOOGLE_CLIENT_ID.includes('.apps.googleusercontent.com')) return;
-
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.onload = () => {
-      if (window.google && googleBtnRef.current) {
-        window.google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback: (res) => {
-            const payload = decodeJwtPayload(res.credential);
-            if (payload?.email) verifyEmail(payload.email, payload.name);
-          },
-        });
-        window.google.accounts.id.renderButton(googleBtnRef.current, {
-          theme: 'filled_black',
-          size: 'large',
-          width: 300,
-          text: 'signin_with',
-        });
-      }
-    };
-    document.body.appendChild(script);
-  }, [loadingAccess, isAuthorized, verifyEmail]);
-
-  const handleSignOut = () => {
-    localStorage.removeItem('ta_dashboard_user');
-    setCurrentUser(null);
-    setEmailInput('');
-    setAuthError('');
-  };
-
   if (loadingAccess) {
-    return (
-      <div className="page">
-        <main className="wrap">
-          <p className="muted loading">Checking access permissions…</p>
-        </main>
-      </div>
-    );
+    return <div className="page"><main className="wrap"><p className="muted loading">Checking access permissions…</p></main></div>;
   }
 
   if (!isAuthorized) {
@@ -303,42 +211,18 @@ function AccessGate({ children }) {
         <div style={{ maxWidth: '430px', width: '100%', padding: '32px', borderRadius: '14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.14)', textAlign: 'center' }}>
           <p className="kicker" style={{ marginBottom: '6px' }}>Talent Acquisition</p>
           <h1 style={{ fontSize: '24px', marginBottom: '10px' }}>Authorized Access Only</h1>
-          <p className="muted" style={{ fontSize: '14px', marginBottom: '24px' }}>
-            Enter your approved email address to view the Masters’ Union & TETR recruitment dashboard.
-          </p>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              verifyEmail(emailInput);
-            }}
-            style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
-          >
-            <input
-              type="email"
-              required
-              placeholder="Enter your work email"
-              value={emailInput}
-              onChange={(e) => setEmailInput(e.target.value)}
-              style={{ padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.22)', background: 'rgba(0,0,0,0.35)', color: '#fff', fontSize: '15px' }}
-            />
-            <button
-              type="submit"
-              style={{ padding: '12px 16px', borderRadius: '8px', border: '1px solid #eab308', background: '#059669', color: '#fff', fontWeight: 600, fontSize: '15px', cursor: 'pointer' }}
-            >
-              Verify Access
-            </button>
+          <p className="muted" style={{ fontSize: '14px', marginBottom: '24px' }}>Enter your approved email address to view the dashboard.</p>
+          <form onSubmit={(e) => { e.preventDefault(); verifyEmail(emailInput); }} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <input type="email" required placeholder="Enter your work email" value={emailInput} onChange={(e) => setEmailInput(e.target.value)} style={{ padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.22)', background: 'rgba(0,0,0,0.35)', color: '#fff', fontSize: '15px' }} />
+            <button type="submit" style={{ padding: '12px 16px', borderRadius: '8px', border: '1px solid #eab308', background: '#059669', color: '#fff', fontWeight: 600, fontSize: '15px', cursor: 'pointer' }}>Verify Access</button>
           </form>
-          {authError && (
-            <div style={{ marginTop: '16px', padding: '12px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#fca5a5', fontSize: '13px' }}>
-              {authError}
-            </div>
-          )}
+          {authError && <div style={{ marginTop: '16px', padding: '12px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#fca5a5', fontSize: '13px' }}>{authError}</div>}
         </div>
       </div>
     );
   }
 
-  return children({ currentUser, onSignOut: handleSignOut });
+  return children({ currentUser, onSignOut: () => { localStorage.removeItem('ta_dashboard_user'); setCurrentUser(null); } });
 }
 
 /* ---------- Candidate Details Modal ---------- */
@@ -354,102 +238,31 @@ function CandidateModal({ modalData, onClose }) {
 
   const { title, subtitle, candidates = [], metricType } = modalData;
   const filteredCandidates = candidates.filter((c) => matchesMetric(c, metricType));
-  
-  // Strictly show only filteredCandidates unless user explicitly clicks "Show all"
   const listToShow = showAllCandidates ? candidates : filteredCandidates;
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.75)',
-        zIndex: 1000,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px',
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: 'var(--modal-bg, #0f172a)',
-          color: 'var(--text-color, #f8fafc)',
-          border: '1px solid rgba(255, 255, 255, 0.18)',
-          borderRadius: '12px',
-          width: '100%',
-          maxWidth: '1120px',
-          maxHeight: '85vh',
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
-        }}
-      >
-        <div
-          style={{
-            padding: '18px 22px',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: '12px',
-          }}
-        >
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--modal-bg, #0f172a)', color: 'var(--text-color, #f8fafc)', border: '1px solid rgba(255, 255, 255, 0.18)', borderRadius: '12px', width: '100%', maxWidth: '1120px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)' }}>
+        <div style={{ padding: '18px 22px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
           <div>
             <div style={{ fontSize: '12px', fontWeight: 600, color: '#eab308', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               {METRIC_LABELS[metricType] || 'Candidates'} ({filteredCandidates.length}) · {subtitle}
             </div>
-            <h3 style={{ margin: '4px 0 0', fontSize: '18px' }}>
-              {title}
-            </h3>
+            <h3 style={{ margin: '4px 0 0', fontSize: '18px' }}>{title}</h3>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             {candidates.length > filteredCandidates.length && (
-              <button
-                type="button"
-                onClick={() => setShowAllCandidates(!showAllCandidates)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  background: 'rgba(255,255,255,0.06)',
-                  color: 'inherit',
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                }}
-              >
-                {showAllCandidates
-                  ? `Show ${METRIC_LABELS[metricType]} only (${filteredCandidates.length})`
-                  : `Show all candidates for this role (${candidates.length})`}
+              <button type="button" onClick={() => setShowAllCandidates(!showAllCandidates)} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)', color: 'inherit', fontSize: '12px', cursor: 'pointer' }}>
+                {showAllCandidates ? `Show ${METRIC_LABELS[metricType]} only (${filteredCandidates.length})` : `Show all candidates for this role (${candidates.length})`}
               </button>
             )}
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close modal"
-              style={{
-                background: 'rgba(255,255,255,0.08)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                borderRadius: '8px',
-                color: 'inherit',
-                width: '34px',
-                height: '34px',
-                fontSize: '18px',
-                cursor: 'pointer',
-              }}
-            >
-              &times;
-            </button>
+            <button type="button" onClick={onClose} aria-label="Close modal" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', color: 'inherit', width: '34px', height: '34px', fontSize: '18px', cursor: 'pointer' }}>&times;</button>
           </div>
         </div>
 
         <div style={{ padding: '18px 22px', overflowY: 'auto', flex: 1 }}>
           {listToShow.length === 0 ? (
-            <p className="muted" style={{ textAlign: 'center', padding: '24px 0' }}>
-              No candidates match <b>{METRIC_LABELS[metricType]}</b> for this selection.
-            </p>
+            <p className="muted" style={{ textAlign: 'center', padding: '24px 0' }}>No candidates match <b>{METRIC_LABELS[metricType]}</b> for this selection.</p>
           ) : (
             <div className="table-scroll">
               <table className="jobs" style={{ margin: 0, width: '100%' }}>
@@ -482,21 +295,8 @@ function CandidateModal({ modalData, onClose }) {
                       <td>{c.joiningDate || '—'}</td>
                       <td className="n">{c.previousCtc || '—'}</td>
                       <td className="n">{c.offeredCtc || '—'}</td>
-                      <td
-                        className="n"
-                        style={{
-                          fontWeight: 600,
-                          color:
-                            c.incrementPct === null || c.incrementPct === undefined
-                              ? '#94a3b8'
-                              : c.incrementPct >= 0
-                              ? '#34d399'
-                              : '#f87171',
-                        }}
-                      >
-                        {c.incrementPct !== null && c.incrementPct !== undefined
-                          ? `${c.incrementPct > 0 ? '+' : ''}${c.incrementPct}%`
-                          : '—'}
+                      <td className="n" style={{ fontWeight: 600, color: c.incrementPct === null || c.incrementPct === undefined ? '#94a3b8' : c.incrementPct >= 0 ? '#34d399' : '#f87171' }}>
+                        {c.incrementPct !== null && c.incrementPct !== undefined ? `${c.incrementPct > 0 ? '+' : ''}${c.incrementPct}%` : '—'}
                       </td>
                       <td>{c.manager || '—'}</td>
                     </tr>
@@ -517,25 +317,7 @@ function MetricCellButton({ value, onClick }) {
   const numVal = Number(value) || 0;
   if (numVal <= 0) return <span>{fmt(numVal)}</span>;
   return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      title="Click to view candidate details"
-      style={{
-        display: 'inline-block',
-        background: 'rgba(56, 189, 248, 0.16)',
-        border: '1px solid #38bdf8',
-        borderRadius: '6px',
-        padding: '2px 9px',
-        color: '#38bdf8',
-        fontWeight: 700,
-        fontSize: '13px',
-        cursor: 'pointer',
-      }}
-    >
+    <button type="button" onClick={(e) => { e.stopPropagation(); onClick(); }} title="Click to view candidate details" style={{ display: 'inline-block', background: 'rgba(56, 189, 248, 0.16)', border: '1px solid #38bdf8', borderRadius: '6px', padding: '2px 9px', color: '#38bdf8', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
       {fmt(numVal)}
     </button>
   );
@@ -543,15 +325,7 @@ function MetricCellButton({ value, onClick }) {
 
 function BuJobsRow({ buLabel, allJobs, onOpenJobModal }) {
   const buJobs = useMemo(() => {
-    return (allJobs || [])
-      .filter((j) => j.businessUnit === buLabel)
-      .sort((a, b) => {
-        const deptCmp = norm(a.department).localeCompare(norm(b.department));
-        if (deptCmp !== 0) return deptCmp;
-        const roleCmp = norm(a.role).localeCompare(norm(b.role));
-        if (roleCmp !== 0) return roleCmp;
-        return norm(a.jobId).localeCompare(norm(b.jobId));
-      });
+    return (allJobs || []).filter((j) => j.businessUnit === buLabel).sort((a, b) => norm(a.department).localeCompare(norm(b.department)));
   }, [buLabel, allJobs]);
 
   if (!buJobs.length) return null;
@@ -560,7 +334,7 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal }) {
     <tr>
       <td colSpan={7} style={{ padding: '14px 18px', background: 'rgba(0, 0, 0, 0.2)', borderBottom: '2px solid rgba(128,128,128,0.15)' }}>
         <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '10px', color: '#eab308', letterSpacing: '0.02em' }}>
-          {buLabel} — {fmt(buJobs.length)} Jobs (Sorted by Department · Click any blue pill under Yet to offer / Offered / Joined)
+          {buLabel} — {fmt(buJobs.length)} Jobs (Sorted by Department)
         </div>
         <div className="table-scroll">
           <table className="jobs" style={{ margin: 0, width: '100%' }}>
@@ -587,15 +361,9 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal }) {
                   <td>{j.category || '—'}</td>
                   <td><StatusBadge status={j.status} /></td>
                   <td className="n">{fmt(j.total)}</td>
-                  <td className="n">
-                    <MetricCellButton value={j.yetToOffer} onClick={() => onOpenJobModal(j, 'yetToOffer')} />
-                  </td>
-                  <td className="n">
-                    <MetricCellButton value={j.offered} onClick={() => onOpenJobModal(j, 'offered')} />
-                  </td>
-                  <td className="n">
-                    <MetricCellButton value={j.joined} onClick={() => onOpenJobModal(j, 'joined')} />
-                  </td>
+                  <td className="n"><MetricCellButton value={j.yetToOffer} onClick={() => onOpenJobModal(j, 'yetToOffer')} /></td>
+                  <td className="n"><MetricCellButton value={j.offered} onClick={() => onOpenJobModal(j, 'offered')} /></td>
+                  <td className="n"><MetricCellButton value={j.joined} onClick={() => onOpenJobModal(j, 'joined')} /></td>
                   <td className="n strong">{fmt(j.pending)}</td>
                 </tr>
               ))}
@@ -604,86 +372,6 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal }) {
         </div>
       </td>
     </tr>
-  );
-}
-
-function Bars({ items, total, empty = 'No data yet' }) {
-  if (!items.length) return <p className="muted">{empty}</p>;
-  const max = Math.max(...items.map(([, v]) => v), 1);
-  return (
-    <ul className="bars">
-      {items.map(([label, value]) => (
-        <li key={label} title={`${label}: ${fmt(value)}${total ? ` (${Math.round((value / total) * 100)}%)` : ''}`}>
-          <span className="bar-label">{label}</span>
-          <span className="bar-track">
-            <span className="bar-fill" style={{ width: `${Math.max(2, (value / max) * 100)}%` }} />
-          </span>
-          <span className="bar-value">
-            {fmt(value)}
-            {total ? <em>{Math.round((value / total) * 100)}%</em> : null}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function WeeklyChart({ weeks }) {
-  const [hover, setHover] = useState(null);
-  const W = 640, H = 210, padL = 38, padR = 8, padT = 10, padB = 26;
-  const max = niceCeil(Math.max(4, ...weeks.map((w) => w.count)));
-  const plotH = H - padT - padB;
-  const bw = (W - padL - padR) / weeks.length;
-  const total = weeks.reduce((a, w) => a + w.count, 0);
-  const active = hover === null ? null : weeks[hover];
-
-  return (
-    <div>
-      <p className="chart-readout" aria-live="polite">
-        {active
-          ? `Week of ${shortDate(active.start)}: ${fmt(active.count)} applications${hover === weeks.length - 1 ? ' (so far)' : ''}`
-          : `${fmt(total)} applications in the last ${weeks.length} weeks`}
-      </p>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Applications per week" className="weekly">
-        {[0, max / 2, max].map((t) => {
-          const y = padT + (1 - t / max) * plotH;
-          return (
-            <g key={t}>
-              <line x1={padL} x2={W - padR} y1={y} y2={y} className="grid" />
-              <text x={padL - 6} y={y + 4} textAnchor="end" className="tick">{fmt(t)}</text>
-            </g>
-          );
-        })}
-        {weeks.map((w, i) => {
-          const h = (w.count / max) * plotH;
-          const x = padL + i * bw + bw * 0.18;
-          const width = bw * 0.64;
-          const y = padT + plotH - h;
-          const r = Math.min(3, h);
-          return (
-            <g key={w.start}>
-              {h > 0 && (
-                <path
-                  className={`wbar${hover === i ? ' on' : ''}`}
-                  d={`M${x},${y + r} a${r},${r} 0 0 1 ${r},-${r} h${width - 2 * r} a${r},${r} 0 0 1 ${r},${r} V${padT + plotH} H${x} Z`}
-                />
-              )}
-              {i % 2 === (weeks.length - 1) % 2 && (
-                <text x={x + width / 2} y={H - 8} textAnchor="middle" className="tick">{shortDate(w.start)}</text>
-              )}
-              <rect
-                x={padL + i * bw} y={padT} width={bw} height={plotH + padB}
-                fill="transparent"
-                onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}
-                onFocus={() => setHover(i)} onBlur={() => setHover(null)}
-                tabIndex={0}
-                aria-label={`Week of ${shortDate(w.start)}: ${w.count} applications`}
-              />
-            </g>
-          );
-        })}
-      </svg>
-    </div>
   );
 }
 
@@ -857,35 +545,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const muTotals = useMemo(() => (datasets.mu ? sumManpower(datasets.mu.businessUnits) : null), [datasets.mu]);
   const tetrTotals = useMemo(() => (datasets.tetr ? sumManpower(datasets.tetr.businessUnits) : null), [datasets.tetr]);
 
-  const cand = useMemo(() => {
-    const total = scopeBUs.reduce((a, b) => a + b.candidates.total, 0);
-    const byDay = mergeMaps(scopeBUs, 'byDay');
-    const today = todayIST();
-    const sinceWeek = addDays(today, -6);
-    const sinceMonth = addDays(today, -29);
-    let last7 = 0, last30 = 0;
-    for (const [d, n] of Object.entries(byDay)) {
-      if (d >= sinceWeek && d <= today) last7 += n;
-      if (d >= sinceMonth && d <= today) last30 += n;
-    }
-    const thisMonday = mondayOf(today);
-    const weeks = [];
-    for (let i = 11; i >= 0; i--) weeks.push({ start: addDays(thisMonday, -7 * i), count: 0 });
-    const idx = new Map(weeks.map((w, i) => [w.start, i]));
-    for (const [d, n] of Object.entries(byDay)) {
-      const i = idx.get(mondayOf(d));
-      if (i !== undefined && d <= today) weeks[i].count += n;
-    }
-    return {
-      total, last7, last30, weeks,
-      stages: byStage(mergeMaps(scopeBUs, 'byStatus')),
-      sourceTypes: byCount(mergeMaps(scopeBUs, 'bySourceType')),
-      sources: byCount(mergeMaps(scopeBUs, 'bySource')).slice(0, 8),
-      recruiters: byCount(mergeMaps(scopeBUs, 'byRecruiter')).slice(0, 10),
-      preOffer: byCount(mergeMaps(scopeBUs, 'byPreOffer')),
-    };
-  }, [scopeBUs]);
-
   const jobs = useMemo(() => {
     if (!data) return [];
     const q = norm(search);
@@ -896,13 +555,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
           (status === 'all' || norm(j.status) === status) &&
           (!q || [j.jobId, j.role, j.department, j.businessUnit].some((v) => norm(v).includes(q)))
       )
-      .sort((a, b) => {
-        const deptCmp = norm(a.department).localeCompare(norm(b.department));
-        if (deptCmp !== 0) return deptCmp;
-        const roleCmp = norm(a.role).localeCompare(norm(b.role));
-        if (roleCmp !== 0) return roleCmp;
-        return norm(a.jobId).localeCompare(norm(b.jobId));
-      });
+      .sort((a, b) => norm(a.department).localeCompare(norm(b.department)));
   }, [data, bu, status, search]);
 
   const checks = useMemo(
@@ -1148,23 +801,13 @@ export default function Dashboard({ unitKey = 'overall' }) {
                                   </td>
                                   <td className="n">{fmt(b.manpower.openRoles)}</td>
                                   <td className="n">{fmt(b.manpower.total)}</td>
-                                  <td className="n">
-                                    <MetricCellButton value={b.manpower.yetToOffer} onClick={() => openBuModal(b.label, datasets.mu.jobs, 'yetToOffer')} />
-                                  </td>
-                                  <td className="n">
-                                    <MetricCellButton value={b.manpower.offered} onClick={() => openBuModal(b.label, datasets.mu.jobs, 'offered')} />
-                                  </td>
-                                  <td className="n">
-                                    <MetricCellButton value={b.manpower.joined} onClick={() => openBuModal(b.label, datasets.mu.jobs, 'joined')} />
-                                  </td>
+                                  <td className="n"><MetricCellButton value={b.manpower.yetToOffer} onClick={() => openBuModal(b.label, datasets.mu.jobs, 'yetToOffer')} /></td>
+                                  <td className="n"><MetricCellButton value={b.manpower.offered} onClick={() => openBuModal(b.label, datasets.mu.jobs, 'offered')} /></td>
+                                  <td className="n"><MetricCellButton value={b.manpower.joined} onClick={() => openBuModal(b.label, datasets.mu.jobs, 'joined')} /></td>
                                   <td className="n">{fmt(b.manpower.pending)}</td>
                                 </tr>
                                 {bu === b.label && (
-                                  <BuJobsRow
-                                    buLabel={b.label}
-                                    allJobs={datasets.mu.jobs}
-                                    onOpenJobModal={openJobModal}
-                                  />
+                                  <BuJobsRow buLabel={b.label} allJobs={datasets.mu.jobs} onOpenJobModal={openJobModal} />
                                 )}
                               </Fragment>
                             ))}
@@ -1189,23 +832,13 @@ export default function Dashboard({ unitKey = 'overall' }) {
                                   </td>
                                   <td className="n">{fmt(b.manpower.openRoles)}</td>
                                   <td className="n">{fmt(b.manpower.total)}</td>
-                                  <td className="n">
-                                    <MetricCellButton value={b.manpower.yetToOffer} onClick={() => openBuModal(b.label, datasets.tetr.jobs, 'yetToOffer')} />
-                                  </td>
-                                  <td className="n">
-                                    <MetricCellButton value={b.manpower.offered} onClick={() => openBuModal(b.label, datasets.tetr.jobs, 'offered')} />
-                                  </td>
-                                  <td className="n">
-                                    <MetricCellButton value={b.manpower.joined} onClick={() => openBuModal(b.label, datasets.tetr.jobs, 'joined')} />
-                                  </td>
+                                  <td className="n"><MetricCellButton value={b.manpower.yetToOffer} onClick={() => openBuModal(b.label, datasets.tetr.jobs, 'yetToOffer')} /></td>
+                                  <td className="n"><MetricCellButton value={b.manpower.offered} onClick={() => openBuModal(b.label, datasets.tetr.jobs, 'offered')} /></td>
+                                  <td className="n"><MetricCellButton value={b.manpower.joined} onClick={() => openBuModal(b.label, datasets.tetr.jobs, 'joined')} /></td>
                                   <td className="n">{fmt(b.manpower.pending)}</td>
                                 </tr>
                                 {bu === b.label && (
-                                  <BuJobsRow
-                                    buLabel={b.label}
-                                    allJobs={datasets.tetr.jobs}
-                                    onOpenJobModal={openJobModal}
-                                  />
+                                  <BuJobsRow buLabel={b.label} allJobs={datasets.tetr.jobs} onOpenJobModal={openJobModal} />
                                 )}
                               </Fragment>
                             ))}
@@ -1232,23 +865,13 @@ export default function Dashboard({ unitKey = 'overall' }) {
                                 </td>
                                 <td className="n">{fmt(b.manpower.openRoles)}</td>
                                 <td className="n">{fmt(b.manpower.total)}</td>
-                                <td className="n">
-                                  <MetricCellButton value={b.manpower.yetToOffer} onClick={() => openBuModal(b.label, data.jobs, 'yetToOffer')} />
-                                </td>
-                                <td className="n">
-                                  <MetricCellButton value={b.manpower.offered} onClick={() => openBuModal(b.label, data.jobs, 'offered')} />
-                                </td>
-                                <td className="n">
-                                  <MetricCellButton value={b.manpower.joined} onClick={() => openBuModal(b.label, data.jobs, 'joined')} />
-                                </td>
+                                <td className="n"><MetricCellButton value={b.manpower.yetToOffer} onClick={() => openBuModal(b.label, data.jobs, 'yetToOffer')} /></td>
+                                <td className="n"><MetricCellButton value={b.manpower.offered} onClick={() => openBuModal(b.label, data.jobs, 'offered')} /></td>
+                                <td className="n"><MetricCellButton value={b.manpower.joined} onClick={() => openBuModal(b.label, data.jobs, 'joined')} /></td>
                                 <td className="n">{fmt(b.manpower.pending)}</td>
                               </tr>
                               {bu === b.label && (
-                                <BuJobsRow
-                                  buLabel={b.label}
-                                  allJobs={data.jobs}
-                                  onOpenJobModal={openJobModal}
-                                />
+                                <BuJobsRow buLabel={b.label} allJobs={data.jobs} onOpenJobModal={openJobModal} />
                               )}
                             </Fragment>
                           ))
@@ -1266,41 +889,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
                         </tr>
                       </tfoot>
                     </table>
-                  </div>
-                </section>
-
-                <section>
-                  <h2>Candidate pipeline{bu !== 'all' ? ` · ${bu}` : ''}</h2>
-                  <div className="figs">
-                    <div><b>{fmt(cand.total)}</b><span>candidates in total</span></div>
-                    <div><b>{fmt(cand.last7)}</b><span>applied in the last 7 days</span></div>
-                    <div><b>{fmt(cand.last30)}</b><span>applied in the last 30 days</span></div>
-                  </div>
-                  <div className="grid2">
-                    <div className="panel">
-                      <h3>Applications per week</h3>
-                      <WeeklyChart weeks={cand.weeks} />
-                    </div>
-                    <div className="panel">
-                      <h3>Candidates by stage</h3>
-                      <Bars items={cand.stages} total={cand.total} />
-                    </div>
-                    <div className="panel">
-                      <h3>Source type</h3>
-                      <Bars items={cand.sourceTypes} total={cand.total} />
-                    </div>
-                    <div className="panel">
-                      <h3>Top sources</h3>
-                      <Bars items={cand.sources} />
-                    </div>
-                    <div className="panel">
-                      <h3>Candidates sourced by recruiter</h3>
-                      <Bars items={cand.recruiters} />
-                    </div>
-                    <div className="panel">
-                      <h3>Pre-offer status</h3>
-                      <Bars items={cand.preOffer} total={cand.preOffer.reduce((a, [, v]) => a + v, 0)} />
-                    </div>
                   </div>
                 </section>
 
@@ -1349,15 +937,9 @@ export default function Dashboard({ unitKey = 'overall' }) {
                             <td>{j.department}</td>
                             <td><StatusBadge status={j.status} /></td>
                             <td className="n">{fmt(j.total)}</td>
-                            <td className="n">
-                              <MetricCellButton value={j.yetToOffer} onClick={() => openJobModal(j, 'yetToOffer')} />
-                            </td>
-                            <td className="n">
-                              <MetricCellButton value={j.offered} onClick={() => openJobModal(j, 'offered')} />
-                            </td>
-                            <td className="n">
-                              <MetricCellButton value={j.joined} onClick={() => openJobModal(j, 'joined')} />
-                            </td>
+                            <td className="n"><MetricCellButton value={j.yetToOffer} onClick={() => openJobModal(j, 'yetToOffer')} /></td>
+                            <td className="n"><MetricCellButton value={j.offered} onClick={() => openJobModal(j, 'offered')} /></td>
+                            <td className="n"><MetricCellButton value={j.joined} onClick={() => openJobModal(j, 'joined')} /></td>
                             <td className="n strong">{fmt(j.pending)}</td>
                           </tr>
                         ))}
@@ -1389,10 +971,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
           </main>
 
           {modalData && (
-            <CandidateModal
-              modalData={modalData}
-              onClose={() => setModalData(null)}
-            />
+            <CandidateModal modalData={modalData} onClose={() => setModalData(null)} />
           )}
         </div>
       )}
