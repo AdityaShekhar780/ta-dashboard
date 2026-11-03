@@ -134,6 +134,7 @@ function isJoinedThisMonth(dateStr) {
 function matchesMetric(candidate, metricType) {
   const finalStat = norm(candidate.finalStatus);
   const rawStat = norm(candidate.status);
+  const preStat = norm(candidate.preOfferStatus);
   const effectiveStat = finalStat || rawStat;
 
   if (metricType === 'joined') {
@@ -150,6 +151,9 @@ function matchesMetric(candidate, metricType) {
     if (finalStat) {
       return (
         finalStat.includes('offer') &&
+        !finalStat.includes('yet to offer') &&
+        !finalStat.includes('pending for offer') &&
+        !finalStat.includes('make offer') &&
         !finalStat.includes('join') &&
         !finalStat.includes('reject') &&
         !finalStat.includes('drop') &&
@@ -159,6 +163,9 @@ function matchesMetric(candidate, metricType) {
     }
     return (
       (rawStat.includes('offer') || rawStat.includes('pending list')) &&
+      !rawStat.includes('yet to offer') &&
+      !rawStat.includes('pending for offer') &&
+      !rawStat.includes('make offer') &&
       !rawStat.includes('join') &&
       !rawStat.includes('activated') &&
       !rawStat.includes('reject') &&
@@ -169,16 +176,29 @@ function matchesMetric(candidate, metricType) {
   }
 
   if (metricType === 'yetToOffer') {
-    return (
-      !effectiveStat.includes('offer') &&
-      !effectiveStat.includes('join') &&
-      !effectiveStat.includes('reject') &&
-      !effectiveStat.includes('activated') &&
-      !effectiveStat.includes('pending') &&
-      !effectiveStat.includes('withdrawn') &&
-      !effectiveStat.includes('dropped') &&
-      !effectiveStat.includes('expired')
-    );
+    // Strictly match candidates whose status is explicitly "Yet to Offer" (or "Pending for Offer" / "Make Offer")
+    const isYetToOfferFinal =
+      finalStat === 'yet to offer' ||
+      finalStat.includes('yet to offer') ||
+      finalStat === 'pending for offer' ||
+      finalStat === 'make offer';
+
+    const isYetToOfferRaw =
+      rawStat === 'yet to offer' ||
+      rawStat.includes('yet to offer') ||
+      rawStat === 'pending for offer' ||
+      rawStat === 'make offer';
+
+    const isYetToOfferPre =
+      preStat === 'yet to offer' ||
+      preStat.includes('yet to offer') ||
+      preStat === 'pending for offer' ||
+      preStat === 'make offer';
+
+    if (finalStat) {
+      return isYetToOfferFinal;
+    }
+    return isYetToOfferRaw || isYetToOfferPre;
   }
 
   return true;
