@@ -205,8 +205,6 @@ function AccessGate({ children }) {
   }
 
   if (!isAuthorized) {
-    const useGoogleOAuth = GOOGLE_CLIENT_ID.includes('.apps.googleusercontent.com');
-
     return (
       <div className="page" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
         <div style={{ maxWidth: '430px', width: '100%', padding: '32px', borderRadius: '14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.14)', textAlign: 'center' }}>
@@ -215,40 +213,28 @@ function AccessGate({ children }) {
           <p className="muted" style={{ fontSize: '14px', marginBottom: '24px' }}>
             Enter your approved email address to view the Masters’ Union & TETR recruitment dashboard.
           </p>
-
-          {useGoogleOAuth ? (
-            <div ref={googleBtnRef} style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }} />
-          ) : (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                verifyEmail(emailInput);
-              }}
-              style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              verifyEmail(emailInput);
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+          >
+            <input
+              type="email"
+              required
+              placeholder="Enter your work email"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              style={{ padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.22)', background: 'rgba(0,0,0,0.35)', color: '#fff', fontSize: '15px' }}
+            />
+            <button
+              type="submit"
+              style={{ padding: '12px 16px', borderRadius: '8px', border: '1px solid #eab308', background: '#059669', color: '#fff', fontWeight: 600, fontSize: '15px', cursor: 'pointer' }}
             >
-              <input
-                type="email"
-                required
-                placeholder="Enter your work email"
-                value={emailInput}
-                onChange={(e) => setEmailInput(e.target.value)}
-                style={{ padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.22)', background: 'rgba(0,0,0,0.35)', color: '#fff', fontSize: '15px' }}
-              />
-              <button
-                type="submit"
-                style={{ padding: '12px 16px', borderRadius: '8px', border: '1px solid #eab308', background: '#059669', color: '#fff', fontWeight: 600, fontSize: '15px', cursor: 'pointer' }}
-              >
-                Verify Access
-              </button>
-            </form>
-          )}
-
-          {allowedUsers.length === 0 && !authError && (
-            <div style={{ marginTop: '16px', padding: '12px', borderRadius: '8px', background: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(234, 179, 8, 0.4)', color: '#fde047', fontSize: '13px' }}>
-              No emails published yet. Make sure your Google Sheet has an <b>Access</b> tab (Col A: Name, Col B: Email) and click <b>TA Dashboard &gt; Publish now</b>.
-            </div>
-          )}
-
+              Verify Access
+            </button>
+          </form>
           {authError && (
             <div style={{ marginTop: '16px', padding: '12px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#fca5a5', fontSize: '13px' }}>
               {authError}
@@ -290,7 +276,8 @@ function CandidateModal({ modalData, onClose }) {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: '#0f172a',
+          background: 'var(--modal-bg, #0f172a)',
+          color: 'var(--text-color, #f8fafc)',
           border: '1px solid rgba(255, 255, 255, 0.18)',
           borderRadius: '12px',
           width: '100%',
@@ -315,7 +302,7 @@ function CandidateModal({ modalData, onClose }) {
             <div style={{ fontSize: '12px', fontWeight: 600, color: '#eab308', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               {METRIC_LABELS[metricType] || 'Candidates'} · {subtitle}
             </div>
-            <h3 style={{ margin: '4px 0 0', fontSize: '18px', color: '#ffffff' }}>
+            <h3 style={{ margin: '4px 0 0', fontSize: '18px' }}>
               {title}
             </h3>
           </div>
@@ -329,7 +316,7 @@ function CandidateModal({ modalData, onClose }) {
                   borderRadius: '8px',
                   border: '1px solid rgba(255,255,255,0.2)',
                   background: 'rgba(255,255,255,0.06)',
-                  color: '#e2e8f0',
+                  color: 'inherit',
                   fontSize: '12px',
                   cursor: 'pointer',
                 }}
@@ -347,7 +334,7 @@ function CandidateModal({ modalData, onClose }) {
                 background: 'rgba(255,255,255,0.08)',
                 border: '1px solid rgba(255,255,255,0.15)',
                 borderRadius: '8px',
-                color: '#fff',
+                color: 'inherit',
                 width: '34px',
                 height: '34px',
                 fontSize: '18px',
@@ -362,7 +349,7 @@ function CandidateModal({ modalData, onClose }) {
         <div style={{ padding: '18px 22px', overflowY: 'auto', flex: 1 }}>
           {listToShow.length === 0 ? (
             <p className="muted" style={{ textAlign: 'center', padding: '24px 0' }}>
-              No candidate details found in the published JSON yet. Make sure you updated <b>Code.gs</b> in your Google Sheet and clicked <b>TA Dashboard &gt; Publish now</b>.
+              No candidate records found for this metric.
             </p>
           ) : (
             <div className="table-scroll">
@@ -387,7 +374,7 @@ function CandidateModal({ modalData, onClose }) {
                   {listToShow.map((c, idx) => (
                     <tr key={`${c.jobId || 'j'}-${c.email || c.name || 'cand'}-${idx}`}>
                       <td className="mono">{c.jobId || '—'}</td>
-                      <td style={{ fontWeight: 600, color: '#f8fafc' }}>{c.name || '—'}</td>
+                      <td style={{ fontWeight: 600 }}>{c.name || '—'}</td>
                       <td className="mono">{c.phone || '—'}</td>
                       <td>{c.email || '—'}</td>
                       <td><StatusBadge status={c.status} /></td>
@@ -472,7 +459,7 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal }) {
 
   return (
     <tr>
-      <td colSpan={7} style={{ padding: '14px 18px', background: 'rgba(0, 0, 0, 0.35)', borderBottom: '2px solid rgba(255,255,255,0.08)' }}>
+      <td colSpan={7} style={{ padding: '14px 18px', background: 'rgba(0, 0, 0, 0.2)', borderBottom: '2px solid rgba(128,128,128,0.15)' }}>
         <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '10px', color: '#eab308', letterSpacing: '0.02em' }}>
           {buLabel} — {fmt(buJobs.length)} Jobs (Sorted by Department · Click any blue pill under Yet to offer / Offered / Joined)
         </div>
@@ -495,7 +482,7 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal }) {
             <tbody>
               {buJobs.map((j) => (
                 <tr key={`${j.unitKey || 'u'}-${j.jobId}`}>
-                  <td style={{ fontWeight: 600, color: '#f8fafc' }}>{j.department || '—'}</td>
+                  <td style={{ fontWeight: 600 }}>{j.department || '—'}</td>
                   <td className="mono">{j.jobId}</td>
                   <td>{j.role || '—'}</td>
                   <td>{j.category || '—'}</td>
@@ -621,6 +608,29 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const [status, setStatus] = useState('all');
   const [showAll, setShowAll] = useState(false);
   const [modalData, setModalData] = useState(null);
+  
+  // Theme state: defaults to 'dark', or saved preference
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('ta_dashboard_theme') || 'dark';
+    }
+    return 'dark';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ta_dashboard_theme', theme);
+      if (theme === 'light') {
+        document.documentElement.classList.add('light-theme');
+      } else {
+        document.documentElement.classList.remove('light-theme');
+      }
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
   const lastStamp = useRef('');
 
   const openJobModal = useCallback((job, metricType) => {
@@ -814,7 +824,59 @@ export default function Dashboard({ unitKey = 'overall' }) {
   return (
     <AccessGate>
       {({ currentUser, onSignOut }) => (
-        <div className="page">
+        <div className={`page ${theme === 'light' ? 'light-mode-forced' : ''}`} style={theme === 'light' ? { background: '#f8fafc', color: '#0f172a' } : {}}>
+          {/* Inline style overrides for light mode elements if global CSS class needs assistance */}
+          <style jsx global>{`
+            .page.light-mode-forced {
+              background-color: #f1f5f9 !important;
+              color: #0f172a !important;
+            }
+            .page.light-mode-forced .top {
+              background: #ffffff !important;
+              border-bottom: 1px solid #cbd5e1 !important;
+            }
+            .page.light-mode-forced h1, .page.light-mode-forced h2, .page.light-mode-forced h3 {
+              color: #0f172a !important;
+            }
+            .page.light-mode-forced .kpis > div, 
+            .page.light-mode-forced .panel, 
+            .page.light-mode-forced .figs > div {
+              background: #ffffff !important;
+              border: 1px solid #cbd5e1 !important;
+              color: #1e293b !important;
+            }
+            .page.light-mode-forced table.bu-table, 
+            .page.light-mode-forced table.jobs {
+              background: #ffffff !important;
+              color: #1e293b !important;
+            }
+            .page.light-mode-forced table.bu-table th, 
+            .page.light-mode-forced table.jobs th {
+              background: #e2e8f0 !important;
+              color: #0f172a !important;
+            }
+            .page.light-mode-forced table.bu-table td, 
+            .page.light-mode-forced table.jobs td {
+              border-bottom: 1px solid #e2e8f0 !important;
+              color: #334155 !important;
+            }
+            .page.light-mode-forced .chip {
+              background: #ffffff !important;
+              border: 1px solid #cbd5e1 !important;
+              color: #334155 !important;
+            }
+            .page.light-mode-forced .chip.on {
+              background: #059669 !important;
+              color: #ffffff !important;
+            }
+            .page.light-mode-forced input[type="search"],
+            .page.light-mode-forced select {
+              background: #ffffff !important;
+              color: #0f172a !important;
+              border: 1px solid #cbd5e1 !important;
+            }
+          `}</style>
+
           <header className="top">
             <div className="top-inner">
               <div>
@@ -823,6 +885,29 @@ export default function Dashboard({ unitKey = 'overall' }) {
               </div>
               <div className="actions" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 {data && <span className="stamp">Data as of {updated} IST</span>}
+                
+                {/* Dark / Light Mode Toggle Button */}
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    background: theme === 'dark' ? 'rgba(255,255,255,0.08)' : '#e2e8f0',
+                    color: theme === 'dark' ? '#fde047' : '#0f172a',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
+                </button>
+
                 <button type="button" className="refresh" onClick={() => load(true)} disabled={refreshing}>
                   <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" className={refreshing ? 'spin' : ''}>
                     <path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -839,7 +924,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
                       borderRadius: '8px',
                       border: '1px solid rgba(255,255,255,0.2)',
                       background: 'rgba(255,255,255,0.06)',
-                      color: '#cbd5e1',
+                      color: 'inherit',
                       fontSize: '13px',
                       cursor: 'pointer',
                     }}
@@ -889,8 +974,8 @@ export default function Dashboard({ unitKey = 'overall' }) {
                           padding: '14px 18px',
                           borderRadius: '10px',
                           border: isSelected ? '2px solid #eab308' : '1px solid rgba(255, 255, 255, 0.14)',
-                          background: isSelected ? '#059669' : 'rgba(255, 255, 255, 0.05)',
-                          color: isSelected ? '#ffffff' : '#e2e8f0',
+                          background: isSelected ? '#059669' : (theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.05)'),
+                          color: isSelected ? '#ffffff' : (theme === 'light' ? '#0f172a' : '#e2e8f0'),
                           fontWeight: 600,
                           fontSize: '15px',
                           cursor: 'pointer',
@@ -905,8 +990,8 @@ export default function Dashboard({ unitKey = 'overall' }) {
                             fontWeight: 600,
                             padding: '3px 10px',
                             borderRadius: '999px',
-                            background: isSelected ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.1)',
-                            color: isSelected ? '#ffffff' : '#cbd5e1',
+                            background: isSelected ? 'rgba(0, 0, 0, 0.25)' : (theme === 'light' ? '#e2e8f0' : 'rgba(255, 255, 255, 0.1)'),
+                            color: isSelected ? '#ffffff' : (theme === 'light' ? '#334155' : '#cbd5e1'),
                           }}
                         >
                           {fmt(slicerCounts[u.key])} open roles
@@ -988,7 +1073,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
                               </Fragment>
                             ))}
                             {muTotals && (
-                              <tr style={{ fontWeight: 600, background: 'rgba(128,128,128,0.08)' }}>
+                              <tr style={{ fontWeight: 600 }}>
                                 <td>Subtotal · Masters’ Union</td>
                                 <td className="n">{fmt(muTotals.openRoles)}</td>
                                 <td className="n">{fmt(muTotals.total)}</td>
@@ -1029,7 +1114,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
                               </Fragment>
                             ))}
                             {tetrTotals && (
-                              <tr style={{ fontWeight: 600, background: 'rgba(128,128,128,0.08)' }}>
+                              <tr style={{ fontWeight: 600 }}>
                                 <td>Subtotal · TETR</td>
                                 <td className="n">{fmt(tetrTotals.openRoles)}</td>
                                 <td className="n">{fmt(tetrTotals.total)}</td>
