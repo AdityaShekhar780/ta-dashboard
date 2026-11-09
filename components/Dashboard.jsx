@@ -362,7 +362,7 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
   const height = 300;
   const padL = 46;
   const padR = 28;
-  const padT = 32;
+  const padT = 36;
   const padB = 46;
   const plotW = width - padL - padR;
   const plotH = height - padT - padB;
@@ -394,7 +394,7 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
     >
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '18px' }}>
         <div>
-          <p className="kicker" style={{ marginBottom: '4px' }}>Historical & Live Funnel Trends</p>
+          <p className="kicker" style={{ marginBottom: '4px' }}>Offered & Joining Trend</p>
           <h2 style={{ margin: 0 }}>Month-on-Month Offered vs. Joined</h2>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
             {selectedBu === 'all' ? 'All Business Units' : selectedBu} · Click any dot to view candidates for that month
@@ -421,11 +421,11 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '10px', fontSize: '13px', fontWeight: 600 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', color: '#38bdf8' }}>
           <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#38bdf8', display: 'inline-block' }} />
-          Offered (Col P = Offered)
+          Offered
         </span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', color: '#10b981' }}>
           <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
-          Joined (Col L = Joined)
+          Joined
         </span>
       </div>
 
@@ -475,7 +475,7 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
                   {d.label}
                 </text>
 
-                {/* Offered Dot + Value */}
+                {/* Offered Dot + Value (ABOVE dot) */}
                 <circle
                   cx={x}
                   cy={yOff}
@@ -493,13 +493,13 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
                     fill="#38bdf8"
                     fontSize="11"
                     fontWeight="700"
-                    onClick={() => onSelectPoint(d.label, d.offeredCandidates, 'momOffered')}
+                    onClick={() => d.offered > 0 && onSelectPoint(d.label, d.offeredCandidates, 'momOffered')}
                   >
                     {d.offered}
                   </text>
                 )}
 
-                {/* Joined Dot + Value */}
+                {/* Joined Dot + Value (BELOW dot) */}
                 <circle
                   cx={x}
                   cy={yJoin}
@@ -512,12 +512,12 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
                 {d.joined > 0 && (
                   <text
                     x={x}
-                    y={Math.abs(yOff - yJoin) < 14 ? yJoin + 16 : yJoin - 10}
+                    y={yJoin + 18}
                     textAnchor="middle"
                     fill="#10b981"
                     fontSize="11"
                     fontWeight="700"
-                    onClick={() => onSelectPoint(d.label, d.joinedCandidates, 'momJoined')}
+                    onClick={() => d.joined > 0 && onSelectPoint(d.label, d.joinedCandidates, 'momJoined')}
                   >
                     {d.joined}
                   </text>
