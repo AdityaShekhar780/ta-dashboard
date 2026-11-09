@@ -18,7 +18,19 @@ const METRIC_LABELS = {
   yetToOffer: 'Yet to Offer',
   offered: 'Offered',
   joined: 'Joined (Current Month)',
+  momOffered: 'Offered (Monthly)',
+  momJoined: 'Joined (Monthly)',
 };
+
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function formatYearMonth(ym) {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(ym || ''));
+  if (!m) return ym;
+  const yr = m[1].slice(2);
+  const idx = parseInt(m[2], 10) - 1;
+  return `${MONTH_NAMES[idx] || m[2]} '${yr}`;
+}
 
 function sumManpower(bus) {
   const out = { openRoles: 0, needToClose: 0, closedRoles: 0, total: 0, yetToOffer: 0, offered: 0, joined: 0, pending: 0 };
@@ -27,16 +39,6 @@ function sumManpower(bus) {
 }
 
 const todayIST = () => new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
-
-function decodeJwtPayload(token) {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    return JSON.parse(window.atob(base64));
-  } catch {
-    return null;
-  }
-}
 
 function toIsoDateStr(raw) {
   const s = String(raw ?? '').trim();
@@ -78,6 +80,10 @@ function isJoinedThisMonth(dateStr) {
 }
 
 function matchesMetric(candidate, metricType) {
+  if (metricType === 'momOffered' || metricType === 'momJoined') {
+    return true;
+  }
+
   const finalStat = norm(candidate.finalStatus);
   const rawStat = norm(candidate.status);
   const preStat = norm(candidate.preOfferStatus);
@@ -250,7 +256,7 @@ function CandidateModal({ modalData, onClose }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             {candidates.length > filteredCandidates.length && (
               <button type="button" onClick={() => setShowAllCandidates(!showAllCandidates)} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)', color: 'inherit', fontSize: '12px', cursor: 'pointer' }}>
-                {showAllCandidates ? `Show ${METRIC_LABELS[metricType]} only (${filteredCandidates.length})` : `Show all candidates for this role (${candidates.length})`}
+                {showAllCandidates ? `Show ${METRIC_LABELS[metricType]} only (${filteredCandidates.length})` : `Show all (${candidates.length})`}
               </button>
             )}
             <button type="button" onClick={onClose} aria-label="Close modal" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', color: 'inherit', width: '34px', height: '34px', fontSize: '18px', cursor: 'pointer' }}>&times;</button>
@@ -265,24 +271,22 @@ function CandidateModal({ modalData, onClose }) {
               <table className="jobs" style={{ margin: 0, width: '100%' }}>
                 <thead>
                   <tr>
-                    <th>Job ID</th>
+                    <th>Role / Job</th>
                     <th>Candidate Name</th>
                     <th>Contact Number</th>
                     <th>Email ID</th>
                     <th>Status</th>
                     <th>Recruiter</th>
-                    <th>Offer Shared Date</th>
-                    <th>Date Of Joining</th>
-                    <th className="n">Previous CTC</th>
-                    <th className="n">Offered CTC</th>
-                    <th className="n">Increment %</th>
-                    <th>Reporting Manager</th>
+                    <th>Offer Date</th>
+                    <th>Joining Date</th>
+                    <th>Channel / Source</th>
+                    <th>Department</th>
                   </tr>
                 </thead>
                 <tbody>
                   {listToShow.map((c, idx) => (
                     <tr key={`${c.jobId || 'j'}-${c.email || c.name || 'cand'}-${idx}`}>
-                      <td className="mono">{c.jobId || '—'}</td>
+                      <td className="mono">{c.jobId || c.role || '—'}</td>
                       <td style={{ fontWeight: 600 }}>{c.name || '—'}</td>
                       <td className="mono">{c.phone || '—'}</td>
                       <td>{c.email || '—'}</td>
@@ -290,12 +294,8 @@ function CandidateModal({ modalData, onClose }) {
                       <td>{c.recruiter || '—'}</td>
                       <td>{c.offerDate || '—'}</td>
                       <td>{c.joiningDate || '—'}</td>
-                      <td className="n">{c.previousCtc || '—'}</td>
-                      <td className="n">{c.offeredCtc || '—'}</td>
-                      <td className="n" style={{ fontWeight: 600, color: c.incrementPct === null || c.incrementPct === undefined ? '#94a3b8' : c.incrementPct >= 0 ? '#34d399' : '#f87171' }}>
-                        {c.incrementPct !== null && c.incrementPct !== undefined ? `${c.incrementPct > 0 ? '+' : ''}${c.incrementPct}%` : '—'}
-                      </td>
-                      <td>{c.manager || '—'}</td>
+                      <td>{[c.channel, c.source].filter((x) => x && x !== '—').join(' · ') || c.manager || '—'}</td>
+                      <td>{c.department || c.businessUnit || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -305,6 +305,229 @@ function CandidateModal({ modalData, onClose }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/* ---------- Month-on-Month Line Chart ---------- */
+
+function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
+  const [hoverIdx, setHoverIdx] = useState(null);
+
+  const chartData = useMemo(() => {
+    if (!Array.isArray(series) || series.length === 0) return [];
+    return series.map((item) => {
+      if (selectedBu === 'all') {
+        return {
+          month: item.month,
+          label: formatYearMonth(item.month),
+          offered: item.offered || 0,
+          joined: item.joined || 0,
+          offeredCandidates: item.offeredCandidates || [],
+          joinedCandidates: item.joinedCandidates || [],
+        };
+      }
+      const buStats = (item.byBu && item.byBu[selectedBu]) || { offered: 0, joined: 0 };
+      return {
+        month: item.month,
+        label: formatYearMonth(item.month),
+        offered: buStats.offered || 0,
+        joined: buStats.joined || 0,
+        offeredCandidates: (item.offeredCandidates || []).filter((c) => c.businessUnit === selectedBu),
+        joinedCandidates: (item.joinedCandidates || []).filter((c) => c.businessUnit === selectedBu),
+      };
+    });
+  }, [series, selectedBu]);
+
+  const totals = useMemo(() => {
+    let offered = 0;
+    let joined = 0;
+    for (const d of chartData) {
+      offered += d.offered;
+      joined += d.joined;
+    }
+    const ratio = offered > 0 ? Math.round((joined / offered) * 1000) / 10 : 0;
+    return { offered, joined, ratio };
+  }, [chartData]);
+
+  if (!chartData.length) {
+    return (
+      <section className="panel" style={{ marginTop: '24px', padding: '20px', borderRadius: '12px', background: theme === 'light' ? '#fff' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(128,128,128,0.2)' }}>
+        <h2 style={{ marginTop: 0 }}>Month-on-Month Offered vs. Joined</h2>
+        <p className="muted">No historical/live MoM data found yet. Make sure the <b>Master Offered</b> tab is populated and click <b>TA Dashboard &gt; Publish now</b> in your sheet.</p>
+      </section>
+    );
+  }
+
+  const width = Math.max(760, chartData.length * 58);
+  const height = 300;
+  const padL = 46;
+  const padR = 28;
+  const padT = 32;
+  const padB = 46;
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+
+  const maxVal = Math.max(5, ...chartData.flatMap((d) => [d.offered, d.joined]));
+  const yTicks = 5;
+  const stepVal = Math.ceil(maxVal / yTicks);
+  const yMax = stepVal * yTicks;
+
+  const getX = (i) => (chartData.length === 1 ? padL + plotW / 2 : padL + (i / (chartData.length - 1)) * plotW);
+  const getY = (val) => padT + plotH - (val / yMax) * plotH;
+
+  const offeredPoints = chartData.map((d, i) => `${getX(i)},${getY(d.offered)}`).join(' ');
+  const joinedPoints = chartData.map((d, i) => `${getX(i)},${getY(d.joined)}`).join(' ');
+
+  const gridColor = theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.09)';
+  const axisTextColor = theme === 'light' ? '#475569' : '#94a3b8';
+
+  return (
+    <section
+      className="panel"
+      style={{
+        marginTop: '24px',
+        padding: '22px',
+        borderRadius: '12px',
+        background: theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)',
+        border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.12)',
+      }}
+    >
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '18px' }}>
+        <div>
+          <p className="kicker" style={{ marginBottom: '4px' }}>Historical & Live Funnel Trends</p>
+          <h2 style={{ margin: 0 }}>Month-on-Month Offered vs. Joined</h2>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
+            {selectedBu === 'all' ? 'All Business Units' : selectedBu} · Click any dot to view candidates for that month
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
+          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.35)' }}>
+            <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#38bdf8', display: 'block', fontWeight: 600 }}>Total Offered</span>
+            <strong style={{ fontSize: '18px', color: '#38bdf8' }}>{fmt(totals.offered)}</strong>
+          </div>
+          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.35)' }}>
+            <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#10b981', display: 'block', fontWeight: 600 }}>Total Joined</span>
+            <strong style={{ fontSize: '18px', color: '#10b981' }}>{fmt(totals.joined)}</strong>
+          </div>
+          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(234, 179, 8, 0.12)', border: '1px solid rgba(234, 179, 8, 0.35)' }}>
+            <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#eab308', display: 'block', fontWeight: 600 }}>Joining Ratio</span>
+            <strong style={{ fontSize: '18px', color: '#eab308' }}>{totals.ratio}%</strong>
+          </div>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '10px', fontSize: '13px', fontWeight: 600 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', color: '#38bdf8' }}>
+          <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#38bdf8', display: 'inline-block' }} />
+          Offered (Col P = Offered)
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', color: '#10b981' }}>
+          <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+          Joined (Col L = Joined)
+        </span>
+      </div>
+
+      <div className="table-scroll" style={{ overflowX: 'auto', paddingBottom: '6px' }}>
+        <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', minWidth: `${width}px`, height: 'auto', display: 'block' }}>
+          {/* Horizontal Grid Lines & Y-Axis Labels */}
+          {Array.from({ length: yTicks + 1 }, (_, idx) => {
+            const val = idx * stepVal;
+            const y = getY(val);
+            return (
+              <g key={idx}>
+                <line x1={padL} y1={y} x2={width - padR} y2={y} stroke={gridColor} strokeDasharray={idx === 0 ? undefined : '4 4'} strokeWidth="1" />
+                <text x={padL - 10} y={y + 4} textAnchor="end" fill={axisTextColor} fontSize="11">
+                  {val}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Offered Line */}
+          <polyline fill="none" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={offeredPoints} />
+
+          {/* Joined Line */}
+          <polyline fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={joinedPoints} />
+
+          {/* Data Points & X-Axis Labels */}
+          {chartData.map((d, i) => {
+            const x = getX(i);
+            const yOff = getY(d.offered);
+            const yJoin = getY(d.joined);
+            const isHovered = hoverIdx === i;
+
+            return (
+              <g
+                key={d.month}
+                onMouseEnter={() => setHoverIdx(i)}
+                onMouseLeave={() => setHoverIdx(null)}
+                style={{ cursor: 'pointer' }}
+              >
+                {/* Vertical Hover Guide */}
+                {isHovered && (
+                  <line x1={x} y1={padT} x2={x} y2={padT + plotH} stroke="rgba(234, 179, 8, 0.5)" strokeWidth="1.5" strokeDasharray="3 3" />
+                )}
+
+                {/* X-Axis Month Label */}
+                <text x={x} y={height - 14} textAnchor="middle" fill={isHovered ? '#eab308' : axisTextColor} fontSize="11" fontWeight={isHovered ? '700' : '500'}>
+                  {d.label}
+                </text>
+
+                {/* Offered Dot + Value */}
+                <circle
+                  cx={x}
+                  cy={yOff}
+                  r={isHovered ? 6 : 4.5}
+                  fill="#38bdf8"
+                  stroke={theme === 'light' ? '#fff' : '#0f172a'}
+                  strokeWidth="2"
+                  onClick={() => d.offered > 0 && onSelectPoint(d.label, d.offeredCandidates, 'momOffered')}
+                />
+                {d.offered > 0 && (
+                  <text
+                    x={x}
+                    y={yOff - 10}
+                    textAnchor="middle"
+                    fill="#38bdf8"
+                    fontSize="11"
+                    fontWeight="700"
+                    onClick={() => onSelectPoint(d.label, d.offeredCandidates, 'momOffered')}
+                  >
+                    {d.offered}
+                  </text>
+                )}
+
+                {/* Joined Dot + Value */}
+                <circle
+                  cx={x}
+                  cy={yJoin}
+                  r={isHovered ? 6 : 4.5}
+                  fill="#10b981"
+                  stroke={theme === 'light' ? '#fff' : '#0f172a'}
+                  strokeWidth="2"
+                  onClick={() => d.joined > 0 && onSelectPoint(d.label, d.joinedCandidates, 'momJoined')}
+                />
+                {d.joined > 0 && (
+                  <text
+                    x={x}
+                    y={Math.abs(yOff - yJoin) < 14 ? yJoin + 16 : yJoin - 10}
+                    textAnchor="middle"
+                    fill="#10b981"
+                    fontSize="11"
+                    fontWeight="700"
+                    onClick={() => onSelectPoint(d.label, d.joinedCandidates, 'momJoined')}
+                  >
+                    {d.joined}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+    </section>
   );
 }
 
@@ -398,6 +621,43 @@ function StatusBadge({ status }) {
   return <span className={`badge ${cls}`}><i aria-hidden="true" />{status || '—'}</span>;
 }
 
+/* ---------- Merge MoM Series across MU + TETR ---------- */
+function mergeMomSeries(muSeries = [], tetrSeries = []) {
+  const map = {};
+  for (const item of [...muSeries, ...tetrSeries]) {
+    if (!item || !item.month) continue;
+    if (!map[item.month]) {
+      map[item.month] = {
+        month: item.month,
+        offered: 0,
+        joined: 0,
+        byBu: {},
+        offeredCandidates: [],
+        joinedCandidates: [],
+      };
+    }
+    const target = map[item.month];
+    target.offered += item.offered || 0;
+    target.joined += item.joined || 0;
+    if (item.byBu) {
+      for (const [buName, counts] of Object.entries(item.byBu)) {
+        if (!target.byBu[buName]) target.byBu[buName] = { offered: 0, joined: 0 };
+        target.byBu[buName].offered += counts.offered || 0;
+        target.byBu[buName].joined += counts.joined || 0;
+      }
+    }
+    if (Array.isArray(item.offeredCandidates)) {
+      target.offeredCandidates.push(...item.offeredCandidates);
+    }
+    if (Array.isArray(item.joinedCandidates)) {
+      target.joinedCandidates.push(...item.joinedCandidates);
+    }
+  }
+  return Object.keys(map)
+    .sort()
+    .map((m) => map[m]);
+}
+
 /* ---------- main ---------- */
 
 export default function Dashboard({ unitKey = 'overall' }) {
@@ -458,6 +718,15 @@ export default function Dashboard({ unitKey = 'overall' }) {
       metricType,
     });
   }, []);
+
+  const openMomModal = useCallback((monthLabel, candidates, metricType) => {
+    setModalData({
+      title: `${monthLabel} — ${METRIC_LABELS[metricType]}`,
+      subtitle: bu === 'all' ? 'All Business Units' : bu,
+      candidates: candidates || [],
+      metricType,
+    });
+  }, [bu]);
 
   const handleSelectUnit = (key) => {
     setActiveUnit(key);
@@ -534,6 +803,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
         ...(mu.jobs || []).map((j) => ({ ...j, unitKey: 'mu', unitLabel: 'Masters’ Union' })),
         ...(tetr.jobs || []).map((j) => ({ ...j, unitKey: 'tetr', unitLabel: 'TETR' })),
       ],
+      momSeries: mergeMomSeries(mu.momSeries, tetr.momSeries),
       checks: [
         ...(mu.checks || []),
         ...(tetr.checks || []),
@@ -908,6 +1178,14 @@ export default function Dashboard({ unitKey = 'overall' }) {
                     </table>
                   </div>
                 </section>
+
+                {/* Month-on-Month Offered & Joined Line Chart */}
+                <MomLineChart
+                  series={data.momSeries || []}
+                  selectedBu={bu}
+                  theme={theme}
+                  onSelectPoint={openMomModal}
+                />
 
                 {checks.length > 0 && (
                   <details className="checks">
