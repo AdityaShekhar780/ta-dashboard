@@ -135,7 +135,7 @@ function matchesMetric(candidate, metricType) {
     const isYetToOfferRaw =
       rawStat === 'yet to offer' ||
       rawStat.includes('yet to offer') ||
-      rawStat.includes('pending for offer') ||
+      rawStat === 'pending for offer' ||
       rawStat === 'make offer';
 
     const isYetToOfferPre =
@@ -885,7 +885,7 @@ function ChannelAnalysisSection({
   );
 }
 
-/* ---------- Recruiter Performance Section (Confidential-Safe, Grouped by Lateral & Bulk) ---------- */
+/* ---------- Recruiter Performance Section (Monthly Target * 3 for QTD, Direct Master Offered Totals) ---------- */
 
 function RecruiterPerformanceSection({
   recruiterPerformance,
@@ -899,7 +899,15 @@ function RecruiterPerformanceSection({
     if (selectedBu !== 'all' && recruiterPerformanceByBu && recruiterPerformanceByBu[selectedBu]) {
       return recruiterPerformanceByBu[selectedBu];
     }
-    return recruiterPerformance || { months: [], quarterMonths: [], minimumRoiTarget: 10, recruiters: [] };
+    return recruiterPerformance || {
+      months: [],
+      quarterMonths: [],
+      monthlyRoiTarget: 10,
+      quarterlyRoiTarget: 30,
+      overallRoiTarget: 10,
+      sheetTotals: {},
+      recruiters: []
+    };
   }, [recruiterPerformance, recruiterPerformanceByBu, selectedBu]);
 
   const displayedMonths = useMemo(() => {
@@ -909,7 +917,14 @@ function RecruiterPerformanceSection({
     return activePerf.months || [];
   }, [viewScope, activePerf]);
 
-  const minRoiTarget = activePerf.minimumRoiTarget || 10;
+  const monthlyRoiTarget = activePerf.monthlyRoiTarget || 10;
+  // Quarterly ROI target is Monthly Target * 3 (10x * 3 = 30x)
+  const periodRoiTarget = useMemo(() => {
+    if (viewScope === 'qtd') {
+      return activePerf.quarterlyRoiTarget || monthlyRoiTarget * 3;
+    }
+    return activePerf.overallRoiTarget || monthlyRoiTarget * Math.max(1, displayedMonths.length);
+  }, [viewScope, activePerf, monthlyRoiTarget, displayedMonths.length]);
 
   const groupedRecruiters = useMemo(() => {
     const list = Array.isArray(activePerf.recruiters) ? activePerf.recruiters : [];
@@ -921,33 +936,60 @@ function RecruiterPerformanceSection({
     ].filter((g) => g.items.length > 0);
   }, [activePerf]);
 
+  // Helper to get scaled target for a recruiter (Monthly Target * 3 for QTD)
+  const getRecruiterPeriodTarget = useCallback((r) => {
+    const mTarget = Number(r.monthlyTarget ?? r.target ?? 0);
+    if (viewScope === 'qtd') {
+      return Number(r.quarterlyTarget ?? mTarget * 3);
+    }
+    return Number(r.overallTarget ?? mTarget * Math.max(1, displayedMonths.length));
+  }, [viewScope, displayedMonths.length]);
+
   const summaryKpis = useMemo(() => {
     const list = Array.isArray(activePerf.recruiters) ? activePerf.recruiters : [];
+    const sheetTotals = activePerf.sheetTotals || {};
     let totalTarget = 0;
-    let totalOffered = 0;
-    let totalJoined = 0;
-    let above10x = 0;
+    let sumRecOffered = 0;
+    let sumRecJoined = 0;
+    let metTargetCount = 0;
 
     list.forEach((r) => {
       const bucket = viewScope === 'qtd' ? (r.qtd || {}) : (r.overall || {});
-      totalTarget += r.target || 0;
-      totalOffered += bucket.offered || 0;
-      totalJoined += bucket.joined || 0;
-      if ((bucket.roi || 0) >= minRoiTarget) above10x++;
+      totalTarget += getRecruiterPeriodTarget(r);
+      sumRecOffered += bucket.offered || 0;
+      sumRecJoined += bucket.joined || 0;
+      if ((bucket.roi || 0) >= periodRoiTarget) metTargetCount++;
     });
 
-    return { totalTarget, totalOffered, totalJoined, above10x, totalRecruiters: list.length };
-  }, [activePerf, viewScope, minRoiTarget]);
+    // Pull Grand Totals directly from Master Offered sheetTotals (so departed Oct recruiters are included)
+    const directPeriod = viewScope === 'qtd' ? sheetTotals.qtd : sheetTotals.overall;
+    const totalOffered = directPeriod && typeof directPeriod.offered === 'number' ? directPeriod.offered : sumRecOffered;
+    const totalJoined = directPeriod && typeof directPeriod.joined === 'number' ? directPeriod.joined : sumRecJoined;
+
+    const unlistedPeriod = viewScope === 'qtd' ? sheetTotals.unlistedQtd : sheetTotals.unlistedOverall;
+    const unlistedOffered = unlistedPeriod ? (unlistedPeriod.offered || 0) : Math.max(0, totalOffered - sumRecOffered);
+    const unlistedJoined = unlistedPeriod ? (unlistedPeriod.joined || 0) : Math.max(0, totalJoined - sumRecJoined);
+
+    return {
+      totalTarget,
+      totalOffered,
+      totalJoined,
+      unlistedOffered,
+      unlistedJoined,
+      metTargetCount,
+      totalRecruiters: list.length
+    };
+  }, [activePerf, viewScope, periodRoiTarget, getRecruiterPeriodTarget]);
 
   const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
   const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.12)';
   const textColor = theme === 'light' ? '#0f172a' : '#f8fafc';
   const mutedColor = theme === 'light' ? '#475569' : '#94a3b8';
 
-  const renderRoiBadge = (roiVal) => {
+  const renderRoiBadge = (roiVal, targetBench) => {
     const val = Number(roiVal) || 0;
-    const isMet = val >= minRoiTarget;
-    const isMid = val >= 5 && val < minRoiTarget;
+    const isMet = val >= targetBench;
+    const isMid = val >= targetBench * 0.5 && val < targetBench;
     const bg = isMet
       ? 'rgba(16, 185, 129, 0.16)'
       : isMid
@@ -974,6 +1016,8 @@ function RecruiterPerformanceSection({
     );
   };
 
+  const sheetTotals = activePerf.sheetTotals || {};
+
   return (
     <section
       className="panel"
@@ -993,14 +1037,14 @@ function RecruiterPerformanceSection({
           <p className="kicker" style={{ marginBottom: '4px' }}>Recruiter Efficiency & ROI</p>
           <h2 style={{ margin: 0, fontSize: '22px' }}>Recruiter Performance</h2>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
-            {selectedBu === 'all' ? 'All Business Units' : selectedBu} · Grouped by Hiring Type (Lateral & Bulk) · Baseline Target: {minRoiTarget}x ROI
+            {selectedBu === 'all' ? 'All Business Units' : selectedBu} · Monthly Target: {monthlyRoiTarget}x ROI · Quarterly Target (×3): {monthlyRoiTarget * 3}x ROI
           </p>
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
           <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.35)' }}>
             <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#38bdf8', display: 'block', fontWeight: 600 }}>
-              {viewScope === 'qtd' ? 'QTD Offered / Joined' : 'Overall Offered / Joined'}
+              {viewScope === 'qtd' ? 'QTD Master Offered / Joined' : 'Overall Master Offered / Joined'}
             </span>
             <strong style={{ fontSize: '17px', color: '#38bdf8' }}>
               {fmt(summaryKpis.totalOffered)} / {fmt(summaryKpis.totalJoined)}
@@ -1009,7 +1053,7 @@ function RecruiterPerformanceSection({
 
           <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.35)' }}>
             <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#10b981', display: 'block', fontWeight: 600 }}>
-              Target Joinings
+              {viewScope === 'qtd' ? 'QTD Target (Monthly × 3)' : 'Overall Target'}
             </span>
             <strong style={{ fontSize: '17px', color: '#10b981' }}>
               {fmt(summaryKpis.totalJoined)} / {fmt(summaryKpis.totalTarget)}
@@ -1018,10 +1062,10 @@ function RecruiterPerformanceSection({
 
           <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(234, 179, 8, 0.12)', border: '1px solid rgba(234, 179, 8, 0.35)' }}>
             <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#eab308', display: 'block', fontWeight: 600 }}>
-              ≥ {minRoiTarget}x ROI Achieved
+              ≥ {periodRoiTarget}x ROI Achieved
             </span>
             <strong style={{ fontSize: '17px', color: '#eab308' }}>
-              {summaryKpis.above10x} / {summaryKpis.totalRecruiters}
+              {summaryKpis.metTargetCount} / {summaryKpis.totalRecruiters}
             </strong>
           </div>
 
@@ -1040,7 +1084,7 @@ function RecruiterPerformanceSection({
               cursor: 'pointer',
             }}
           >
-            <option value="qtd" style={{ background: '#0f172a', color: '#fff' }}>Current Quarter (QTD)</option>
+            <option value="qtd" style={{ background: '#0f172a', color: '#fff' }}>Current Quarter (QTD · Target ×3)</option>
             <option value="overall" style={{ background: '#0f172a', color: '#fff' }}>Overall (MoM Matrix)</option>
           </select>
         </div>
@@ -1066,6 +1110,9 @@ function RecruiterPerformanceSection({
         <span><b style={{ color: '#10b981' }}>100%</b> Internal · Careers Page · Campus</span>
         <span><b style={{ color: '#eab308' }}>20%</b> Employee Referral · Business Reference</span>
         <span><b style={{ color: '#f87171' }}>0%</b> External & Interns</span>
+        <span style={{ marginLeft: 'auto' }}>
+          Monthly Baseline: <b>{monthlyRoiTarget}x</b> · Quarterly Baseline (×3): <b>{monthlyRoiTarget * 3}x</b>
+        </span>
       </div>
 
       {groupedRecruiters.length === 0 ? (
@@ -1074,24 +1121,27 @@ function RecruiterPerformanceSection({
         </p>
       ) : (
         <div className="table-scroll" style={{ width: '100%', overflowX: 'auto' }}>
-          <table className="jobs" style={{ margin: 0, width: '100%', minWidth: `${Math.max(880, 520 + displayedMonths.length * 125)}px` }}>
+          <table className="jobs" style={{ margin: 0, width: '100%', minWidth: `${Math.max(920, 560 + displayedMonths.length * 125)}px` }}>
             <thead>
               <tr>
                 <th style={{ position: 'sticky', left: 0, zIndex: 2, background: theme === 'light' ? '#e2e8f0' : '#1e293b' }}>Recruiter Name</th>
                 <th>Hiring Type</th>
-                <th className="n">Target (Joinings)</th>
+                <th className="n">
+                  {viewScope === 'qtd' ? 'Qtr Target (×3)' : 'Target (Joinings)'}
+                  <div style={{ fontSize: '10px', fontWeight: 500, opacity: 0.75 }}>Monthly × {viewScope === 'qtd' ? 3 : displayedMonths.length}</div>
+                </th>
                 {displayedMonths.map((ym) => (
                   <th key={ym} className="n" style={{ minWidth: '115px' }}>
                     {formatYearMonth(ym)}
-                    <div style={{ fontSize: '10px', fontWeight: 500, opacity: 0.75 }}>Off / Join · ROI</div>
+                    <div style={{ fontSize: '10px', fontWeight: 500, opacity: 0.75 }}>Off / Join · ROI (10x)</div>
                   </th>
                 ))}
                 <th className="n">
                   {viewScope === 'qtd' ? 'QTD (Off / Join)' : 'Total (Off / Join)'}
                 </th>
                 <th className="n">Target Attainment</th>
-                <th className="n">{viewScope === 'qtd' ? 'QTD ROI' : 'Overall ROI'}</th>
-                <th className="n">10x Target Status</th>
+                <th className="n">{viewScope === 'qtd' ? 'QTD ROI (30x)' : `Overall ROI (${periodRoiTarget}x)`}</th>
+                <th className="n">{periodRoiTarget}x Target Status</th>
               </tr>
             </thead>
             <tbody>
@@ -1124,9 +1174,10 @@ function RecruiterPerformanceSection({
                       const offered = periodStats.offered || 0;
                       const joined = periodStats.joined || 0;
                       const roi = Number(periodStats.roi) || 0;
-                      const target = Number(r.target) || 0;
+                      const monthlyTarget = Number(r.monthlyTarget ?? r.target ?? 0);
+                      const target = getRecruiterPeriodTarget(r);
                       const attainmentPct = target > 0 ? Math.round((joined / target) * 100) : 0;
-                      const roiGap = Math.max(0, Math.round((minRoiTarget - roi) * 10) / 10);
+                      const roiGap = Math.max(0, Math.round((periodRoiTarget - roi) * 10) / 10);
 
                       groupTarget += target;
                       groupOffered += offered;
@@ -1159,7 +1210,16 @@ function RecruiterPerformanceSection({
                               {r.hiringType}
                             </span>
                           </td>
-                          <td className="n" style={{ fontWeight: 600 }}>{target > 0 ? fmt(target) : '—'}</td>
+                          <td className="n" style={{ fontWeight: 600 }}>
+                            {target > 0 ? (
+                              <div>
+                                <span>{fmt(target)}</span>
+                                <span style={{ display: 'block', fontSize: '10px', color: mutedColor }}>
+                                  ({fmt(monthlyTarget)}/mo)
+                                </span>
+                              </div>
+                            ) : '—'}
+                          </td>
 
                           {displayedMonths.map((ym) => {
                             const mStat = (r.byMonth && r.byMonth[ym]) || { offered: 0, joined: 0, roi: 0 };
@@ -1183,8 +1243,8 @@ function RecruiterPerformanceSection({
                                         fontSize: '11px',
                                         padding: '1px 6px',
                                         borderRadius: '4px',
-                                        background: mRoi >= minRoiTarget ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.07)',
-                                        color: mRoi >= minRoiTarget ? '#10b981' : mutedColor,
+                                        background: mRoi >= monthlyRoiTarget ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.07)',
+                                        color: mRoi >= monthlyRoiTarget ? '#10b981' : mutedColor,
                                         fontWeight: 600,
                                       }}
                                     >
@@ -1223,13 +1283,13 @@ function RecruiterPerformanceSection({
                             )}
                           </td>
 
-                          <td className="n">{renderRoiBadge(roi)}</td>
+                          <td className="n">{renderRoiBadge(roi, periodRoiTarget)}</td>
 
                           <td className="n" style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>
-                            {roi >= minRoiTarget ? (
+                            {roi >= periodRoiTarget ? (
                               <span style={{ color: '#10b981', fontWeight: 600 }}>✓ Achieved ({roi.toFixed(1)}x)</span>
                             ) : (
-                              <span style={{ color: '#eab308', fontWeight: 500 }}>Needs +{roiGap.toFixed(1)}x to 10x</span>
+                              <span style={{ color: '#eab308', fontWeight: 500 }}>Needs +{roiGap.toFixed(1)}x to {periodRoiTarget}x</span>
                             )}
                           </td>
                         </tr>
@@ -1276,7 +1336,84 @@ function RecruiterPerformanceSection({
                   </Fragment>
                 );
               })}
+
+              {/* Former / Unlisted Recruiters Row (so totals reconcile 100% with Master Offered) */}
+              {(summaryKpis.unlistedOffered > 0 || summaryKpis.unlistedJoined > 0) && (
+                <tr style={{ fontStyle: 'italic', color: mutedColor, background: theme === 'light' ? '#fffbeb' : 'rgba(234, 179, 8, 0.05)' }}>
+                  <td
+                    style={{
+                      position: 'sticky',
+                      left: 0,
+                      zIndex: 1,
+                      background: theme === 'light' ? '#fffbeb' : '#171c28',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Former / Unlisted Recruiters
+                  </td>
+                  <td>—</td>
+                  <td className="n">—</td>
+                  {displayedMonths.map((ym) => {
+                    const uStat = (sheetTotals.unlistedByMonth && sheetTotals.unlistedByMonth[ym]) || { offered: 0, joined: 0 };
+                    return (
+                      <td key={ym} className="n">
+                        {uStat.offered === 0 && uStat.joined === 0 ? (
+                          '—'
+                        ) : (
+                          <span>
+                            <span style={{ color: '#38bdf8' }}>{fmt(uStat.offered)}</span> / <span style={{ color: '#10b981' }}>{fmt(uStat.joined)}</span>
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="n" style={{ fontWeight: 700 }}>
+                    <span style={{ color: '#38bdf8' }}>{fmt(summaryKpis.unlistedOffered)}</span>
+                    {' / '}
+                    <span style={{ color: '#10b981' }}>{fmt(summaryKpis.unlistedJoined)}</span>
+                  </td>
+                  <td className="n">—</td>
+                  <td className="n">—</td>
+                  <td className="n">—</td>
+                </tr>
+              )}
             </tbody>
+
+            {/* Grand Total Footer Directly from Master Offered */}
+            <tfoot>
+              <tr style={{ fontWeight: 800, background: theme === 'light' ? '#e2e8f0' : 'rgba(16, 185, 129, 0.12)' }}>
+                <td
+                  style={{
+                    position: 'sticky',
+                    left: 0,
+                    zIndex: 1,
+                    background: theme === 'light' ? '#e2e8f0' : '#0f292a',
+                  }}
+                >
+                  Total (Direct from Master Offered)
+                </td>
+                <td>All</td>
+                <td className="n">{fmt(summaryKpis.totalTarget)}</td>
+                {displayedMonths.map((ym) => {
+                  const dMonth = (sheetTotals.byMonth && sheetTotals.byMonth[ym]) || { offered: 0, joined: 0 };
+                  return (
+                    <td key={ym} className="n">
+                      <span style={{ color: '#38bdf8' }}>{fmt(dMonth.offered)}</span> / <span style={{ color: '#10b981' }}>{fmt(dMonth.joined)}</span>
+                    </td>
+                  );
+                })}
+                <td className="n">
+                  <span style={{ color: '#38bdf8' }}>{fmt(summaryKpis.totalOffered)}</span> / <span style={{ color: '#10b981' }}>{fmt(summaryKpis.totalJoined)}</span>
+                </td>
+                <td className="n">
+                  {summaryKpis.totalTarget > 0
+                    ? `${Math.round((summaryKpis.totalJoined / summaryKpis.totalTarget) * 100)}%`
+                    : '—'}
+                </td>
+                <td className="n">—</td>
+                <td className="n">—</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}
