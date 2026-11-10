@@ -471,7 +471,7 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
   );
 }
 
-/* ---------- Channel Analysis Section (Full-width Master Panel Matching MoM Chart View) ---------- */
+/* ---------- Channel Analysis Section (Polished Layout, Internal Metrics, & Data Labels) ---------- */
 
 function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = {}, channelMomSeries = [], channelMomByBu = {}, selectedBu, theme }) {
   
@@ -499,14 +499,26 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
     return Object.values(activeBreakdown).reduce((a, b) => a + b, 0);
   }, [activeBreakdown]);
 
+  const internalJoinings = useMemo(() => {
+    return (activeBreakdown['Internal'] || 0) + 
+           (activeBreakdown['Campus'] || 0) + 
+           (activeBreakdown['Careers Page'] || 0) + 
+           (activeBreakdown['Employee Referrals'] || 0);
+  }, [activeBreakdown]);
+
+  const internalContributionPct = useMemo(() => {
+    if (totalJoinings === 0) return 0;
+    return Math.round((internalJoinings / totalJoinings) * 1000) / 10;
+  }, [internalJoinings, totalJoinings]);
+
   const colors = ['#38bdf8', '#34d399', '#facc15', '#a78bfa', '#fb923c', '#f472b6'];
 
-  const width = Math.max(800, activeMomSeries.length * 60);
-  const height = 280;
+  const width = Math.max(900, activeMomSeries.length * 65);
+  const height = 300;
   const padL = 45;
   const padR = 30;
-  const padT = 30;
-  const padB = 40;
+  const padT = 35;
+  const padB = 45;
   const plotW = width - padL - padR;
   const plotH = height - padT - padB;
 
@@ -517,10 +529,6 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
 
   const getX = (i) => (activeMomSeries.length <= 1 ? padL + plotW / 2 : padL + (i / (activeMomSeries.length - 1)) * plotW);
   const getY = (val) => padT + plotH - (val / yMax) * plotH;
-
-  const internalPoints = activeMomSeries.map((d, i) => `${getX(i)},${getY(d.internalGroup || 0)}`).join(' ');
-  const businessPoints = activeMomSeries.map((d, i) => `${getX(i)},${getY(d.businessReference || 0)}`).join(' ');
-  const externalPoints = activeMomSeries.map((d, i) => `${getX(i)},${getY(d.external || 0)}`).join(' ');
 
   const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
   const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.12)';
@@ -538,10 +546,11 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
         background: cardBg,
         border: `1px solid ${borderColor}`,
         color: textColor,
+        boxSizing: 'border-box',
+        overflow: 'hidden',
       }}
     >
-      {/* Header matching top chart view */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '22px' }}>
         <div>
           <p className="kicker" style={{ marginBottom: '4px' }}>Acquisition Analytics</p>
           <h2 style={{ margin: 0, fontSize: '22px' }}>Channel Analysis</h2>
@@ -550,48 +559,38 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ padding: '10px 18px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.35)', textAlign: 'right' }}>
-            <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#38bdf8', display: 'block', fontWeight: 600 }}>Total Joinings</span>
-            <strong style={{ fontSize: '20px', color: '#38bdf8' }}>{fmt(totalJoinings)}</strong>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
+          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.35)', textAlign: 'center' }}>
+            <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#38bdf8', display: 'block', fontWeight: 600 }}>Total Joinings</span>
+            <strong style={{ fontSize: '16px', color: '#38bdf8' }}>{fmt(totalJoinings)}</strong>
+          </div>
+          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(52, 211, 153, 0.12)', border: '1px solid rgba(52, 211, 153, 0.35)', textAlign: 'center' }}>
+            <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#34d399', display: 'block', fontWeight: 600 }}>Internal Joinings</span>
+            <strong style={{ fontSize: '16px', color: '#34d399' }}>{fmt(internalJoinings)}</strong>
+          </div>
+          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(234, 179, 8, 0.12)', border: '1px solid rgba(234, 179, 8, 0.35)', textAlign: 'center' }}>
+            <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#eab308', display: 'block', fontWeight: 600 }}>Internal Contr.</span>
+            <strong style={{ fontSize: '16px', color: '#eab308' }}>{internalContributionPct}%</strong>
           </div>
         </div>
       </div>
 
-      {/* Legend */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '18px', marginBottom: '14px', fontSize: '12px', fontWeight: 600 }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8' }}>
-          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#38bdf8', display: 'inline-block' }} />
-          Internal Group
-        </span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#34d399' }}>
-          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#34d399', display: 'inline-block' }} />
-          Business Reference
-        </span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#fb923c' }}>
-          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fb923c', display: 'inline-block' }} />
-          External
-        </span>
-      </div>
-
-      {/* Side-by-Side Grid with Matched Heights */}
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 7fr', gap: '24px', alignItems: 'stretch' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '4fr 8fr', gap: '24px', alignItems: 'stretch' }}>
         
-        {/* Left Sub-Panel: Channel Breakdown List */}
         <div style={{ padding: '18px', borderRadius: '10px', background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.2)', border: `1px solid ${borderColor}`, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', boxSizing: 'border-box' }}>
           <div>
-            <h3 style={{ margin: '0 0 14px', fontSize: '15px', fontWeight: 600 }}>Joinings by Channel</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Joinings by Channel</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {channelsList.map((item, idx) => {
                 const barColor = colors[idx % colors.length];
                 return (
-                  <div key={item.channel} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 500 }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: barColor, display: 'inline-block' }} />
-                        {item.channel}
+                  <div key={item.channel} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', fontWeight: 500 }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: barColor, display: 'inline-block', flexShrink: 0 }} />
+                        <span>{item.channel}</span>
                       </span>
-                      <span>
+                      <span style={{ whiteSpace: 'nowrap', marginLeft: '8px' }}>
                         <b>{fmt(item.count)}</b> <span style={{ color: axisTextColor, fontSize: '11px' }}>({item.pct}%)</span>
                       </span>
                     </div>
@@ -605,14 +604,31 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
           </div>
         </div>
 
-        {/* Right Sub-Panel: MoM Grouped Trend Line Chart */}
-        <div style={{ padding: '18px', borderRadius: '10px', background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.2)', border: `1px solid ${borderColor}`, height: '100%', boxSizing: 'border-box' }}>
-          <h3 style={{ margin: '0 0 10px', fontSize: '15px', fontWeight: 600 }}>MoM Grouped Channel Trend</h3>
+        <div style={{ padding: '18px', borderRadius: '10px', background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.2)', border: `1px solid ${borderColor}`, height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>MoM Grouped Channel Trend</h3>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '11px', fontWeight: 600 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#38bdf8' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8', display: 'inline-block' }} />
+                Internal Group
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#34d399' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34d399', display: 'inline-block' }} />
+                Business Ref.
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#fb923c' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fb923c', display: 'inline-block' }} />
+                External
+              </span>
+            </div>
+          </div>
+
           {activeMomSeries.length === 0 ? (
             <p className="muted" style={{ textAlign: 'center', padding: '50px 0' }}>No channel trend data available for this Business Unit.</p>
           ) : (
-            <div className="table-scroll" style={{ overflowX: 'auto', paddingBottom: '4px' }}>
+            <div className="table-scroll" style={{ overflowX: 'auto', paddingBottom: '8px' }}>
               <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', minWidth: `${width}px`, height: 'auto', display: 'block' }}>
                 {Array.from({ length: yTicks + 1 }, (_, idx) => {
                   const val = idx * stepVal;
@@ -625,25 +641,53 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
                   );
                 })}
 
-                <polyline fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={internalPoints} />
-                <polyline fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={businessPoints} />
-                <polyline fill="none" stroke="#fb923c" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={externalPoints} />
-
                 {activeMomSeries.map((d, i) => {
                   const x = getX(i);
                   const yInt = getY(d.internalGroup || 0);
                   const yBus = getY(d.businessReference || 0);
                   const yExt = getY(d.external || 0);
 
+                  const nextD = activeMomSeries[i + 1];
+                  const hasNext = nextD !== undefined;
+                  const nextX = hasNext ? getX(i + 1) : 0;
+                  const nextYInt = hasNext ? getY(nextD.internalGroup || 0) : 0;
+                  const nextYBus = hasNext ? getY(nextD.businessReference || 0) : 0;
+                  const nextYExt = hasNext ? getY(nextD.external || 0) : 0;
+
                   return (
                     <g key={d.month}>
+                      {hasNext && (
+                        <>
+                          <line x1={x} y1={yInt} x2={nextX} y2={nextYInt} stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" />
+                          <line x1={x} y1={yBus} x2={nextX} y2={nextYBus} stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" />
+                          <line x1={x} y1={yExt} x2={nextX} y2={nextYExt} stroke="#fb923c" strokeWidth="2.5" strokeLinecap="round" />
+                        </>
+                      )}
+
                       <text x={x} y={height - 12} textAnchor="middle" fill={axisTextColor} fontSize="10" fontWeight="500">
                         {formatYearMonth(d.month)}
                       </text>
 
                       <circle cx={x} cy={yInt} r={3.5} fill="#38bdf8" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
+                      {d.internalGroup > 0 && (
+                        <text x={x} y={yInt - 7} textAnchor="middle" fill="#38bdf8" fontSize="9" fontWeight="700">
+                          {d.internalGroup}
+                        </text>
+                      )}
+
                       <circle cx={x} cy={yBus} r={3.5} fill="#34d399" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
+                      {d.businessReference > 0 && (
+                        <text x={x} y={yBus - 7} textAnchor="middle" fill="#34d399" fontSize="9" fontWeight="700">
+                          {d.businessReference}
+                        </text>
+                      )}
+
                       <circle cx={x} cy={yExt} r={3.5} fill="#fb923c" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
+                      {d.external > 0 && (
+                        <text x={x} y={yExt + 14} textAnchor="middle" fill="#fb923c" fontSize="9" fontWeight="700">
+                          {d.external}
+                        </text>
+                      )}
                     </g>
                   );
                 })}
@@ -1334,7 +1378,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
                   onSelectPoint={openMomModal}
                 />
 
-                {/* Channel Analysis Section (Full-Width Panel matching MoM Chart view) */}
+                {/* Channel Analysis Section */}
                 <ChannelAnalysisSection
                   channelBreakdown={data.channelBreakdown || {}}
                   channelBreakdownByBu={data.channelBreakdownByBu || {}}
