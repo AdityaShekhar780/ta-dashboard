@@ -627,7 +627,7 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
           {activeMomSeries.length === 0 ? (
             <p className="muted" style={{ textAlign: 'center', padding: '50px 0' }}>No channel trend data available for this Business Unit.</p>
           ) : (
-            <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '8px' }}>
+            <div className="table-scroll" style={{ width: '100%', overflowX: 'auto', paddingBottom: '8px' }}>
               <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', minWidth: `${width}px`, height: 'auto', display: 'block' }}>
                 {Array.from({ length: yTicks + 1 }, (_, idx) => {
                   const val = idx * stepVal;
