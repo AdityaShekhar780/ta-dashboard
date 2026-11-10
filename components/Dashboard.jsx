@@ -306,7 +306,7 @@ function CandidateModal({ modalData, onClose }) {
   );
 }
 
-/* ---------- Month-on-Month Line Chart ---------- */
+/* ---------- Month-on-Month Line Chart with Guaranteed Scrollbar ---------- */
 
 function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
   const [hoverIdx, setHoverIdx] = useState(null);
@@ -356,7 +356,8 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
     );
   }
 
-  const width = Math.max(760, chartData.length * 58);
+  // Ensure minimum width forces horizontal scroll when months exceed standard view
+  const width = Math.max(900, chartData.length * 65);
   const height = 300;
   const padL = 46;
   const padR = 28;
@@ -426,7 +427,8 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
         </span>
       </div>
 
-      <div className="table-scroll" style={{ overflowX: 'auto', paddingBottom: '6px' }}>
+      {/* Explicit scroll container wrapper */}
+      <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '12px' }}>
         <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', minWidth: `${width}px`, height: 'auto', display: 'block' }}>
           {Array.from({ length: yTicks + 1 }, (_, idx) => {
             const val = idx * stepVal;
@@ -466,6 +468,236 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
             );
           })}
         </svg>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- Channel Analysis Section with Guaranteed Scrollbar ---------- */
+
+function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = {}, channelMomSeries = [], channelMomByBu = {}, selectedBu, theme }) {
+  
+  const activeBreakdown = useMemo(() => {
+    if (selectedBu === 'all') return channelBreakdown;
+    return (channelBreakdownByBu && channelBreakdownByBu[selectedBu]) || {};
+  }, [channelBreakdown, channelBreakdownByBu, selectedBu]);
+
+  const activeMomSeries = useMemo(() => {
+    if (selectedBu === 'all') return channelMomSeries;
+    return (channelMomByBu && channelMomByBu[selectedBu]) || [];
+  }, [channelMomSeries, channelMomByBu, selectedBu]);
+
+  const channelsList = useMemo(() => {
+    const keys = ['Internal', 'Business Reference', 'Campus', 'Careers Page', 'Employee Referrals', 'External'];
+    const total = Object.values(activeBreakdown).reduce((a, b) => a + b, 0);
+    return keys.map((ch) => {
+      const count = activeBreakdown[ch] || 0;
+      const pct = total > 0 ? Math.round((count / total) * 1000) / 10 : 0;
+      return { channel: ch, count, pct };
+    }).sort((a, b) => b.count - a.count);
+  }, [activeBreakdown]);
+
+  const totalJoinings = useMemo(() => {
+    return Object.values(activeBreakdown).reduce((a, b) => a + b, 0);
+  }, [activeBreakdown]);
+
+  const internalJoinings = useMemo(() => {
+    return (activeBreakdown['Internal'] || 0) + 
+           (activeBreakdown['Campus'] || 0) + 
+           (activeBreakdown['Careers Page'] || 0) + 
+           (activeBreakdown['Employee Referrals'] || 0);
+  }, [activeBreakdown]);
+
+  const internalContributionPct = useMemo(() => {
+    if (totalJoinings === 0) return 0;
+    return Math.round((internalJoinings / totalJoinings) * 1000) / 10;
+  }, [internalJoinings, totalJoinings]);
+
+  const colors = ['#38bdf8', '#34d399', '#facc15', '#a78bfa', '#fb923c', '#f472b6'];
+
+  const width = Math.max(900, activeMomSeries.length * 65);
+  const height = 300;
+  const padL = 45;
+  const padR = 30;
+  const padT = 35;
+  const padB = 45;
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+
+  const maxVal = Math.max(5, ...activeMomSeries.flatMap((d) => [d.internalGroup || 0, d.businessReference || 0, d.external || 0]));
+  const yTicks = 4;
+  const stepVal = Math.ceil(maxVal / yTicks);
+  const yMax = stepVal * yTicks || 10;
+
+  const getX = (i) => (activeMomSeries.length <= 1 ? padL + plotW / 2 : padL + (i / (activeMomSeries.length - 1)) * plotW);
+  const getY = (val) => padT + plotH - (val / yMax) * plotH;
+
+  const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
+  const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.12)';
+  const textColor = theme === 'light' ? '#0f172a' : '#f8fafc';
+  const axisTextColor = theme === 'light' ? '#475569' : '#94a3b8';
+  const gridColor = theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.08)';
+
+  return (
+    <section
+      className="panel"
+      style={{
+        marginTop: '28px',
+        padding: '24px',
+        borderRadius: '12px',
+        background: cardBg,
+        border: `1px solid ${borderColor}`,
+        color: textColor,
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+      }}
+    >
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '22px' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '22px' }}>Channel Analysis</h2>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
+            {selectedBu === 'all' ? 'All Business Units' : selectedBu} · Joining distribution & MoM grouped trends
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
+          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.35)', textAlign: 'center' }}>
+            <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#38bdf8', display: 'block', fontWeight: 600 }}>Total Joinings</span>
+            <strong style={{ fontSize: '16px', color: '#38bdf8' }}>{fmt(totalJoinings)}</strong>
+          </div>
+          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(52, 211, 153, 0.12)', border: '1px solid rgba(52, 211, 153, 0.35)', textAlign: 'center' }}>
+            <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#34d399', display: 'block', fontWeight: 600 }}>Internal Joinings</span>
+            <strong style={{ fontSize: '16px', color: '#34d399' }}>{fmt(internalJoinings)}</strong>
+          </div>
+          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(234, 179, 8, 0.12)', border: '1px solid rgba(234, 179, 8, 0.35)', textAlign: 'center' }}>
+            <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#eab308', display: 'block', fontWeight: 600 }}>Internal Contr.</span>
+            <strong style={{ fontSize: '16px', color: '#eab308' }}>{internalContributionPct}%</strong>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '4fr 8fr', gap: '24px', alignItems: 'stretch' }}>
+        
+        <div style={{ padding: '18px', borderRadius: '10px', background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.2)', border: `1px solid ${borderColor}`, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', boxSizing: 'border-box' }}>
+          <div>
+            <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Joinings by Channel</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {channelsList.map((item, idx) => {
+                const barColor = colors[idx % colors.length];
+                return (
+                  <div key={item.channel} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', fontWeight: 500 }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: barColor, display: 'inline-block', flexShrink: 0 }} />
+                        <span>{item.channel}</span>
+                      </span>
+                      <span style={{ whiteSpace: 'nowrap', marginLeft: '8px' }}>
+                        <b>{fmt(item.count)}</b> <span style={{ color: axisTextColor, fontSize: '11px' }}>({item.pct}%)</span>
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: '6px', background: theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${item.pct}%`, height: '100%', background: barColor, borderRadius: '3px' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: '18px', borderRadius: '10px', background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.2)', border: `1px solid ${borderColor}`, height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>MoM Grouped Channel Trend</h3>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '11px', fontWeight: 600 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#38bdf8' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8', display: 'inline-block' }} />
+                Internal Group
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#34d399' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34d399', display: 'inline-block' }} />
+                Business Ref.
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#fb923c' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fb923c', display: 'inline-block' }} />
+                External
+              </span>
+            </div>
+          </div>
+
+          {activeMomSeries.length === 0 ? (
+            <p className="muted" style={{ textAlign: 'center', padding: '50px 0' }}>No channel trend data available for this Business Unit.</p>
+          ) : (
+            {/* Explicit scroll wrapper container */}
+            <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '8px' }}>
+              <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', minWidth: `${width}px`, height: 'auto', display: 'block' }}>
+                {Array.from({ length: yTicks + 1 }, (_, idx) => {
+                  const val = idx * stepVal;
+                  const y = getY(val);
+                  return (
+                    <g key={idx}>
+                      <line x1={padL} y1={y} x2={width - padR} y2={y} stroke={gridColor} strokeDasharray={idx === 0 ? undefined : '3 3'} strokeWidth="1" />
+                      <text x={padL - 8} y={y + 4} textAnchor="end" fill={axisTextColor} fontSize="10">{val}</text>
+                    </g>
+                  );
+                })}
+
+                {activeMomSeries.map((d, i) => {
+                  const x = getX(i);
+                  const yInt = getY(d.internalGroup || 0);
+                  const yBus = getY(d.businessReference || 0);
+                  const yExt = getY(d.external || 0);
+
+                  const nextD = activeMomSeries[i + 1];
+                  const hasNext = nextD !== undefined;
+                  const nextX = hasNext ? getX(i + 1) : 0;
+                  const nextYInt = hasNext ? getY(nextD.internalGroup || 0) : 0;
+                  const nextYBus = hasNext ? getY(nextD.businessReference || 0) : 0;
+                  const nextYExt = hasNext ? getY(nextD.external || 0) : 0;
+
+                  return (
+                    <g key={d.month}>
+                      {hasNext && (
+                        <>
+                          <line x1={x} y1={yInt} x2={nextX} y2={nextYInt} stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" />
+                          <line x1={x} y1={yBus} x2={nextX} y2={nextYBus} stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" />
+                          <line x1={x} y1={yExt} x2={nextX} y2={nextYExt} stroke="#fb923c" strokeWidth="2.5" strokeLinecap="round" />
+                        </>
+                      )}
+
+                      <text x={x} y={height - 12} textAnchor="middle" fill={axisTextColor} fontSize="10" fontWeight="500">
+                        {formatYearMonth(d.month)}
+                      </text>
+
+                      <circle cx={x} cy={yInt} r={3.5} fill="#38bdf8" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
+                      {d.internalGroup > 0 && (
+                        <text x={x} y={yInt - 7} textAnchor="middle" fill="#38bdf8" fontSize="9" fontWeight="700">
+                          {d.internalGroup}
+                        </text>
+                      )}
+
+                      <circle cx={x} cy={yBus} r={3.5} fill="#34d399" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
+                      {d.businessReference > 0 && (
+                        <text x={x} y={yBus - 7} textAnchor="middle" fill="#34d399" fontSize="9" fontWeight="700">
+                          {d.businessReference}
+                        </text>
+                      )}
+
+                      <circle cx={x} cy={yExt} r={3.5} fill="#fb923c" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
+                      {d.external > 0 && (
+                        <text x={x} y={yExt + 14} textAnchor="middle" fill="#fb923c" fontSize="9" fontWeight="700">
+                          {d.external}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+              </svg>
+            </div>
+          )}
+        </div>
+
       </div>
     </section>
   );
