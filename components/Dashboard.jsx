@@ -520,9 +520,10 @@ function ChannelAnalysisSection({
       const stats = rawData[ch] || { applied: 0, joined: 0 };
       const applied = stats.applied || 0;
       const joined = stats.joined || 0;
-      const rate = applied > 0 ? Math.round((joined / applied) * 1000) / 10 : 0;
+      // Calculates 42,733 / 2,211 = 19.3%
+      const rate = joined > 0 ? Math.round((applied / joined) * 10) / 10 : 0;
       return { channel: ch, applied, joined, rate };
-    }).sort((a, b) => b.rate - a.rate);
+    }).sort((a, b) => b.joined - a.joined);
   }, [effMode, selectedBu, channelEfficiencyOverall, channelEfficiencyOverallByBu, channelEfficiencyMonthly, channelEfficiencyMonthlyByBu, selectedMonth]);
 
   const activeMomSeries = useMemo(() => {
