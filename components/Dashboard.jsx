@@ -471,7 +471,7 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
   );
 }
 
-/* ---------- Channel Analysis Section (Polished Layout, Internal Metrics, & Data Labels) ---------- */
+/* ---------- Channel Analysis Section (Refined Master Panel, Internal Metrics, & Scrollable Trend Chart) ---------- */
 
 function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = {}, channelMomSeries = [], channelMomByBu = {}, selectedBu, theme }) {
   
@@ -552,7 +552,6 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
     >
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '22px' }}>
         <div>
-          <p className="kicker" style={{ marginBottom: '4px' }}>Acquisition Analytics</p>
           <h2 style={{ margin: 0, fontSize: '22px' }}>Channel Analysis</h2>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
             {selectedBu === 'all' ? 'All Business Units' : selectedBu} · Joining distribution & MoM grouped trends
