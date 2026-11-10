@@ -471,7 +471,7 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
   );
 }
 
-/* ---------- Channel Analysis Section (3 Cards: Overall, Current Month, Efficiency with Dropdown, & MoM Trend) ---------- */
+/* ---------- Channel Analysis Section (3 Cards with Wider Efficiency Card) ---------- */
 
 function ChannelAnalysisSection({ 
   channelBreakdown = {}, channelBreakdownByBu = {}, 
@@ -483,21 +483,18 @@ function ChannelAnalysisSection({
 }) {
   
   const [effMode, setEffMode] = useState('overall'); // 'overall' or 'monthly'
-  const [selectedMonth, setSelectedMonth] = useState('2026-03'); // default default month selector if monthly
+  const [selectedMonth, setSelectedMonth] = useState('2026-03');
 
-  // 1. Overall breakdown
   const activeOverall = useMemo(() => {
     if (selectedBu === 'all') return channelBreakdown;
     return (channelBreakdownByBu && channelBreakdownByBu[selectedBu]) || {};
   }, [channelBreakdown, channelBreakdownByBu, selectedBu]);
 
-  // 2. Current month breakdown
   const activeCurrent = useMemo(() => {
     if (selectedBu === 'all') return currentChannelBreakdown;
     return (currentChannelBreakdownByBu && currentChannelBreakdownByBu[selectedBu]) || {};
   }, [currentChannelBreakdown, currentChannelBreakdownByBu, selectedBu]);
 
-  // 3. Efficiency Data
   const availableMonths = useMemo(() => {
     const rawMap = selectedBu === 'all' ? channelEfficiencyMonthly : (channelEfficiencyMonthlyByBu[selectedBu] || {});
     return Object.keys(rawMap).sort();
@@ -632,8 +629,8 @@ function ChannelAnalysisSection({
         </div>
       </div>
 
-      {/* 3-Card Grid for Channel Analysis */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: '20px', alignItems: 'stretch', width: '100%' }}>
+      {/* 3-Card Grid with a Wider Ratio for the Efficiency Card (1fr 1fr 1.4fr) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) minmax(280px, 1fr) minmax(360px, 1.4fr)', gap: '20px', alignItems: 'stretch', width: '100%' }}>
         
         {/* Card 1: Overall Joinings by Channel */}
         <div
@@ -713,7 +710,7 @@ function ChannelAnalysisSection({
           </div>
         </div>
 
-        {/* Card 3: Channel Efficiency Conversion Table with Dropdown */}
+        {/* Card 3: Wider Channel Conversion Efficiency Card */}
         <div
           style={{
             padding: '18px',
