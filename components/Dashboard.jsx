@@ -50,7 +50,7 @@ function toIsoDateStr(raw) {
     return `${year}-${month}-${day}`;
   }
 
-  m = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(s);
+  m = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(s);
   if (m) {
     const year = m[1];
     const month = m[2].padStart(2, '0');
@@ -135,7 +135,7 @@ function matchesMetric(candidate, metricType) {
     const isYetToOfferRaw =
       rawStat === 'yet to offer' ||
       rawStat.includes('yet to offer') ||
-      rawStat === 'pending for offer' ||
+      rawStat.includes('pending for offer') ||
       rawStat === 'make offer';
 
     const isYetToOfferPre =
@@ -471,7 +471,7 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
   );
 }
 
-/* ---------- Channel Analysis Section (3 Cards with Wider Conversion Card: 1fr 1fr 1.6fr) ---------- */
+/* ---------- Channel Analysis Section ---------- */
 
 function ChannelAnalysisSection({ 
   channelBreakdown = {}, channelBreakdownByBu = {}, 
@@ -482,7 +482,7 @@ function ChannelAnalysisSection({
   selectedBu, theme 
 }) {
   
-  const [effMode, setEffMode] = useState('overall'); // 'overall' or 'monthly'
+  const [effMode, setEffMode] = useState('overall');
   const [selectedMonth, setSelectedMonth] = useState('2026-03');
 
   const activeOverall = useMemo(() => {
@@ -520,7 +520,6 @@ function ChannelAnalysisSection({
       const stats = rawData[ch] || { applied: 0, joined: 0 };
       const applied = stats.applied || 0;
       const joined = stats.joined || 0;
-      // Reverted back to Joined / Applications percentage (e.g., 2,211 / 42,733 = 5.2%)
       const rate = applied > 0 ? Math.round((joined / applied) * 1000) / 10 : 0;
       return { channel: ch, applied, joined, rate };
     }).sort((a, b) => b.rate - a.rate);
@@ -630,7 +629,6 @@ function ChannelAnalysisSection({
         </div>
       </div>
 
-      {/* 3-Card Grid with Wider Efficiency Card: 1fr 1fr 1.6fr */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(270px, 1fr) minmax(270px, 1fr) minmax(390px, 1.6fr)', gap: '20px', alignItems: 'stretch', width: '100%' }}>
         
         {/* Card 1: Overall Joinings by Channel */}
@@ -778,7 +776,7 @@ function ChannelAnalysisSection({
           </div>
         </div>
 
-        {/* Card 4: MoM Grouped Channel Trend (Spans full width across bottom) */}
+        {/* Card 4: MoM Grouped Channel Trend */}
         <div
           style={{
             padding: '18px',
@@ -883,6 +881,405 @@ function ChannelAnalysisSection({
         </div>
 
       </div>
+    </section>
+  );
+}
+
+/* ---------- Recruiter Performance Section (Confidential-Safe, Grouped by Lateral & Bulk) ---------- */
+
+function RecruiterPerformanceSection({
+  recruiterPerformance,
+  recruiterPerformanceByBu = {},
+  selectedBu,
+  theme
+}) {
+  const [viewScope, setViewScope] = useState('qtd'); // 'qtd' | 'overall'
+
+  const activePerf = useMemo(() => {
+    if (selectedBu !== 'all' && recruiterPerformanceByBu && recruiterPerformanceByBu[selectedBu]) {
+      return recruiterPerformanceByBu[selectedBu];
+    }
+    return recruiterPerformance || { months: [], quarterMonths: [], minimumRoiTarget: 10, recruiters: [] };
+  }, [recruiterPerformance, recruiterPerformanceByBu, selectedBu]);
+
+  const displayedMonths = useMemo(() => {
+    if (viewScope === 'qtd') {
+      return activePerf.quarterMonths || [];
+    }
+    return activePerf.months || [];
+  }, [viewScope, activePerf]);
+
+  const minRoiTarget = activePerf.minimumRoiTarget || 10;
+
+  const groupedRecruiters = useMemo(() => {
+    const list = Array.isArray(activePerf.recruiters) ? activePerf.recruiters : [];
+    const lateral = list.filter((r) => norm(r.hiringType) !== 'bulk');
+    const bulk = list.filter((r) => norm(r.hiringType) === 'bulk');
+    return [
+      { key: 'Lateral', label: 'Lateral Hiring Recruiters', color: '#38bdf8', items: lateral },
+      { key: 'Bulk', label: 'Bulk Hiring Recruiters', color: '#a78bfa', items: bulk },
+    ].filter((g) => g.items.length > 0);
+  }, [activePerf]);
+
+  const summaryKpis = useMemo(() => {
+    const list = Array.isArray(activePerf.recruiters) ? activePerf.recruiters : [];
+    let totalTarget = 0;
+    let totalOffered = 0;
+    let totalJoined = 0;
+    let above10x = 0;
+
+    list.forEach((r) => {
+      const bucket = viewScope === 'qtd' ? (r.qtd || {}) : (r.overall || {});
+      totalTarget += r.target || 0;
+      totalOffered += bucket.offered || 0;
+      totalJoined += bucket.joined || 0;
+      if ((bucket.roi || 0) >= minRoiTarget) above10x++;
+    });
+
+    return { totalTarget, totalOffered, totalJoined, above10x, totalRecruiters: list.length };
+  }, [activePerf, viewScope, minRoiTarget]);
+
+  const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
+  const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.12)';
+  const textColor = theme === 'light' ? '#0f172a' : '#f8fafc';
+  const mutedColor = theme === 'light' ? '#475569' : '#94a3b8';
+
+  const renderRoiBadge = (roiVal) => {
+    const val = Number(roiVal) || 0;
+    const isMet = val >= minRoiTarget;
+    const isMid = val >= 5 && val < minRoiTarget;
+    const bg = isMet
+      ? 'rgba(16, 185, 129, 0.16)'
+      : isMid
+      ? 'rgba(234, 179, 8, 0.16)'
+      : 'rgba(148, 163, 184, 0.14)';
+    const border = isMet ? '#10b981' : isMid ? '#eab308' : 'rgba(148, 163, 184, 0.35)';
+    const color = isMet ? '#10b981' : isMid ? '#eab308' : mutedColor;
+
+    return (
+      <span
+        style={{
+          display: 'inline-block',
+          padding: '2px 8px',
+          borderRadius: '999px',
+          background: bg,
+          border: `1px solid ${border}`,
+          color,
+          fontWeight: 700,
+          fontSize: '12px',
+        }}
+      >
+        {val.toFixed(1)}x
+      </span>
+    );
+  };
+
+  return (
+    <section
+      className="panel"
+      style={{
+        marginTop: '28px',
+        padding: '24px',
+        borderRadius: '12px',
+        background: cardBg,
+        border: `1px solid ${borderColor}`,
+        color: textColor,
+        boxSizing: 'border-box',
+        width: '100%',
+      }}
+    >
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '20px' }}>
+        <div>
+          <p className="kicker" style={{ marginBottom: '4px' }}>Recruiter Efficiency & ROI</p>
+          <h2 style={{ margin: 0, fontSize: '22px' }}>Recruiter Performance</h2>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
+            {selectedBu === 'all' ? 'All Business Units' : selectedBu} · Grouped by Hiring Type (Lateral & Bulk) · Baseline Target: {minRoiTarget}x ROI
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
+          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.35)' }}>
+            <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#38bdf8', display: 'block', fontWeight: 600 }}>
+              {viewScope === 'qtd' ? 'QTD Offered / Joined' : 'Overall Offered / Joined'}
+            </span>
+            <strong style={{ fontSize: '17px', color: '#38bdf8' }}>
+              {fmt(summaryKpis.totalOffered)} / {fmt(summaryKpis.totalJoined)}
+            </strong>
+          </div>
+
+          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.35)' }}>
+            <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#10b981', display: 'block', fontWeight: 600 }}>
+              Target Joinings
+            </span>
+            <strong style={{ fontSize: '17px', color: '#10b981' }}>
+              {fmt(summaryKpis.totalJoined)} / {fmt(summaryKpis.totalTarget)}
+            </strong>
+          </div>
+
+          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(234, 179, 8, 0.12)', border: '1px solid rgba(234, 179, 8, 0.35)' }}>
+            <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#eab308', display: 'block', fontWeight: 600 }}>
+              ≥ {minRoiTarget}x ROI Achieved
+            </span>
+            <strong style={{ fontSize: '17px', color: '#eab308' }}>
+              {summaryKpis.above10x} / {summaryKpis.totalRecruiters}
+            </strong>
+          </div>
+
+          <select
+            value={viewScope}
+            onChange={(e) => setViewScope(e.target.value)}
+            aria-label="Recruiter performance period"
+            style={{
+              padding: '10px 14px',
+              borderRadius: '8px',
+              background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.08)',
+              color: 'inherit',
+              border: '1px solid #eab308',
+              fontWeight: 600,
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="qtd" style={{ background: '#0f172a', color: '#fff' }}>Current Quarter (QTD)</option>
+            <option value="overall" style={{ background: '#0f172a', color: '#fff' }}>Overall (MoM Matrix)</option>
+          </select>
+        </div>
+      </div>
+
+      {/* ROI Weighting Legend */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '16px',
+          alignItems: 'center',
+          padding: '10px 14px',
+          marginBottom: '16px',
+          borderRadius: '8px',
+          background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.03)',
+          border: `1px solid ${borderColor}`,
+          fontSize: '12px',
+          color: mutedColor,
+        }}
+      >
+        <strong style={{ color: textColor }}>ROI Channel Weights (Fulltime & Contract):</strong>
+        <span><b style={{ color: '#10b981' }}>100%</b> Internal · Careers Page · Campus</span>
+        <span><b style={{ color: '#eab308' }}>20%</b> Employee Referral · Business Reference</span>
+        <span><b style={{ color: '#f87171' }}>0%</b> External & Interns</span>
+      </div>
+
+      {groupedRecruiters.length === 0 ? (
+        <p className="muted" style={{ textAlign: 'center', padding: '32px 0' }}>
+          No recruiters found. Make sure the <b>Recruiters</b> tab is populated and published from the sheet.
+        </p>
+      ) : (
+        <div className="table-scroll" style={{ width: '100%', overflowX: 'auto' }}>
+          <table className="jobs" style={{ margin: 0, width: '100%', minWidth: `${Math.max(880, 520 + displayedMonths.length * 125)}px` }}>
+            <thead>
+              <tr>
+                <th style={{ position: 'sticky', left: 0, zIndex: 2, background: theme === 'light' ? '#e2e8f0' : '#1e293b' }}>Recruiter Name</th>
+                <th>Hiring Type</th>
+                <th className="n">Target (Joinings)</th>
+                {displayedMonths.map((ym) => (
+                  <th key={ym} className="n" style={{ minWidth: '115px' }}>
+                    {formatYearMonth(ym)}
+                    <div style={{ fontSize: '10px', fontWeight: 500, opacity: 0.75 }}>Off / Join · ROI</div>
+                  </th>
+                ))}
+                <th className="n">
+                  {viewScope === 'qtd' ? 'QTD (Off / Join)' : 'Total (Off / Join)'}
+                </th>
+                <th className="n">Target Attainment</th>
+                <th className="n">{viewScope === 'qtd' ? 'QTD ROI' : 'Overall ROI'}</th>
+                <th className="n">10x Target Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {groupedRecruiters.map((group) => {
+                let groupTarget = 0;
+                let groupOffered = 0;
+                let groupJoined = 0;
+
+                return (
+                  <Fragment key={group.key}>
+                    <tr>
+                      <td
+                        colSpan={7 + displayedMonths.length}
+                        style={{
+                          background: theme === 'light' ? '#f1f5f9' : 'rgba(56, 189, 248, 0.08)',
+                          fontWeight: 700,
+                          fontSize: '12px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          color: group.color,
+                          padding: '9px 14px',
+                        }}
+                      >
+                        {group.label} ({group.items.length})
+                      </td>
+                    </tr>
+
+                    {group.items.map((r) => {
+                      const periodStats = viewScope === 'qtd' ? (r.qtd || {}) : (r.overall || {});
+                      const offered = periodStats.offered || 0;
+                      const joined = periodStats.joined || 0;
+                      const roi = Number(periodStats.roi) || 0;
+                      const target = Number(r.target) || 0;
+                      const attainmentPct = target > 0 ? Math.round((joined / target) * 100) : 0;
+                      const roiGap = Math.max(0, Math.round((minRoiTarget - roi) * 10) / 10);
+
+                      groupTarget += target;
+                      groupOffered += offered;
+                      groupJoined += joined;
+
+                      return (
+                        <tr key={`${group.key}-${r.name}`}>
+                          <td
+                            style={{
+                              fontWeight: 600,
+                              position: 'sticky',
+                              left: 0,
+                              zIndex: 1,
+                              background: theme === 'light' ? '#ffffff' : '#0f172a',
+                            }}
+                          >
+                            {r.name}
+                          </td>
+                          <td>
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                background: r.hiringType === 'Bulk' ? 'rgba(167, 139, 250, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                                color: r.hiringType === 'Bulk' ? '#a78bfa' : '#38bdf8',
+                              }}
+                            >
+                              {r.hiringType}
+                            </span>
+                          </td>
+                          <td className="n" style={{ fontWeight: 600 }}>{target > 0 ? fmt(target) : '—'}</td>
+
+                          {displayedMonths.map((ym) => {
+                            const mStat = (r.byMonth && r.byMonth[ym]) || { offered: 0, joined: 0, roi: 0 };
+                            const mOff = mStat.offered || 0;
+                            const mJoin = mStat.joined || 0;
+                            const mRoi = Number(mStat.roi) || 0;
+
+                            return (
+                              <td key={ym} className="n" style={{ whiteSpace: 'nowrap' }}>
+                                {mOff === 0 && mJoin === 0 ? (
+                                  <span style={{ color: mutedColor, opacity: 0.45 }}>—</span>
+                                ) : (
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                    <span>
+                                      <span style={{ color: '#38bdf8', fontWeight: 600 }}>{fmt(mOff)}</span>
+                                      {' / '}
+                                      <strong style={{ color: '#10b981' }}>{fmt(mJoin)}</strong>
+                                    </span>
+                                    <span
+                                      style={{
+                                        fontSize: '11px',
+                                        padding: '1px 6px',
+                                        borderRadius: '4px',
+                                        background: mRoi >= minRoiTarget ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.07)',
+                                        color: mRoi >= minRoiTarget ? '#10b981' : mutedColor,
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      {mRoi.toFixed(1)}x
+                                    </span>
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          })}
+
+                          <td className="n" style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            <span style={{ color: '#38bdf8' }}>{fmt(offered)}</span>
+                            {' / '}
+                            <span style={{ color: '#10b981' }}>{fmt(joined)}</span>
+                          </td>
+
+                          <td className="n">
+                            {target > 0 ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 600 }}>
+                                  {fmt(joined)} / {fmt(target)} ({attainmentPct}%)
+                                </span>
+                                <div style={{ width: '80px', height: '5px', background: 'rgba(148,163,184,0.2)', borderRadius: '3px', overflow: 'hidden' }}>
+                                  <div
+                                    style={{
+                                      width: `${Math.min(100, attainmentPct)}%`,
+                                      height: '100%',
+                                      background: attainmentPct >= 100 ? '#10b981' : '#38bdf8',
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+
+                          <td className="n">{renderRoiBadge(roi)}</td>
+
+                          <td className="n" style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>
+                            {roi >= minRoiTarget ? (
+                              <span style={{ color: '#10b981', fontWeight: 600 }}>✓ Achieved ({roi.toFixed(1)}x)</span>
+                            ) : (
+                              <span style={{ color: '#eab308', fontWeight: 500 }}>Needs +{roiGap.toFixed(1)}x to 10x</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {/* Subtotal Row per Hiring Type */}
+                    <tr style={{ fontWeight: 700, background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.02)' }}>
+                      <td
+                        style={{
+                          position: 'sticky',
+                          left: 0,
+                          zIndex: 1,
+                          background: theme === 'light' ? '#f8fafc' : '#162032',
+                        }}
+                      >
+                        Subtotal · {group.key}
+                      </td>
+                      <td>—</td>
+                      <td className="n">{fmt(groupTarget)}</td>
+                      {displayedMonths.map((ym) => {
+                        let mOffSum = 0;
+                        let mJoinSum = 0;
+                        group.items.forEach((r) => {
+                          const ms = (r.byMonth && r.byMonth[ym]) || { offered: 0, joined: 0 };
+                          mOffSum += ms.offered || 0;
+                          mJoinSum += ms.joined || 0;
+                        });
+                        return (
+                          <td key={ym} className="n">
+                            <span style={{ color: '#38bdf8' }}>{fmt(mOffSum)}</span> / <span style={{ color: '#10b981' }}>{fmt(mJoinSum)}</span>
+                          </td>
+                        );
+                      })}
+                      <td className="n">
+                        <span style={{ color: '#38bdf8' }}>{fmt(groupOffered)}</span> / <span style={{ color: '#10b981' }}>{fmt(groupJoined)}</span>
+                      </td>
+                      <td className="n">
+                        {groupTarget > 0 ? `${Math.round((groupJoined / groupTarget) * 100)}%` : '—'}
+                      </td>
+                      <td className="n">—</td>
+                      <td className="n">—</td>
+                    </tr>
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }
@@ -1097,8 +1494,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const [notice, setNotice] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [bu, setBu] = useState('all');
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('all');
   const [showAll, setShowAll] = useState(false);
   const [modalData, setModalData] = useState(null);
   
@@ -1243,6 +1638,11 @@ export default function Dashboard({ unitKey = 'overall' }) {
       channelEfficiencyMonthlyByBu: mergeMonthlyEfficiencyByBu(mu.channelEfficiencyMonthlyByBu, tetr.channelEfficiencyMonthlyByBu),
       channelMomSeries: mergeChannelMom(mu.channelMomSeries, tetr.channelMomSeries),
       channelMomByBu: mergeChannelMomByBu(mu.channelMomByBu, tetr.channelMomByBu),
+      recruiterPerformance: mu.recruiterPerformanceOverall || mu.recruiterPerformance || {},
+      recruiterPerformanceByBu: {
+        ...(mu.recruiterPerformanceByBu || {}),
+        ...(tetr.recruiterPerformanceByBu || {}),
+      },
       checks: [
         ...(mu.checks || []),
         ...(tetr.checks || []),
@@ -1428,7 +1828,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
 
             {data && (
               <>
-                {/* 3-Button Unit Slicer */}
                 <nav
                   aria-label="Payroll Unit Slicer"
                   style={{
@@ -1622,7 +2021,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
                   </div>
                 </section>
 
-                {/* Month-on-Month Offered & Joined Line Chart */}
                 <MomLineChart
                   series={data.momSeries || []}
                   selectedBu={bu}
@@ -1630,7 +2028,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
                   onSelectPoint={openMomModal}
                 />
 
-                {/* Channel Analysis Section with 3 Cards */}
                 <ChannelAnalysisSection
                   channelBreakdown={data.channelBreakdown || {}}
                   channelBreakdownByBu={data.channelBreakdownByBu || {}}
@@ -1642,6 +2039,14 @@ export default function Dashboard({ unitKey = 'overall' }) {
                   channelEfficiencyMonthlyByBu={data.channelEfficiencyMonthlyByBu || {}}
                   channelMomSeries={data.channelMomSeries || []}
                   channelMomByBu={data.channelMomByBu || {}}
+                  selectedBu={bu}
+                  theme={theme}
+                />
+
+                {/* Confidential-Safe Recruiter Performance Section */}
+                <RecruiterPerformanceSection
+                  recruiterPerformance={data.recruiterPerformance}
+                  recruiterPerformanceByBu={data.recruiterPerformanceByBu}
                   selectedBu={bu}
                   theme={theme}
                 />
