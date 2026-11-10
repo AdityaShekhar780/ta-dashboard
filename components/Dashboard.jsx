@@ -351,7 +351,7 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
     return (
       <section className="panel" style={{ marginTop: '24px', padding: '20px', borderRadius: '12px', background: theme === 'light' ? '#fff' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(128,128,128,0.2)' }}>
         <h2 style={{ marginTop: 0 }}>Month-on-Month Offered vs. Joined</h2>
-        <p className="muted">No historical/live MoM data found yet. Make sure the <b>Master Offered</b> tab is populated and click <b>TA Dashboard &gt; Publish now</b> in your sheet.</p>
+        <p className="muted">No historical/live MoM data found yet.</p>
       </section>
     );
   }
@@ -415,7 +415,6 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
         </div>
       </div>
 
-      {/* Legend */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '10px', fontSize: '13px', fontWeight: 600 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', color: '#38bdf8' }}>
           <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#38bdf8', display: 'inline-block' }} />
@@ -435,9 +434,7 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
             return (
               <g key={idx}>
                 <line x1={padL} y1={y} x2={width - padR} y2={y} stroke={gridColor} strokeDasharray={idx === 0 ? undefined : '4 4'} strokeWidth="1" />
-                <text x={padL - 10} y={y + 4} textAnchor="end" fill={axisTextColor} fontSize="11">
-                  {val}
-                </text>
+                <text x={padL - 10} y={y + 4} textAnchor="end" fill={axisTextColor} fontSize="11">{val}</text>
               </g>
             );
           })}
@@ -452,66 +449,18 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
             const isHovered = hoverIdx === i;
 
             return (
-              <g
-                key={d.month}
-                onMouseEnter={() => setHoverIdx(i)}
-                onMouseLeave={() => setHoverIdx(null)}
-                style={{ cursor: 'pointer' }}
-              >
-                {isHovered && (
-                  <line x1={x} y1={padT} x2={x} y2={padT + plotH} stroke="rgba(234, 179, 8, 0.5)" strokeWidth="1.5" strokeDasharray="3 3" />
-                )}
+              <g key={d.month} onMouseEnter={() => setHoverIdx(i)} onMouseLeave={() => setHoverIdx(null)} style={{ cursor: 'pointer' }}>
+                {isHovered && <line x1={x} y1={padT} x2={x} y2={padT + plotH} stroke="rgba(234, 179, 8, 0.5)" strokeWidth="1.5" strokeDasharray="3 3" />}
+                <text x={x} y={height - 14} textAnchor="middle" fill={isHovered ? '#eab308' : axisTextColor} fontSize="11" fontWeight={isHovered ? '700' : '500'}>{d.label}</text>
 
-                <text x={x} y={height - 14} textAnchor="middle" fill={isHovered ? '#eab308' : axisTextColor} fontSize="11" fontWeight={isHovered ? '700' : '500'}>
-                  {d.label}
-                </text>
-
-                {/* Offered Dot + Value (ABOVE dot) */}
-                <circle
-                  cx={x}
-                  cy={yOff}
-                  r={isHovered ? 6 : 4.5}
-                  fill="#38bdf8"
-                  stroke={theme === 'light' ? '#fff' : '#0f172a'}
-                  strokeWidth="2"
-                  onClick={() => d.offered > 0 && onSelectPoint(d.label, d.offeredCandidates, 'momOffered')}
-                />
+                <circle cx={x} cy={yOff} r={isHovered ? 6 : 4.5} fill="#38bdf8" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="2" onClick={() => d.offered > 0 && onSelectPoint(d.label, d.offeredCandidates, 'momOffered')} />
                 {d.offered > 0 && (
-                  <text
-                    x={x}
-                    y={yOff - 10}
-                    textAnchor="middle"
-                    fill="#38bdf8"
-                    fontSize="11"
-                    fontWeight="700"
-                    onClick={() => d.offered > 0 && onSelectPoint(d.label, d.offeredCandidates, 'momOffered')}
-                  >
-                    {d.offered}
-                  </text>
+                  <text x={x} y={yOff - 10} textAnchor="middle" fill="#38bdf8" fontSize="11" fontWeight="700" onClick={() => d.offered > 0 && onSelectPoint(d.label, d.offeredCandidates, 'momOffered')}>{d.offered}</text>
                 )}
 
-                {/* Joined Dot + Value (BELOW dot) */}
-                <circle
-                  cx={x}
-                  cy={yJoin}
-                  r={isHovered ? 6 : 4.5}
-                  fill="#10b981"
-                  stroke={theme === 'light' ? '#fff' : '#0f172a'}
-                  strokeWidth="2"
-                  onClick={() => d.joined > 0 && onSelectPoint(d.label, d.joinedCandidates, 'momJoined')}
-                />
+                <circle cx={x} cy={yJoin} r={isHovered ? 6 : 4.5} fill="#10b981" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="2" onClick={() => d.joined > 0 && onSelectPoint(d.label, d.joinedCandidates, 'momJoined')} />
                 {d.joined > 0 && (
-                  <text
-                    x={x}
-                    y={yJoin + 18}
-                    textAnchor="middle"
-                    fill="#10b981"
-                    fontSize="11"
-                    fontWeight="700"
-                    onClick={() => d.joined > 0 && onSelectPoint(d.label, d.joinedCandidates, 'momJoined')}
-                  >
-                    {d.joined}
-                  </text>
+                  <text x={x} y={yJoin + 18} textAnchor="middle" fill="#10b981" fontSize="11" fontWeight="700" onClick={() => d.joined > 0 && onSelectPoint(d.label, d.joinedCandidates, 'momJoined')}>{d.joined}</text>
                 )}
               </g>
             );
@@ -522,143 +471,137 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
   );
 }
 
-/* ---------- Channel Analysis Section (Donut + Grouped MoM Line Chart) ---------- */
+/* ---------- Channel Analysis Section (30/70 Asymmetric Layout, BU-Filtered) ---------- */
 
-function ChannelAnalysisSection({ channelBreakdown = {}, channelMomSeries = [], theme }) {
+function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = {}, channelMomSeries = [], channelMomByBu = {}, selectedBu, theme }) {
+  
+  const activeBreakdown = useMemo(() => {
+    if (selectedBu === 'all') return channelBreakdown;
+    return (channelBreakdownByBu && channelBreakdownByBu[selectedBu]) || {};
+  }, [channelBreakdown, channelBreakdownByBu, selectedBu]);
+
+  const activeMomSeries = useMemo(() => {
+    if (selectedBu === 'all') return channelMomSeries;
+    return (channelMomByBu && channelMomByBu[selectedBu]) || [];
+  }, [channelMomSeries, channelMomByBu, selectedBu]);
+
   const channelsList = useMemo(() => {
     const keys = ['Internal', 'Business Reference', 'Campus', 'Careers Page', 'Employee Referrals', 'External'];
-    const total = Object.values(channelBreakdown).reduce((a, b) => a + b, 0);
+    const total = Object.values(activeBreakdown).reduce((a, b) => a + b, 0);
     return keys.map((ch) => {
-      const count = channelBreakdown[ch] || 0;
+      const count = activeBreakdown[ch] || 0;
       const pct = total > 0 ? Math.round((count / total) * 1000) / 10 : 0;
       return { channel: ch, count, pct };
-    }).filter(item => item.count > 0 || total === 0);
-  }, [channelBreakdown]);
+    }).sort((a, b) => b.count - a.count);
+  }, [activeBreakdown]);
 
   const totalJoinings = useMemo(() => {
-    return Object.values(channelBreakdown).reduce((a, b) => a + b, 0);
-  }, [channelBreakdown]);
+    return Object.values(activeBreakdown).reduce((a, b) => a + b, 0);
+  }, [activeBreakdown]);
 
-  const colors = ['#38bdf8', '#34d399', '#facc15', '#f472b6', '#a78bfa', '#fb923c'];
+  const colors = ['#38bdf8', '#34d399', '#facc15', '#a78bfa', '#fb923c', '#f472b6'];
 
-  // Render SVG Donut segments
-  let cumulativeAngle = 0;
-  const donutSlices = channelsList.map((item, idx) => {
-    const total = totalJoinings || 1;
-    const fraction = item.count / total;
-    const startAngle = cumulativeAngle;
-    cumulativeAngle += fraction * 360;
-    const endAngle = cumulativeAngle;
-
-    const x1 = 50 + 40 * Math.cos((Math.PI * (startAngle - 90)) / 180);
-    const y1 = 50 + 40 * Math.sin((Math.PI * (startAngle - 90)) / 180);
-    const x2 = 50 + 40 * Math.cos((Math.PI * (endAngle - 90)) / 180);
-    const y2 = 50 + 40 * Math.sin((Math.PI * (endAngle - 90)) / 180);
-    const largeArc = fraction > 0.5 ? 1 : 0;
-    const pathData = `M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`;
-
-    return { ...item, pathData, color: colors[idx % colors.length] };
-  });
-
-  // Grouped MoM line chart calculations
-  const width = Math.max(700, channelMomSeries.length * 58);
-  const height = 280;
-  const padL = 40;
-  const padR = 40;
-  const padT = 30;
-  const padB = 40;
+  const width = 850;
+  const height = 260;
+  const padL = 35;
+  const padR = 25;
+  const padT = 25;
+  const padB = 35;
   const plotW = width - padL - padR;
   const plotH = height - padT - padB;
 
-  const maxVal = Math.max(5, ...channelMomSeries.flatMap((d) => [d.internalGroup || 0, d.businessReference || 0, d.external || 0]));
+  const maxVal = Math.max(5, ...activeMomSeries.flatMap((d) => [d.internalGroup || 0, d.businessReference || 0, d.external || 0]));
   const yTicks = 4;
   const stepVal = Math.ceil(maxVal / yTicks);
-  const yMax = stepVal * yTicks;
+  const yMax = stepVal * yTicks || 10;
 
-  const getX = (i) => (channelMomSeries.length === 1 ? padL + plotW / 2 : padL + (i / (channelMomSeries.length - 1)) * plotW);
+  const getX = (i) => (activeMomSeries.length <= 1 ? padL + plotW / 2 : padL + (i / (activeMomSeries.length - 1)) * plotW);
   const getY = (val) => padT + plotH - (val / yMax) * plotH;
 
-  const internalPoints = channelMomSeries.map((d, i) => `${getX(i)},${getY(d.internalGroup || 0)}`).join(' ');
-  const businessPoints = channelMomSeries.map((d, i) => `${getX(i)},${getY(d.businessReference || 0)}`).join(' ');
-  const externalPoints = channelMomSeries.map((d, i) => `${getX(i)},${getY(d.external || 0)}`).join(' ');
+  const internalPoints = activeMomSeries.map((d, i) => `${getX(i)},${getY(d.internalGroup || 0)}`).join(' ');
+  const businessPoints = activeMomSeries.map((d, i) => `${getX(i)},${getY(d.businessReference || 0)}`).join(' ');
+  const externalPoints = activeMomSeries.map((d, i) => `${getX(i)},${getY(d.external || 0)}`).join(' ');
 
-  const gridColor = theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.09)';
+  const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
+  const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.12)';
+  const textColor = theme === 'light' ? '#0f172a' : '#f8fafc';
   const axisTextColor = theme === 'light' ? '#475569' : '#94a3b8';
+  const gridColor = theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.07)';
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '24px', marginTop: '24px' }}>
-      {/* Left: Donut Chart - Channel Breakdown */}
-      <section className="panel" style={{ padding: '22px', borderRadius: '12px', background: theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)', border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.12)' }}>
-        <p className="kicker" style={{ marginBottom: '4px' }}>Channel Breakdown (Col J)</p>
-        <h2 style={{ margin: 0 }}>Joining Distribution by Channel</h2>
-        <p className="muted" style={{ margin: '4px 0 16px', fontSize: '13px' }}>Total joinings across all channels with contribution %</p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '24px', justifyContent: 'center' }}>
-          {/* Donut graphic */}
-          <div style={{ position: 'relative', width: '160px', height: '160px' }}>
-            <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
-              {donutSlices.map((slice, idx) => (
-                <path key={idx} d={slice.pathData} fill={slice.color} stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1" />
-              ))}
-              <circle cx="50" cy="50" r="26" fill={theme === 'light' ? '#ffffff' : '#0f172a'} />
-            </svg>
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
-              <span style={{ fontSize: '10px', textTransform: 'uppercase', color: axisTextColor, fontWeight: 600 }}>Total</span>
-              <strong style={{ fontSize: '16px' }}>{fmt(totalJoinings)}</strong>
-            </div>
+    <div style={{ display: 'grid', gridTemplateColumns: '3fr 7fr', gap: '20px', marginTop: '24px', alignItems: 'start' }}>
+      
+      {/* Left Card: 30% width */}
+      <section className="panel" style={{ padding: '20px', borderRadius: '12px', background: cardBg, border: `1px solid ${borderColor}`, color: textColor }}>
+        <div style={{ marginBottom: '14px' }}>
+          <p className="kicker" style={{ marginBottom: '2px' }}>Channel Breakdown</p>
+          <h2 style={{ margin: 0, fontSize: '16px' }}>Joinings by Channel</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+            <span style={{ fontSize: '11px', color: axisTextColor }}>{selectedBu === 'all' ? 'All Business Units' : selectedBu}</span>
+            <span style={{ fontSize: '12px', color: '#38bdf8', fontWeight: 600 }}>Total: {fmt(totalJoinings)}</span>
           </div>
+        </div>
 
-          {/* Legend / Stats */}
-          <div style={{ flex: 1, minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {donutSlices.map((item, idx) => (
-              <div key={item.channel} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: item.color, display: 'inline-block' }} />
-                  {item.channel}
-                </span>
-                <span style={{ fontWeight: 600 }}>{fmt(item.count)} ({item.pct}%)</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {channelsList.map((item, idx) => {
+            const barColor = colors[idx % colors.length];
+            return (
+              <div key={item.channel} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 500 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: barColor, display: 'inline-block' }} />
+                    {item.channel}
+                  </span>
+                  <span>
+                    <b>{fmt(item.count)}</b> <span style={{ color: axisTextColor, fontSize: '11px' }}>({item.pct}%)</span>
+                  </span>
+                </div>
+                <div style={{ width: '100%', height: '5px', background: theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: `${item.pct}%`, height: '100%', background: barColor, borderRadius: '3px' }} />
+                </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
       </section>
 
-      {/* Right: MoM Grouped Channels & External % */}
-      <section className="panel" style={{ padding: '22px', borderRadius: '12px', background: theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)', border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.12)' }}>
-        <p className="kicker" style={{ marginBottom: '4px' }}>MoM Grouped Channel Trend</p>
-        <h2 style={{ margin: 0 }}>Internal vs Business Ref. vs External</h2>
-        <p className="muted" style={{ margin: '4px 0 16px', fontSize: '13px' }}>Monthly joinings trend with External % tracking</p>
+      {/* Right Card: 70% width */}
+      <section className="panel" style={{ padding: '20px', borderRadius: '12px', background: cardBg, border: `1px solid ${borderColor}`, color: textColor }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
+          <div>
+            <p className="kicker" style={{ marginBottom: '2px' }}>MoM Grouped Channel Trend</p>
+            <h2 style={{ margin: 0, fontSize: '16px' }}>Internal vs Business Ref. vs External</h2>
+            <span style={{ fontSize: '11px', color: axisTextColor }}>{selectedBu === 'all' ? 'All Business Units' : selectedBu}</span>
+          </div>
 
-        {/* Legend */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', marginBottom: '10px', fontSize: '12px', fontWeight: 600 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#38bdf8', display: 'inline-block' }} />
-            Internal Group
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#34d399' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#34d399', display: 'inline-block' }} />
-            Business Reference
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#fb923c' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fb923c', display: 'inline-block' }} />
-            External
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '11px', fontWeight: 600 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#38bdf8' }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#38bdf8', display: 'inline-block' }} />
+              Internal Group
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#34d399' }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#34d399', display: 'inline-block' }} />
+              Business Ref.
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#fb923c' }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#fb923c', display: 'inline-block' }} />
+              External
+            </span>
+          </div>
         </div>
 
-        {channelMomSeries.length === 0 ? (
-          <p className="muted" style={{ textAlign: 'center', padding: '40px 0' }}>No channel trend data available yet.</p>
+        {activeMomSeries.length === 0 ? (
+          <p className="muted" style={{ textAlign: 'center', padding: '40px 0' }}>No channel trend data available for this Business Unit.</p>
         ) : (
-          <div className="table-scroll" style={{ overflowX: 'auto', paddingBottom: '6px' }}>
-            <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', minWidth: `${width}px`, height: 'auto', display: 'block' }}>
+          <div style={{ width: '100%', overflowX: 'auto' }}>
+            <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
               {Array.from({ length: yTicks + 1 }, (_, idx) => {
                 const val = idx * stepVal;
                 const y = getY(val);
                 return (
                   <g key={idx}>
-                    <line x1={padL} y1={y} x2={width - padR} y2={y} stroke={gridColor} strokeDasharray={idx === 0 ? undefined : '4 4'} strokeWidth="1" />
-                    <text x={padL - 8} y={y + 4} textAnchor="end" fill={axisTextColor} fontSize="11">
-                      {val}
-                    </text>
+                    <line x1={padL} y1={y} x2={width - padR} y2={y} stroke={gridColor} strokeDasharray={idx === 0 ? undefined : '3 3'} strokeWidth="1" />
+                    <text x={padL - 6} y={y + 4} textAnchor="end" fill={axisTextColor} fontSize="10">{val}</text>
                   </g>
                 );
               })}
@@ -667,7 +610,7 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelMomSeries = [], 
               <polyline fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={businessPoints} />
               <polyline fill="none" stroke="#fb923c" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={externalPoints} />
 
-              {channelMomSeries.map((d, i) => {
+              {activeMomSeries.map((d, i) => {
                 const x = getX(i);
                 const yInt = getY(d.internalGroup || 0);
                 const yBus = getY(d.businessReference || 0);
@@ -675,20 +618,13 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelMomSeries = [], 
 
                 return (
                   <g key={d.month}>
-                    <text x={x} y={height - 12} textAnchor="middle" fill={axisTextColor} fontSize="11" fontWeight="500">
+                    <text x={x} y={height - 10} textAnchor="middle" fill={axisTextColor} fontSize="10" fontWeight="500">
                       {formatYearMonth(d.month)}
                     </text>
 
-                    {/* Internal Dot */}
-                    <circle cx={x} cy={yInt} r={3.5} fill="#38bdf8" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
-                    {/* Business Ref Dot */}
-                    <circle cx={x} cy={yBus} r={3.5} fill="#34d399" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
-                    {/* External Dot + External % Tag */}
-                    <circle cx={x} cy={yExt} r={3.5} fill="#fb923c" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
-                    
-                    <text x={x} y={yExt - 8} textAnchor="middle" fill="#fb923c" fontSize="10" fontWeight="700">
-                      {d.externalPct}% ext
-                    </text>
+                    <circle cx={x} cy={yInt} r={3} fill="#38bdf8" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
+                    <circle cx={x} cy={yBus} r={3} fill="#34d399" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
+                    <circle cx={x} cy={yExt} r={3} fill="#fb923c" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
                   </g>
                 );
               })}
@@ -790,20 +726,13 @@ function StatusBadge({ status }) {
   return <span className={`badge ${cls}`}><i aria-hidden="true" />{status || '—'}</span>;
 }
 
-/* ---------- Merge MoM Series & Channel data across MU + TETR ---------- */
+/* ---------- Merge helpers across MU + TETR ---------- */
 function mergeMomSeries(muSeries = [], tetrSeries = []) {
   const map = {};
   for (const item of [...muSeries, ...tetrSeries]) {
     if (!item || !item.month) continue;
     if (!map[item.month]) {
-      map[item.month] = {
-        month: item.month,
-        offered: 0,
-        joined: 0,
-        byBu: {},
-        offeredCandidates: [],
-        joinedCandidates: [],
-      };
+      map[item.month] = { month: item.month, offered: 0, joined: 0, byBu: {}, offeredCandidates: [], joinedCandidates: [] };
     }
     const target = map[item.month];
     target.offered += item.offered || 0;
@@ -815,23 +744,24 @@ function mergeMomSeries(muSeries = [], tetrSeries = []) {
         target.byBu[buName].joined += counts.joined || 0;
       }
     }
-    if (Array.isArray(item.offeredCandidates)) {
-      target.offeredCandidates.push(...item.offeredCandidates);
-    }
-    if (Array.isArray(item.joinedCandidates)) {
-      target.joinedCandidates.push(...item.joinedCandidates);
-    }
+    if (Array.isArray(item.offeredCandidates)) target.offeredCandidates.push(...item.offeredCandidates);
+    if (Array.isArray(item.joinedCandidates)) target.joinedCandidates.push(...item.joinedCandidates);
   }
-  return Object.keys(map)
-    .sort()
-    .map((m) => map[m]);
+  return Object.keys(map).sort().map((m) => map[m]);
 }
 
 function mergeChannelBreakdown(muBk = {}, tetrBk = {}) {
   const out = {};
   const keys = new Set([...Object.keys(muBk), ...Object.keys(tetrBk)]);
-  keys.forEach((k) => {
-    out[k] = (muBk[k] || 0) + (tetrBk[k] || 0);
+  keys.forEach((k) => { out[k] = (muBk[k] || 0) + (tetrBk[k] || 0); });
+  return out;
+}
+
+function mergeChannelBreakdownByBu(muByBu = {}, tetrByBu = {}) {
+  const out = {};
+  const bus = new Set([...Object.keys(muByBu), ...Object.keys(tetrByBu)]);
+  bus.forEach((buName) => {
+    out[buName] = mergeChannelBreakdown(muByBu[buName] || {}, tetrByBu[buName] || {});
   });
   return out;
 }
@@ -841,14 +771,7 @@ function mergeChannelMom(muMom = [], tetrMom = []) {
   for (const item of [...muMom, ...tetrMom]) {
     if (!item || !item.month) continue;
     if (!map[item.month]) {
-      map[item.month] = {
-        month: item.month,
-        internalGroup: 0,
-        businessReference: 0,
-        external: 0,
-        totalJoined: 0,
-        externalPct: 0
-      };
+      map[item.month] = { month: item.month, internalGroup: 0, businessReference: 0, external: 0, totalJoined: 0, externalPct: 0 };
     }
     const target = map[item.month];
     target.internalGroup += item.internalGroup || 0;
@@ -861,6 +784,15 @@ function mergeChannelMom(muMom = [], tetrMom = []) {
     const extPct = obj.totalJoined > 0 ? Math.round((obj.external / obj.totalJoined) * 1000) / 10 : 0;
     return { ...obj, externalPct: extPct };
   });
+}
+
+function mergeChannelMomByBu(muMap = {}, tetrMap = {}) {
+  const out = {};
+  const bus = new Set([...Object.keys(muMap), ...Object.keys(tetrMap)]);
+  bus.forEach((buName) => {
+    out[buName] = mergeChannelMom(muMap[buName] || [], tetrMap[buName] || []);
+  });
+  return out;
 }
 
 /* ---------- main ---------- */
@@ -1010,7 +942,9 @@ export default function Dashboard({ unitKey = 'overall' }) {
       ],
       momSeries: mergeMomSeries(mu.momSeries, tetr.momSeries),
       channelBreakdown: mergeChannelBreakdown(mu.channelBreakdown, tetr.channelBreakdown),
+      channelBreakdownByBu: mergeChannelBreakdownByBu(mu.channelBreakdownByBu, tetr.channelBreakdownByBu),
       channelMomSeries: mergeChannelMom(mu.channelMomSeries, tetr.channelMomSeries),
+      channelMomByBu: mergeChannelMomByBu(mu.channelMomByBu, tetr.channelMomByBu),
       checks: [
         ...(mu.checks || []),
         ...(tetr.checks || []),
@@ -1039,19 +973,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const muTotals = useMemo(() => (datasets.mu ? sumManpower(datasets.mu.businessUnits) : null), [datasets.mu]);
   const tetrTotals = useMemo(() => (datasets.tetr ? sumManpower(datasets.tetr.businessUnits) : null), [datasets.tetr]);
 
-  const jobs = useMemo(() => {
-    if (!data) return [];
-    const q = norm(search);
-    return data.jobs
-      .filter(
-        (j) =>
-          (bu === 'all' || j.businessUnit === bu) &&
-          (status === 'all' || norm(j.status) === status) &&
-          (!q || [j.jobId, j.role, j.department, j.businessUnit].some((v) => norm(v).includes(q)))
-      )
-      .sort((a, b) => norm(a.department).localeCompare(norm(b.department)));
-  }, [data, bu, status, search]);
-
   const checks = useMemo(
     () => (data ? data.checks.filter((c) => bu === 'all' || c.businessUnit === bu) : []),
     [data, bu]
@@ -1070,6 +991,11 @@ export default function Dashboard({ unitKey = 'overall' }) {
       {({ currentUser, onSignOut }) => (
         <div className={`page ${theme === 'light' ? 'light-mode-forced' : ''}`} style={theme === 'light' ? { background: '#f8fafc', color: '#0f172a' } : {}}>
           <style jsx global>{`
+            .wrap, .top-inner {
+              max-width: 1460px !important;
+              padding-left: 28px !important;
+              padding-right: 28px !important;
+            }
             .page.light-mode-forced {
               background-color: #f1f5f9 !important;
               color: #0f172a !important;
@@ -1111,12 +1037,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
             .page.light-mode-forced .chip.on {
               background: #059669 !important;
               color: #ffffff !important;
-            }
-            .page.light-mode-forced input[type="search"],
-            .page.light-mode-forced select {
-              background: #ffffff !important;
-              color: #0f172a !important;
-              border: 1px solid #cbd5e1 !important;
             }
           `}</style>
 
@@ -1393,10 +1313,13 @@ export default function Dashboard({ unitKey = 'overall' }) {
                   onSelectPoint={openMomModal}
                 />
 
-                {/* Channel Analysis Section (Donut + Grouped MoM Line Chart) */}
+                {/* Channel Analysis Section (BU-Filtered & 30/70 Asymmetric Layout) */}
                 <ChannelAnalysisSection
                   channelBreakdown={data.channelBreakdown || {}}
+                  channelBreakdownByBu={data.channelBreakdownByBu || {}}
                   channelMomSeries={data.channelMomSeries || []}
+                  channelMomByBu={data.channelMomByBu || {}}
+                  selectedBu={bu}
                   theme={theme}
                 />
 
