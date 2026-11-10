@@ -471,7 +471,7 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
   );
 }
 
-/* ---------- Channel Analysis Section (3 Cards with Wider Efficiency Card) ---------- */
+/* ---------- Channel Analysis Section (3 Cards with Wider Conversion Card: 1fr 1fr 1.6fr) ---------- */
 
 function ChannelAnalysisSection({ 
   channelBreakdown = {}, channelBreakdownByBu = {}, 
@@ -629,8 +629,8 @@ function ChannelAnalysisSection({
         </div>
       </div>
 
-      {/* 3-Card Grid with a Wider Ratio for the Efficiency Card (1fr 1fr 1.4fr) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) minmax(280px, 1fr) minmax(360px, 1.4fr)', gap: '20px', alignItems: 'stretch', width: '100%' }}>
+      {/* 3-Card Grid with Wider Efficiency Card: 1fr 1fr 1.6fr */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(270px, 1fr) minmax(270px, 1fr) minmax(390px, 1.6fr)', gap: '20px', alignItems: 'stretch', width: '100%' }}>
         
         {/* Card 1: Overall Joinings by Channel */}
         <div
