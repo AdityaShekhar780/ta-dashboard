@@ -426,7 +426,7 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
         </span>
       </div>
 
-      <div className="table-scroll" style={{ width: '100%', overflowX: 'auto', paddingBottom: '8px' }}>
+      <div className="table-scroll" style={{ width: '100%', overflowX: 'auto', paddingBottom: '6px' }}>
         <svg viewBox={`0 0 ${width} ${height}`} style={{ width: `${width}px`, minWidth: `${width}px`, height: 'auto', display: 'block' }}>
           {Array.from({ length: yTicks + 1 }, (_, idx) => {
             const val = idx * stepVal;
@@ -471,40 +471,57 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
   );
 }
 
-/* ---------- Channel Analysis Section (Fixed Grid Bounds + Horizontal Scrollbar + Internal KPIs) ---------- */
+/* ---------- Channel Analysis Section (3 Cards: Overall, Current Month, MoM Trend) ---------- */
 
-function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = {}, channelMomSeries = [], channelMomByBu = {}, selectedBu, theme }) {
+function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = {}, currentChannelBreakdown = {}, currentChannelBreakdownByBu = {}, channelMomSeries = [], channelMomByBu = {}, selectedBu, theme }) {
   
-  const activeBreakdown = useMemo(() => {
+  // 1. Overall breakdown
+  const activeOverall = useMemo(() => {
     if (selectedBu === 'all') return channelBreakdown;
     return (channelBreakdownByBu && channelBreakdownByBu[selectedBu]) || {};
   }, [channelBreakdown, channelBreakdownByBu, selectedBu]);
+
+  // 2. Current month breakdown
+  const activeCurrent = useMemo(() => {
+    if (selectedBu === 'all') return currentChannelBreakdown;
+    return (currentChannelBreakdownByBu && currentChannelBreakdownByBu[selectedBu]) || {};
+  }, [currentChannelBreakdown, currentChannelBreakdownByBu, selectedBu]);
 
   const activeMomSeries = useMemo(() => {
     if (selectedBu === 'all') return channelMomSeries;
     return (channelMomByBu && channelMomByBu[selectedBu]) || [];
   }, [channelMomSeries, channelMomByBu, selectedBu]);
 
-  const channelsList = useMemo(() => {
-    const keys = ['Internal', 'Business Reference', 'Campus', 'Careers Page', 'Employee Referrals', 'External'];
-    const total = Object.values(activeBreakdown).reduce((a, b) => a + b, 0);
+  const keys = ['Internal', 'Business Reference', 'Campus', 'Careers Page', 'Employee Referrals', 'External'];
+
+  const overallList = useMemo(() => {
+    const total = Object.values(activeOverall).reduce((a, b) => a + b, 0);
     return keys.map((ch) => {
-      const count = activeBreakdown[ch] || 0;
+      const count = activeOverall[ch] || 0;
       const pct = total > 0 ? Math.round((count / total) * 1000) / 10 : 0;
       return { channel: ch, count, pct };
     }).sort((a, b) => b.count - a.count);
-  }, [activeBreakdown]);
+  }, [activeOverall]);
+
+  const currentList = useMemo(() => {
+    const total = Object.values(activeCurrent).reduce((a, b) => a + b, 0);
+    return keys.map((ch) => {
+      const count = activeCurrent[ch] || 0;
+      const pct = total > 0 ? Math.round((count / total) * 1000) / 10 : 0;
+      return { channel: ch, count, pct };
+    }).sort((a, b) => b.count - a.count);
+  }, [activeCurrent]);
 
   const totalJoinings = useMemo(() => {
-    return Object.values(activeBreakdown).reduce((a, b) => a + b, 0);
-  }, [activeBreakdown]);
+    return Object.values(activeOverall).reduce((a, b) => a + b, 0);
+  }, [activeOverall]);
 
   const internalJoinings = useMemo(() => {
-    return (activeBreakdown['Internal'] || 0) + 
-           (activeBreakdown['Campus'] || 0) + 
-           (activeBreakdown['Careers Page'] || 0) + 
-           (activeBreakdown['Employee Referrals'] || 0);
-  }, [activeBreakdown]);
+    return (activeOverall['Internal'] || 0) + 
+           (activeOverall['Campus'] || 0) + 
+           (activeOverall['Careers Page'] || 0) + 
+           (activeOverall['Employee Referrals'] || 0);
+  }, [activeOverall]);
 
   const internalContributionPct = useMemo(() => {
     if (totalJoinings === 0) return 0;
@@ -513,9 +530,8 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
 
   const colors = ['#38bdf8', '#34d399', '#facc15', '#a78bfa', '#fb923c', '#f472b6'];
 
-  // Generous width per month (72px) so the SVG exceeds the right column width and forces the horizontal scrollbar
   const width = Math.max(1100, activeMomSeries.length * 72);
-  const height = 290;
+  const height = 300;
   const padL = 46;
   const padR = 32;
   const padT = 36;
@@ -542,7 +558,7 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
       className="panel"
       style={{
         marginTop: '28px',
-        padding: '22px',
+        padding: '24px',
         borderRadius: '12px',
         background: cardBg,
         border: `1px solid ${borderColor}`,
@@ -551,8 +567,7 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
         width: '100%',
       }}
     >
-      {/* Top Header Row (No Kicker, Matching Top Chart) */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '22px' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '22px' }}>Channel Analysis</h2>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
@@ -576,10 +591,10 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
         </div>
       </div>
 
-      {/* CRITICAL FIX: minmax(0, Xfr) + minWidth: 0 prevents the right column from blowing out past the card border */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 3.5fr) minmax(0, 8.5fr)', gap: '20px', alignItems: 'stretch', width: '100%' }}>
+      {/* 3-Card Stack / Grid for Channel Analysis */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: '20px', alignItems: 'stretch', width: '100%' }}>
         
-        {/* Left Sub-Panel: Joinings by Channel */}
+        {/* Card 1: Overall Joinings by Channel */}
         <div
           style={{
             padding: '18px',
@@ -590,16 +605,15 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
             flexDirection: 'column',
             justifyContent: 'space-between',
             boxSizing: 'border-box',
-            minWidth: 0,
           }}
         >
           <div>
-            <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Joinings by Channel</h3>
+            <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Overall Joinings by Channel</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {channelsList.map((item, idx) => {
+              {overallList.map((item, idx) => {
                 const barColor = colors[idx % colors.length];
                 return (
-                  <div key={item.channel} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div key={item.channel} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', fontWeight: 500, gap: '8px' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: barColor, display: 'inline-block', flexShrink: 0 }} />
@@ -619,7 +633,46 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
           </div>
         </div>
 
-        {/* Right Sub-Panel: MoM Grouped Channel Trend (Constrained with minWidth: 0 so scrollbar works) */}
+        {/* Card 2: Current Month Channel View */}
+        <div
+          style={{
+            padding: '18px',
+            borderRadius: '10px',
+            background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.22)',
+            border: `1px solid ${borderColor}`,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxSizing: 'border-box',
+          }}
+        >
+          <div>
+            <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Current Month Channel View</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {currentList.map((item, idx) => {
+                const barColor = colors[idx % colors.length];
+                return (
+                  <div key={item.channel} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', fontWeight: 500, gap: '8px' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: barColor, display: 'inline-block', flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.channel}</span>
+                      </span>
+                      <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        <b>{fmt(item.count)}</b> <span style={{ color: axisTextColor, fontSize: '11px' }}>({item.pct}%)</span>
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: '6px', background: theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${item.pct}%`, height: '100%', background: barColor, borderRadius: '3px' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: MoM Grouped Channel Trend (Full width or spanning row) */}
         <div
           style={{
             padding: '18px',
@@ -630,9 +683,7 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            minWidth: 0,
-            width: '100%',
-            overflow: 'hidden',
+            gridColumn: '1 / -1',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
@@ -1037,6 +1088,8 @@ export default function Dashboard({ unitKey = 'overall' }) {
       momSeries: mergeMomSeries(mu.momSeries, tetr.momSeries),
       channelBreakdown: mergeChannelBreakdown(mu.channelBreakdown, tetr.channelBreakdown),
       channelBreakdownByBu: mergeChannelBreakdownByBu(mu.channelBreakdownByBu, tetr.channelBreakdownByBu),
+      currentChannelBreakdown: mergeChannelBreakdown(mu.currentChannelBreakdown, tetr.currentChannelBreakdown),
+      currentChannelBreakdownByBu: mergeChannelBreakdownByBu(mu.currentChannelBreakdownByBu, tetr.currentChannelBreakdownByBu),
       channelMomSeries: mergeChannelMom(mu.channelMomSeries, tetr.channelMomSeries),
       channelMomByBu: mergeChannelMomByBu(mu.channelMomByBu, tetr.channelMomByBu),
       checks: [
@@ -1090,7 +1143,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
               padding-left: 28px !important;
               padding-right: 28px !important;
             }
-            /* Ensure horizontal scrollbar is always visible and styled consistently */
             .table-scroll {
               overflow-x: auto !important;
               scrollbar-width: thin;
@@ -1427,10 +1479,12 @@ export default function Dashboard({ unitKey = 'overall' }) {
                   onSelectPoint={openMomModal}
                 />
 
-                {/* Channel Analysis Section */}
+                {/* Channel Analysis Section with 3 Cards */}
                 <ChannelAnalysisSection
                   channelBreakdown={data.channelBreakdown || {}}
                   channelBreakdownByBu={data.channelBreakdownByBu || {}}
+                  currentChannelBreakdown={data.currentChannelBreakdown || {}}
+                  currentChannelBreakdownByBu={data.currentChannelBreakdownByBu || {}}
                   channelMomSeries={data.channelMomSeries || []}
                   channelMomByBu={data.channelMomByBu || {}}
                   selectedBu={bu}
