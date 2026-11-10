@@ -471,10 +471,20 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
   );
 }
 
-/* ---------- Channel Analysis Section (3 Cards: Overall, Current Month, MoM Trend) ---------- */
+/* ---------- Channel Analysis Section (3 Cards: Overall, Current Month, Efficiency with Dropdown, & MoM Trend) ---------- */
 
-function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = {}, currentChannelBreakdown = {}, currentChannelBreakdownByBu = {}, channelMomSeries = [], channelMomByBu = {}, selectedBu, theme }) {
+function ChannelAnalysisSection({ 
+  channelBreakdown = {}, channelBreakdownByBu = {}, 
+  currentChannelBreakdown = {}, currentChannelBreakdownByBu = {}, 
+  channelEfficiencyOverall = {}, channelEfficiencyOverallByBu = {},
+  channelEfficiencyMonthly = {}, channelEfficiencyMonthlyByBu = {},
+  channelMomSeries = [], channelMomByBu = {}, 
+  selectedBu, theme 
+}) {
   
+  const [effMode, setEffMode] = useState('overall'); // 'overall' or 'monthly'
+  const [selectedMonth, setSelectedMonth] = useState('2026-03'); // default default month selector if monthly
+
   // 1. Overall breakdown
   const activeOverall = useMemo(() => {
     if (selectedBu === 'all') return channelBreakdown;
@@ -486,6 +496,37 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
     if (selectedBu === 'all') return currentChannelBreakdown;
     return (currentChannelBreakdownByBu && currentChannelBreakdownByBu[selectedBu]) || {};
   }, [currentChannelBreakdown, currentChannelBreakdownByBu, selectedBu]);
+
+  // 3. Efficiency Data
+  const availableMonths = useMemo(() => {
+    const rawMap = selectedBu === 'all' ? channelEfficiencyMonthly : (channelEfficiencyMonthlyByBu[selectedBu] || {});
+    return Object.keys(rawMap).sort();
+  }, [channelEfficiencyMonthly, channelEfficiencyMonthlyByBu, selectedBu]);
+
+  useEffect(() => {
+    if (availableMonths.length > 0 && !availableMonths.includes(selectedMonth)) {
+      setSelectedMonth(availableMonths[availableMonths.length - 1]);
+    }
+  }, [availableMonths, selectedMonth]);
+
+  const activeEfficiencyList = useMemo(() => {
+    const keys = ['Internal', 'Business Reference', 'Campus', 'Careers Page', 'Employee Referrals', 'External'];
+    let rawData = {};
+    if (effMode === 'overall') {
+      rawData = selectedBu === 'all' ? channelEfficiencyOverall : (channelEfficiencyOverallByBu[selectedBu] || {});
+    } else {
+      const monthlyMap = selectedBu === 'all' ? channelEfficiencyMonthly : (channelEfficiencyMonthlyByBu[selectedBu] || {});
+      rawData = monthlyMap[selectedMonth] || {};
+    }
+
+    return keys.map((ch) => {
+      const stats = rawData[ch] || { applied: 0, joined: 0 };
+      const applied = stats.applied || 0;
+      const joined = stats.joined || 0;
+      const rate = applied > 0 ? Math.round((joined / applied) * 1000) / 10 : 0;
+      return { channel: ch, applied, joined, rate };
+    }).sort((a, b) => b.rate - a.rate);
+  }, [effMode, selectedBu, channelEfficiencyOverall, channelEfficiencyOverallByBu, channelEfficiencyMonthly, channelEfficiencyMonthlyByBu, selectedMonth]);
 
   const activeMomSeries = useMemo(() => {
     if (selectedBu === 'all') return channelMomSeries;
@@ -571,7 +612,7 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
         <div>
           <h2 style={{ margin: 0, fontSize: '22px' }}>Channel Analysis</h2>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
-            {selectedBu === 'all' ? 'All Business Units' : selectedBu} · Joining distribution & MoM grouped trends
+            {selectedBu === 'all' ? 'All Business Units' : selectedBu} · Joining distribution & conversion efficiency
           </p>
         </div>
 
@@ -591,7 +632,7 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
         </div>
       </div>
 
-      {/* 3-Card Stack / Grid for Channel Analysis */}
+      {/* 3-Card Grid for Channel Analysis */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: '20px', alignItems: 'stretch', width: '100%' }}>
         
         {/* Card 1: Overall Joinings by Channel */}
@@ -672,7 +713,74 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
           </div>
         </div>
 
-        {/* Card 3: MoM Grouped Channel Trend (Full width or spanning row) */}
+        {/* Card 3: Channel Efficiency Conversion Table with Dropdown */}
+        <div
+          style={{
+            padding: '18px',
+            borderRadius: '10px',
+            background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.22)',
+            border: `1px solid ${borderColor}`,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxSizing: 'border-box',
+          }}
+        >
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>Channel Conversion Efficiency</h3>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <select 
+                  value={effMode} 
+                  onChange={(e) => setEffMode(e.target.value)}
+                  style={{ padding: '4px 8px', borderRadius: '6px', background: theme === 'light' ? '#fff' : 'rgba(255,255,255,0.1)', color: 'inherit', border: `1px solid ${borderColor}`, fontSize: '11px', cursor: 'pointer' }}
+                >
+                  <option value="overall" style={{ background: '#0f172a', color: '#fff' }}>Overall</option>
+                  <option value="monthly" style={{ background: '#0f172a', color: '#fff' }}>Monthly</option>
+                </select>
+
+                {effMode === 'monthly' && availableMonths.length > 0 && (
+                  <select 
+                    value={selectedMonth} 
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    style={{ padding: '4px 8px', borderRadius: '6px', background: theme === 'light' ? '#fff' : 'rgba(255,255,255,0.1)', color: 'inherit', border: `1px solid ${borderColor}`, fontSize: '11px', cursor: 'pointer' }}
+                  >
+                    {availableMonths.map((ym) => (
+                      <option key={ym} value={ym} style={{ background: '#0f172a', color: '#fff' }}>
+                        {formatYearMonth(ym)}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {activeEfficiencyList.map((item, idx) => {
+                const barColor = colors[idx % colors.length];
+                return (
+                  <div key={item.channel} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', fontWeight: 500, gap: '8px' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: barColor, display: 'inline-block', flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.channel}</span>
+                      </span>
+                      <span style={{ whiteSpace: 'nowrap', flexShrink: 0, fontSize: '11px', color: axisTextColor }}>
+                        <b>{fmt(item.joined)}</b> joined / {fmt(item.applied)} apps (<strong style={{ color: '#38bdf8' }}>{item.rate}%</strong>)
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: '5px', background: theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${Math.min(100, item.rate * 2)}%`, height: '100%', background: barColor, borderRadius: '3px' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: MoM Grouped Channel Trend (Spans full width across bottom) */}
         <div
           style={{
             padding: '18px',
@@ -911,6 +1019,47 @@ function mergeChannelBreakdownByBu(muByBu = {}, tetrByBu = {}) {
   return out;
 }
 
+function mergeEfficiencyMap(muMap = {}, tetrMap = {}) {
+  const out = {};
+  const keys = new Set([...Object.keys(muMap), ...Object.keys(tetrMap)]);
+  keys.forEach((ch) => {
+    const muStats = muMap[ch] || { applied: 0, joined: 0 };
+    const tetrStats = tetrMap[ch] || { applied: 0, joined: 0 };
+    out[ch] = {
+      applied: muStats.applied + tetrStats.applied,
+      joined: muStats.joined + tetrStats.joined
+    };
+  });
+  return out;
+}
+
+function mergeEfficiencyMapByBu(muByBu = {}, tetrByBu = {}) {
+  const out = {};
+  const bus = new Set([...Object.keys(muByBu), ...Object.keys(tetrByBu)]);
+  bus.forEach((buName) => {
+    out[buName] = mergeEfficiencyMap(muByBu[buName] || {}, tetrByBu[buName] || {});
+  });
+  return out;
+}
+
+function mergeMonthlyEfficiency(muMonthly = {}, tetrMonthly = {}) {
+  const out = {};
+  const months = new Set([...Object.keys(muMonthly), ...Object.keys(tetrMonthly)]);
+  months.forEach((ym) => {
+    out[ym] = mergeEfficiencyMap(muMonthly[ym] || {}, tetrMonthly[ym] || {});
+  });
+  return out;
+}
+
+function mergeMonthlyEfficiencyByBu(muByBu = {}, tetrByBu = {}) {
+  const out = {};
+  const bus = new Set([...Object.keys(muByBu), ...Object.keys(tetrByBu)]);
+  bus.forEach((buName) => {
+    out[buName] = mergeMonthlyEfficiency(muByBu[buName] || {}, tetrByBu[buName] || {});
+  });
+  return out;
+}
+
 function mergeChannelMom(muMom = [], tetrMom = []) {
   const map = {};
   for (const item of [...muMom, ...tetrMom]) {
@@ -1090,6 +1239,10 @@ export default function Dashboard({ unitKey = 'overall' }) {
       channelBreakdownByBu: mergeChannelBreakdownByBu(mu.channelBreakdownByBu, tetr.channelBreakdownByBu),
       currentChannelBreakdown: mergeChannelBreakdown(mu.currentChannelBreakdown, tetr.currentChannelBreakdown),
       currentChannelBreakdownByBu: mergeChannelBreakdownByBu(mu.currentChannelBreakdownByBu, tetr.currentChannelBreakdownByBu),
+      channelEfficiencyOverall: mergeEfficiencyMap(mu.channelEfficiencyOverall, tetr.channelEfficiencyOverall),
+      channelEfficiencyOverallByBu: mergeEfficiencyMapByBu(mu.channelEfficiencyOverallByBu, tetr.channelEfficiencyOverallByBu),
+      channelEfficiencyMonthly: mergeMonthlyEfficiency(mu.channelEfficiencyMonthly, tetr.channelEfficiencyMonthly),
+      channelEfficiencyMonthlyByBu: mergeMonthlyEfficiencyByBu(mu.channelEfficiencyMonthlyByBu, tetr.channelEfficiencyMonthlyByBu),
       channelMomSeries: mergeChannelMom(mu.channelMomSeries, tetr.channelMomSeries),
       channelMomByBu: mergeChannelMomByBu(mu.channelMomByBu, tetr.channelMomByBu),
       checks: [
@@ -1485,6 +1638,10 @@ export default function Dashboard({ unitKey = 'overall' }) {
                   channelBreakdownByBu={data.channelBreakdownByBu || {}}
                   currentChannelBreakdown={data.currentChannelBreakdown || {}}
                   currentChannelBreakdownByBu={data.currentChannelBreakdownByBu || {}}
+                  channelEfficiencyOverall={data.channelEfficiencyOverall || {}}
+                  channelEfficiencyOverallByBu={data.channelEfficiencyOverallByBu || {}}
+                  channelEfficiencyMonthly={data.channelEfficiencyMonthly || {}}
+                  channelEfficiencyMonthlyByBu={data.channelEfficiencyMonthlyByBu || {}}
                   channelMomSeries={data.channelMomSeries || []}
                   channelMomByBu={data.channelMomByBu || {}}
                   selectedBu={bu}
