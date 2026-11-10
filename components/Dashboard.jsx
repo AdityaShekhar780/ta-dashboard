@@ -356,7 +356,7 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
     );
   }
 
-  const width = Math.max(760, chartData.length * 58);
+  const width = Math.max(960, chartData.length * 68);
   const height = 300;
   const padL = 46;
   const padR = 28;
@@ -426,8 +426,8 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
         </span>
       </div>
 
-      <div className="table-scroll" style={{ overflowX: 'auto', paddingBottom: '6px' }}>
-        <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', minWidth: `${width}px`, height: 'auto', display: 'block' }}>
+      <div className="table-scroll" style={{ width: '100%', overflowX: 'auto', paddingBottom: '8px' }}>
+        <svg viewBox={`0 0 ${width} ${height}`} style={{ width: `${width}px`, minWidth: `${width}px`, height: 'auto', display: 'block' }}>
           {Array.from({ length: yTicks + 1 }, (_, idx) => {
             const val = idx * stepVal;
             const y = getY(val);
@@ -471,7 +471,7 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
   );
 }
 
-/* ---------- Channel Analysis Section (Refined Master Panel, Internal Metrics, & Scrollable Trend Chart) ---------- */
+/* ---------- Channel Analysis Section (Fixed Grid Bounds + Horizontal Scrollbar + Internal KPIs) ---------- */
 
 function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = {}, channelMomSeries = [], channelMomByBu = {}, selectedBu, theme }) {
   
@@ -513,12 +513,13 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
 
   const colors = ['#38bdf8', '#34d399', '#facc15', '#a78bfa', '#fb923c', '#f472b6'];
 
-  const width = Math.max(900, activeMomSeries.length * 65);
-  const height = 300;
-  const padL = 45;
-  const padR = 30;
-  const padT = 35;
-  const padB = 45;
+  // Generous width per month (72px) so the SVG exceeds the right column width and forces the horizontal scrollbar
+  const width = Math.max(1100, activeMomSeries.length * 72);
+  const height = 290;
+  const padL = 46;
+  const padR = 32;
+  const padT = 36;
+  const padB = 44;
   const plotW = width - padL - padR;
   const plotH = height - padT - padB;
 
@@ -541,16 +542,17 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
       className="panel"
       style={{
         marginTop: '28px',
-        padding: '24px',
+        padding: '22px',
         borderRadius: '12px',
         background: cardBg,
         border: `1px solid ${borderColor}`,
         color: textColor,
         boxSizing: 'border-box',
-        overflow: 'hidden',
+        width: '100%',
       }}
     >
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '22px' }}>
+      {/* Top Header Row (No Kicker, Matching Top Chart) */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '20px' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '22px' }}>Channel Analysis</h2>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
@@ -558,38 +560,52 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
           </p>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
-          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.35)', textAlign: 'center' }}>
-            <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#38bdf8', display: 'block', fontWeight: 600 }}>Total Joinings</span>
-            <strong style={{ fontSize: '16px', color: '#38bdf8' }}>{fmt(totalJoinings)}</strong>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
+          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.35)' }}>
+            <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#38bdf8', display: 'block', fontWeight: 600 }}>Total Joinings</span>
+            <strong style={{ fontSize: '18px', color: '#38bdf8' }}>{fmt(totalJoinings)}</strong>
           </div>
-          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(52, 211, 153, 0.12)', border: '1px solid rgba(52, 211, 153, 0.35)', textAlign: 'center' }}>
-            <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#34d399', display: 'block', fontWeight: 600 }}>Internal Joinings</span>
-            <strong style={{ fontSize: '16px', color: '#34d399' }}>{fmt(internalJoinings)}</strong>
+          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.35)' }}>
+            <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#10b981', display: 'block', fontWeight: 600 }}>Internal Joinings</span>
+            <strong style={{ fontSize: '18px', color: '#10b981' }}>{fmt(internalJoinings)}</strong>
           </div>
-          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(234, 179, 8, 0.12)', border: '1px solid rgba(234, 179, 8, 0.35)', textAlign: 'center' }}>
-            <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#eab308', display: 'block', fontWeight: 600 }}>Internal Contr.</span>
-            <strong style={{ fontSize: '16px', color: '#eab308' }}>{internalContributionPct}%</strong>
+          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(234, 179, 8, 0.12)', border: '1px solid rgba(234, 179, 8, 0.35)' }}>
+            <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#eab308', display: 'block', fontWeight: 600 }}>Internal Contr.</span>
+            <strong style={{ fontSize: '18px', color: '#eab308' }}>{internalContributionPct}%</strong>
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '4fr 8fr', gap: '24px', alignItems: 'stretch' }}>
+      {/* CRITICAL FIX: minmax(0, Xfr) + minWidth: 0 prevents the right column from blowing out past the card border */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 3.5fr) minmax(0, 8.5fr)', gap: '20px', alignItems: 'stretch', width: '100%' }}>
         
-        <div style={{ padding: '18px', borderRadius: '10px', background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.2)', border: `1px solid ${borderColor}`, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', boxSizing: 'border-box' }}>
+        {/* Left Sub-Panel: Joinings by Channel */}
+        <div
+          style={{
+            padding: '18px',
+            borderRadius: '10px',
+            background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.22)',
+            border: `1px solid ${borderColor}`,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxSizing: 'border-box',
+            minWidth: 0,
+          }}
+        >
           <div>
             <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Joinings by Channel</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {channelsList.map((item, idx) => {
                 const barColor = colors[idx % colors.length];
                 return (
-                  <div key={item.channel} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', fontWeight: 500 }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: barColor, display: 'inline-block', flexShrink: 0 }} />
-                        <span>{item.channel}</span>
+                  <div key={item.channel} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', fontWeight: 500, gap: '8px' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: barColor, display: 'inline-block', flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.channel}</span>
                       </span>
-                      <span style={{ whiteSpace: 'nowrap', marginLeft: '8px' }}>
+                      <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
                         <b>{fmt(item.count)}</b> <span style={{ color: axisTextColor, fontSize: '11px' }}>({item.pct}%)</span>
                       </span>
                     </div>
@@ -603,22 +619,36 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
           </div>
         </div>
 
-        <div style={{ padding: '18px', borderRadius: '10px', background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.2)', border: `1px solid ${borderColor}`, height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          
+        {/* Right Sub-Panel: MoM Grouped Channel Trend (Constrained with minWidth: 0 so scrollbar works) */}
+        <div
+          style={{
+            padding: '18px',
+            borderRadius: '10px',
+            background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.22)',
+            border: `1px solid ${borderColor}`,
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            minWidth: 0,
+            width: '100%',
+            overflow: 'hidden',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
             <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>MoM Grouped Channel Trend</h3>
             
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '11px', fontWeight: 600 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#38bdf8' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8', display: 'inline-block' }} />
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', fontSize: '12px', fontWeight: 600 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8' }}>
+                <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#38bdf8', display: 'inline-block' }} />
                 Internal Group
               </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#34d399' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34d399', display: 'inline-block' }} />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#34d399' }}>
+                <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#34d399', display: 'inline-block' }} />
                 Business Ref.
               </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#fb923c' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fb923c', display: 'inline-block' }} />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#fb923c' }}>
+                <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#fb923c', display: 'inline-block' }} />
                 External
               </span>
             </div>
@@ -627,15 +657,15 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
           {activeMomSeries.length === 0 ? (
             <p className="muted" style={{ textAlign: 'center', padding: '50px 0' }}>No channel trend data available for this Business Unit.</p>
           ) : (
-            <div className="table-scroll" style={{ width: '100%', overflowX: 'auto', paddingBottom: '8px' }}>
-              <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', minWidth: `${width}px`, height: 'auto', display: 'block' }}>
+            <div className="table-scroll" style={{ width: '100%', maxWidth: '100%', overflowX: 'scroll', paddingBottom: '10px' }}>
+              <svg viewBox={`0 0 ${width} ${height}`} style={{ width: `${width}px`, minWidth: `${width}px`, height: 'auto', display: 'block' }}>
                 {Array.from({ length: yTicks + 1 }, (_, idx) => {
                   const val = idx * stepVal;
                   const y = getY(val);
                   return (
                     <g key={idx}>
-                      <line x1={padL} y1={y} x2={width - padR} y2={y} stroke={gridColor} strokeDasharray={idx === 0 ? undefined : '3 3'} strokeWidth="1" />
-                      <text x={padL - 8} y={y + 4} textAnchor="end" fill={axisTextColor} fontSize="10">{val}</text>
+                      <line x1={padL} y1={y} x2={width - padR} y2={y} stroke={gridColor} strokeDasharray={idx === 0 ? undefined : '4 4'} strokeWidth="1" />
+                      <text x={padL - 10} y={y + 4} textAnchor="end" fill={axisTextColor} fontSize="11">{val}</text>
                     </g>
                   );
                 })}
@@ -663,27 +693,27 @@ function ChannelAnalysisSection({ channelBreakdown = {}, channelBreakdownByBu = 
                         </>
                       )}
 
-                      <text x={x} y={height - 12} textAnchor="middle" fill={axisTextColor} fontSize="10" fontWeight="500">
+                      <text x={x} y={height - 12} textAnchor="middle" fill={axisTextColor} fontSize="11" fontWeight="500">
                         {formatYearMonth(d.month)}
                       </text>
 
-                      <circle cx={x} cy={yInt} r={3.5} fill="#38bdf8" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
+                      <circle cx={x} cy={yInt} r={4} fill="#38bdf8" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
                       {d.internalGroup > 0 && (
-                        <text x={x} y={yInt - 7} textAnchor="middle" fill="#38bdf8" fontSize="9" fontWeight="700">
+                        <text x={x} y={yInt - 9} textAnchor="middle" fill="#38bdf8" fontSize="10" fontWeight="700">
                           {d.internalGroup}
                         </text>
                       )}
 
-                      <circle cx={x} cy={yBus} r={3.5} fill="#34d399" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
+                      <circle cx={x} cy={yBus} r={4} fill="#34d399" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
                       {d.businessReference > 0 && (
-                        <text x={x} y={yBus - 7} textAnchor="middle" fill="#34d399" fontSize="9" fontWeight="700">
+                        <text x={x} y={yBus - 9} textAnchor="middle" fill="#34d399" fontSize="10" fontWeight="700">
                           {d.businessReference}
                         </text>
                       )}
 
-                      <circle cx={x} cy={yExt} r={3.5} fill="#fb923c" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
+                      <circle cx={x} cy={yExt} r={4} fill="#fb923c" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
                       {d.external > 0 && (
-                        <text x={x} y={yExt + 14} textAnchor="middle" fill="#fb923c" fontSize="9" fontWeight="700">
+                        <text x={x} y={yExt + 16} textAnchor="middle" fill="#fb923c" fontSize="10" fontWeight="700">
                           {d.external}
                         </text>
                       )}
@@ -1059,6 +1089,26 @@ export default function Dashboard({ unitKey = 'overall' }) {
               max-width: 1460px !important;
               padding-left: 28px !important;
               padding-right: 28px !important;
+            }
+            /* Ensure horizontal scrollbar is always visible and styled consistently */
+            .table-scroll {
+              overflow-x: auto !important;
+              scrollbar-width: thin;
+              scrollbar-color: rgba(148, 163, 184, 0.45) rgba(15, 23, 42, 0.4);
+            }
+            .table-scroll::-webkit-scrollbar {
+              height: 8px;
+            }
+            .table-scroll::-webkit-scrollbar-track {
+              background: rgba(15, 23, 42, 0.35);
+              border-radius: 999px;
+            }
+            .table-scroll::-webkit-scrollbar-thumb {
+              background: rgba(148, 163, 184, 0.45);
+              border-radius: 999px;
+            }
+            .table-scroll::-webkit-scrollbar-thumb:hover {
+              background: rgba(148, 163, 184, 0.7);
             }
             .page.light-mode-forced {
               background-color: #f1f5f9 !important;
