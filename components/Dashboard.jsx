@@ -85,6 +85,22 @@ function isJoinedThisMonth(dateStr) {
   return iso.slice(0, 7) === currentYearMonth && iso <= today;
 }
 
+function normalizeCandidateChannelGroup(rawChannel) {
+  const low = norm(rawChannel);
+  if (!low || low === '—' || low === '-') return 'external';
+  if (low.includes('internal') || low.includes('campus') || low.includes('career')) return 'internalGroup';
+  if (low.includes('employee') || low.includes('referral')) return 'employeeReferral';
+  if (low.includes('business') || low.includes('refrence') || low.includes('reference')) return 'businessReference';
+  return 'external';
+}
+
+function recruiterNamesMatch(candRec, targetRec) {
+  const a = norm(candRec).replace(/\s*\([^)]*\)\s*$/, '');
+  const b = norm(targetRec).replace(/\s*\([^)]*\)\s*$/, '');
+  if (!a || !b) return false;
+  return a === b || a.includes(b) || b.includes(a);
+}
+
 function matchesMetric(candidate, metricType) {
   if (metricType === 'momOffered' || metricType === 'momJoined') {
     return true;
@@ -893,13 +909,47 @@ function ChannelAnalysisSection({
   );
 }
 
-/* ---------- Recruiter Performance Section (With Channel Dropdown & Direct Master Offered Totals) ---------- */
+/* ---------- Compact Clickable Number Pill for Recruiter Table ---------- */
+
+function RecClickPill({ value, color, onClick, title }) {
+  const numVal = Number(value) || 0;
+  if (numVal <= 0 || !onClick) {
+    return <span style={{ color, fontWeight: 600 }}>{fmt(numVal)}</span>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      title={title || 'Click to view candidates'}
+      style={{
+        background: color === '#38bdf8' ? 'rgba(56, 189, 248, 0.14)' : 'rgba(16, 185, 129, 0.14)',
+        border: `1px solid ${color === '#38bdf8' ? 'rgba(56, 189, 248, 0.45)' : 'rgba(16, 185, 129, 0.45)'}`,
+        borderRadius: '5px',
+        padding: '1px 6px',
+        color,
+        fontWeight: 700,
+        fontSize: '12px',
+        lineHeight: 1.25,
+        cursor: 'pointer',
+      }}
+    >
+      {fmt(numVal)}
+    </button>
+  );
+}
+
+/* ---------- Recruiter Performance Section (15x Target, Average Quarterly ROI, Compact & Clickable) ---------- */
 
 function RecruiterPerformanceSection({
   recruiterPerformance,
   recruiterPerformanceByBu = {},
+  momSeries = [],
   selectedBu,
-  theme
+  theme,
+  onOpenCandidateModal
 }) {
   const [viewScope, setViewScope] = useState('qtd'); // 'qtd' | 'overall'
   const [channelScope, setChannelScope] = useState('all'); // 'all' | 'internalGroup' | 'employeeReferral' | 'businessReference' | 'external'
@@ -911,9 +961,6 @@ function RecruiterPerformanceSection({
     return recruiterPerformance || {
       months: [],
       quarterMonths: [],
-      monthlyRoiTarget: 10,
-      quarterlyRoiTarget: 30,
-      overallRoiTarget: 10,
       sheetTotals: {},
       recruiters: []
     };
@@ -926,14 +973,15 @@ function RecruiterPerformanceSection({
     return activePerf.months || [];
   }, [viewScope, activePerf]);
 
-  const monthlyRoiTarget = activePerf.monthlyRoiTarget || 10;
-  // Quarterly ROI target is Monthly Target * 3 (10x * 3 = 30x)
-  const periodRoiTarget = useMemo(() => {
-    if (viewScope === 'qtd') {
-      return activePerf.quarterlyRoiTarget || monthlyRoiTarget * 3;
-    }
-    return activePerf.overallRoiTarget || monthlyRoiTarget * Math.max(1, displayedMonths.length);
-  }, [viewScope, activePerf, monthlyRoiTarget, displayedMonths.length]);
+  // Fixed 15x Monthly ROI Baseline & 15x Average Quarterly/Overall ROI Target
+  const roiTarget = 15;
+
+  // Elapsed months in the displayed period (so future unelapsed quarter months like Dec '26 don't dilute average ROI)
+  const currentYm = useMemo(() => todayIST().slice(0, 7), []);
+  const elapsedMonthsForAvg = useMemo(() => {
+    const elapsed = displayedMonths.filter((ym) => ym <= currentYm);
+    return elapsed.length > 0 ? elapsed : displayedMonths;
+  }, [displayedMonths, currentYm]);
 
   const groupedRecruiters = useMemo(() => {
     const list = Array.isArray(activePerf.recruiters) ? activePerf.recruiters : [];
@@ -955,6 +1003,17 @@ function RecruiterPerformanceSection({
     }
     return r;
   }, [channelScope]);
+
+  // Compute Average ROI across elapsed months in the selected period
+  const getRecruiterAvgRoi = useCallback((chNode) => {
+    if (!chNode || !chNode.byMonth || elapsedMonthsForAvg.length === 0) return 0;
+    let sum = 0;
+    elapsedMonthsForAvg.forEach((ym) => {
+      const mStat = chNode.byMonth[ym];
+      sum += Number(mStat?.roi || 0);
+    });
+    return Math.round((sum / elapsedMonthsForAvg.length) * 10) / 10;
+  }, [elapsedMonthsForAvg]);
 
   // Helper to get scaled target for a recruiter (Monthly Target * 3 for QTD)
   const getRecruiterPeriodTarget = useCallback((r) => {
@@ -987,13 +1046,13 @@ function RecruiterPerformanceSection({
     list.forEach((r) => {
       const chNode = getRecChannelData(r);
       const bucket = viewScope === 'qtd' ? (chNode.qtd || {}) : (chNode.overall || {});
+      const avgRoi = getRecruiterAvgRoi(chNode);
       totalTarget += getRecruiterPeriodTarget(r);
       sumRecOffered += bucket.offered || 0;
       sumRecJoined += bucket.joined || 0;
-      if ((bucket.roi || 0) >= periodRoiTarget) metTargetCount++;
+      if (avgRoi >= roiTarget) metTargetCount++;
     });
 
-    // Pull Grand Totals directly from Master Offered sheetTotals (so departed Oct recruiters are included)
     const directPeriod = viewScope === 'qtd' ? activeSheetTotals.qtd : activeSheetTotals.overall;
     const totalOffered = directPeriod && typeof directPeriod.offered === 'number' ? directPeriod.offered : sumRecOffered;
     const totalJoined = directPeriod && typeof directPeriod.joined === 'number' ? directPeriod.joined : sumRecJoined;
@@ -1011,7 +1070,66 @@ function RecruiterPerformanceSection({
       metTargetCount,
       totalRecruiters: list.length
     };
-  }, [activePerf, viewScope, periodRoiTarget, getRecChannelData, getRecruiterPeriodTarget, activeSheetTotals]);
+  }, [activePerf, viewScope, roiTarget, getRecChannelData, getRecruiterAvgRoi, getRecruiterPeriodTarget, activeSheetTotals]);
+
+  const selectedChannelLabel = useMemo(() => {
+    const hit = REC_CHANNEL_OPTIONS.find((o) => o.key === channelScope);
+    return hit ? hit.label : 'Overall (All Channels)';
+  }, [channelScope]);
+
+  // Map momSeries by month for instant candidate modal lookup when clicking any Offer/Join count
+  const momByMonthMap = useMemo(() => {
+    const map = {};
+    (momSeries || []).forEach((item) => {
+      if (item && item.month) map[item.month] = item;
+    });
+    return map;
+  }, [momSeries]);
+
+  const allListedRecruiterNames = useMemo(() => {
+    return (activePerf.recruiters || []).map((r) => r.name);
+  }, [activePerf]);
+
+  const handleOpenRecModal = useCallback(({ recruiterName, recruiterNamesList, unlistedOnly, monthsList, metricType, labelPrefix }) => {
+    if (!onOpenCandidateModal) return;
+    const isOffered = metricType === 'momOffered';
+    const rawPool = [];
+
+    (monthsList || []).forEach((ym) => {
+      const mItem = momByMonthMap[ym];
+      if (!mItem) return;
+      const list = isOffered ? (mItem.offeredCandidates || []) : (mItem.joinedCandidates || []);
+      rawPool.push(...list);
+    });
+
+    const filtered = rawPool.filter((c) => {
+      if (selectedBu !== 'all' && c.businessUnit !== selectedBu) return false;
+      if (channelScope !== 'all' && normalizeCandidateChannelGroup(c.channel) !== channelScope) return false;
+
+      if (unlistedOnly) {
+        return !allListedRecruiterNames.some((rn) => recruiterNamesMatch(c.recruiter, rn));
+      }
+      if (Array.isArray(recruiterNamesList) && recruiterNamesList.length > 0) {
+        return recruiterNamesList.some((rn) => recruiterNamesMatch(c.recruiter, rn));
+      }
+      if (recruiterName) {
+        return recruiterNamesMatch(c.recruiter, recruiterName);
+      }
+      return true;
+    });
+
+    const subtitleParts = [
+      selectedBu === 'all' ? 'All Business Units' : selectedBu,
+      selectedChannelLabel,
+    ];
+
+    onOpenCandidateModal({
+      title: `${labelPrefix} — ${isOffered ? 'Offered Candidates' : 'Joined Candidates'}`,
+      subtitle: subtitleParts.join(' · '),
+      candidates: filtered,
+      metricType,
+    });
+  }, [onOpenCandidateModal, momByMonthMap, selectedBu, channelScope, selectedChannelLabel, allListedRecruiterNames]);
 
   const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
   const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.12)';
@@ -1040,7 +1158,8 @@ function RecruiterPerformanceSection({
           border: `1px solid ${border}`,
           color,
           fontWeight: 700,
-          fontSize: '12px',
+          fontSize: '11.5px',
+          lineHeight: 1.3,
         }}
       >
         {val.toFixed(1)}x
@@ -1048,17 +1167,12 @@ function RecruiterPerformanceSection({
     );
   };
 
-  const selectedChannelLabel = useMemo(() => {
-    const hit = REC_CHANNEL_OPTIONS.find((o) => o.key === channelScope);
-    return hit ? hit.label : 'Overall (All Channels)';
-  }, [channelScope]);
-
   return (
     <section
-      className="panel"
+      className="panel rec-perf-panel"
       style={{
         marginTop: '28px',
-        padding: '24px',
+        padding: '20px 22px',
         borderRadius: '12px',
         background: cardBg,
         border: `1px solid ${borderColor}`,
@@ -1067,50 +1181,133 @@ function RecruiterPerformanceSection({
         width: '100%',
       }}
     >
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '20px' }}>
-        <div>
-          <p className="kicker" style={{ marginBottom: '4px' }}>Recruiter Efficiency & ROI</p>
-          <h2 style={{ margin: 0, fontSize: '22px' }}>Recruiter Performance</h2>
-          <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
-            {selectedBu === 'all' ? 'All Business Units' : selectedBu} · {selectedChannelLabel} · Monthly Target: {monthlyRoiTarget}x ROI · Quarterly Target (×3): {monthlyRoiTarget * 3}x ROI
+      <style jsx>{`
+        .rec-compact-table th {
+          padding: 8px 10px !important;
+          font-size: 12px !important;
+        }
+        .rec-compact-table td {
+          padding: 6px 10px !important;
+          font-size: 12.5px !important;
+          line-height: 1.25 !important;
+          vertical-align: middle !important;
+        }
+      `}</style>
+
+      {/* Aligned Top Header Bar */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '16px',
+          paddingBottom: '16px',
+          marginBottom: '14px',
+          borderBottom: `1px solid ${borderColor}`,
+        }}
+      >
+        <div style={{ minWidth: '260px', flex: '1 1 auto' }}>
+          <p className="kicker" style={{ marginBottom: '2px', fontSize: '11px' }}>Recruiter Efficiency & ROI</p>
+          <h2 style={{ margin: 0, fontSize: '21px', lineHeight: 1.2 }}>Recruiter Performance</h2>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
+            {selectedBu === 'all' ? 'All Business Units' : selectedBu} · {selectedChannelLabel} · Monthly Target: <b>{roiTarget}x ROI</b> · Quarterly Target: <b>{roiTarget}x Avg ROI</b>
           </p>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
-          {/* Master Offered / Joined KPI Card */}
-          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.35)' }}>
-            <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#38bdf8', display: 'block', fontWeight: 600 }}>
+        {/* Right-Aligned Uniform KPI & Filter Control Bar */}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'stretch',
+            gap: '10px',
+          }}
+        >
+          {/* KPI Pill 1: Master Offered / Joined */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              padding: '6px 14px',
+              minHeight: '42px',
+              borderRadius: '8px',
+              background: 'rgba(56, 189, 248, 0.1)',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
+              boxSizing: 'border-box',
+            }}
+          >
+            <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#38bdf8', fontWeight: 700, letterSpacing: '0.03em' }}>
               {viewScope === 'qtd' ? 'QTD Master Offered / Joined' : 'Overall Master Offered / Joined'}
             </span>
-            <strong style={{ fontSize: '17px', color: '#38bdf8' }}>
-              {fmt(summaryKpis.totalOffered)} / {fmt(summaryKpis.totalJoined)}
-            </strong>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '2px' }}>
+              <RecClickPill
+                value={summaryKpis.totalOffered}
+                color="#38bdf8"
+                title="Click to view all Master Offered candidates for this period"
+                onClick={() =>
+                  handleOpenRecModal({
+                    monthsList: displayedMonths,
+                    metricType: 'momOffered',
+                    labelPrefix: `${viewScope === 'qtd' ? 'QTD' : 'Overall'} Master Offered`,
+                  })
+                }
+              />
+              <span style={{ color: mutedColor, fontWeight: 600 }}>/</span>
+              <RecClickPill
+                value={summaryKpis.totalJoined}
+                color="#10b981"
+                title="Click to view all Joined candidates for this period"
+                onClick={() =>
+                  handleOpenRecModal({
+                    monthsList: displayedMonths,
+                    metricType: 'momJoined',
+                    labelPrefix: `${viewScope === 'qtd' ? 'QTD' : 'Overall'} Master Joined`,
+                  })
+                }
+              />
+            </div>
           </div>
 
-          {/* ROI Target Achieved Card */}
-          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(234, 179, 8, 0.12)', border: '1px solid rgba(234, 179, 8, 0.35)' }}>
-            <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#eab308', display: 'block', fontWeight: 600 }}>
-              ≥ {periodRoiTarget}x ROI Achieved
+          {/* KPI Pill 2: >= 15x Avg ROI Achieved */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              padding: '6px 14px',
+              minHeight: '42px',
+              borderRadius: '8px',
+              background: 'rgba(234, 179, 8, 0.1)',
+              border: '1px solid rgba(234, 179, 8, 0.35)',
+              boxSizing: 'border-box',
+            }}
+          >
+            <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#eab308', fontWeight: 700, letterSpacing: '0.03em' }}>
+              ≥ {roiTarget}x Avg ROI Achieved
             </span>
-            <strong style={{ fontSize: '17px', color: '#eab308' }}>
+            <strong style={{ fontSize: '15px', color: '#eab308', lineHeight: 1.2, marginTop: '2px' }}>
               {summaryKpis.metTargetCount} / {summaryKpis.totalRecruiters}
             </strong>
           </div>
 
-          {/* Channel Dropdown Filter */}
+          {/* Channel Dropdown */}
           <select
             value={channelScope}
             onChange={(e) => setChannelScope(e.target.value)}
             aria-label="Filter Recruiter Performance by Channel"
             style={{
-              padding: '10px 14px',
+              height: '42px',
+              padding: '0 12px',
               borderRadius: '8px',
-              background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.08)',
+              background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.06)',
               color: 'inherit',
-              border: '1px solid #38bdf8',
+              border: '1px solid rgba(56, 189, 248, 0.55)',
               fontWeight: 600,
-              fontSize: '13px',
+              fontSize: '12.5px',
               cursor: 'pointer',
+              boxSizing: 'border-box',
             }}
           >
             {REC_CHANNEL_OPTIONS.map((opt) => (
@@ -1120,80 +1317,80 @@ function RecruiterPerformanceSection({
             ))}
           </select>
 
-          {/* Period Dropdown Filter (QTD vs Overall) */}
+          {/* Period Dropdown */}
           <select
             value={viewScope}
             onChange={(e) => setViewScope(e.target.value)}
             aria-label="Recruiter performance period"
             style={{
-              padding: '10px 14px',
+              height: '42px',
+              padding: '0 12px',
               borderRadius: '8px',
-              background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.08)',
+              background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.06)',
               color: 'inherit',
-              border: '1px solid #eab308',
+              border: '1px solid rgba(234, 179, 8, 0.65)',
               fontWeight: 600,
-              fontSize: '13px',
+              fontSize: '12.5px',
               cursor: 'pointer',
+              boxSizing: 'border-box',
             }}
           >
-            <option value="qtd" style={{ background: '#0f172a', color: '#fff' }}>Current Quarter (QTD · Target ×3)</option>
-            <option value="overall" style={{ background: '#0f172a', color: '#fff' }}>Overall (MoM Matrix)</option>
+            <option value="qtd" style={{ background: '#0f172a', color: '#fff' }}>Current Quarter (QTD · Avg ROI)</option>
+            <option value="overall" style={{ background: '#0f172a', color: '#fff' }}>Overall (MoM Matrix · Avg ROI)</option>
           </select>
         </div>
       </div>
 
-      {/* ROI Weighting Legend */}
+      {/* Compact ROI Weighting Legend Bar */}
       <div
         style={{
           display: 'flex',
           flexWrap: 'wrap',
-          gap: '16px',
+          gap: '14px',
           alignItems: 'center',
-          padding: '10px 14px',
-          marginBottom: '16px',
+          padding: '7px 12px',
+          marginBottom: '12px',
           borderRadius: '8px',
-          background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.03)',
+          background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.025)',
           border: `1px solid ${borderColor}`,
-          fontSize: '12px',
+          fontSize: '11.5px',
           color: mutedColor,
         }}
       >
-        <strong style={{ color: textColor }}>ROI Channel Weights (Fulltime & Contract):</strong>
+        <strong style={{ color: textColor }}>ROI Channel Weights:</strong>
         <span><b style={{ color: '#10b981' }}>100%</b> Internal (Internal, Careers Page, Campus)</span>
         <span><b style={{ color: '#eab308' }}>20%</b> Employee Referral · Business Reference</span>
         <span><b style={{ color: '#f87171' }}>0%</b> External & Interns</span>
         <span style={{ marginLeft: 'auto' }}>
-          Monthly Baseline: <b>{monthlyRoiTarget}x</b> · Quarterly Baseline (×3): <b>{monthlyRoiTarget * 3}x</b>
+          Monthly Target: <b style={{ color: textColor }}>{roiTarget}x</b> · Quarterly Avg Target: <b style={{ color: textColor }}>{roiTarget}x Avg</b> · <span style={{ color: '#38bdf8' }}>Click any Offer/Join count for details</span>
         </span>
       </div>
 
       {groupedRecruiters.length === 0 ? (
-        <p className="muted" style={{ textAlign: 'center', padding: '32px 0' }}>
+        <p className="muted" style={{ textAlign: 'center', padding: '28px 0' }}>
           No recruiters found. Make sure the <b>Recruiters</b> tab is populated and published from the sheet.
         </p>
       ) : (
         <div className="table-scroll" style={{ width: '100%', overflowX: 'auto' }}>
-          <table className="jobs" style={{ margin: 0, width: '100%', minWidth: `${Math.max(920, 560 + displayedMonths.length * 125)}px` }}>
+          <table className="jobs rec-compact-table" style={{ margin: 0, width: '100%', minWidth: `${Math.max(900, 530 + displayedMonths.length * 125)}px` }}>
             <thead>
               <tr>
                 <th style={{ position: 'sticky', left: 0, zIndex: 2, background: theme === 'light' ? '#e2e8f0' : '#1e293b' }}>Recruiter Name</th>
-                <th>Hiring Type</th>
                 <th className="n">
                   {viewScope === 'qtd' ? 'Qtr Target (×3)' : 'Target (Joinings)'}
-                  <div style={{ fontSize: '10px', fontWeight: 500, opacity: 0.75 }}>Monthly × {viewScope === 'qtd' ? 3 : displayedMonths.length}</div>
                 </th>
                 {displayedMonths.map((ym) => (
-                  <th key={ym} className="n" style={{ minWidth: '115px' }}>
+                  <th key={ym} className="n" style={{ minWidth: '118px' }}>
                     {formatYearMonth(ym)}
-                    <div style={{ fontSize: '10px', fontWeight: 500, opacity: 0.75 }}>Off / Join · ROI (10x)</div>
+                    <div style={{ fontSize: '10px', fontWeight: 500, opacity: 0.75 }}>Off / Join · ROI ({roiTarget}x)</div>
                   </th>
                 ))}
                 <th className="n">
                   {viewScope === 'qtd' ? 'QTD (Off / Join)' : 'Total (Off / Join)'}
                 </th>
                 <th className="n">Target Attainment</th>
-                <th className="n">{viewScope === 'qtd' ? 'QTD ROI (30x)' : `Overall ROI (${periodRoiTarget}x)`}</th>
-                <th className="n">{periodRoiTarget}x Target Status</th>
+                <th className="n">{viewScope === 'qtd' ? `QTD Avg ROI (${roiTarget}x)` : `Avg ROI (${roiTarget}x)`}</th>
+                <th className="n">{roiTarget}x Avg Status</th>
               </tr>
             </thead>
             <tbody>
@@ -1201,24 +1398,34 @@ function RecruiterPerformanceSection({
                 let groupTarget = 0;
                 let groupOffered = 0;
                 let groupJoined = 0;
+                let groupRoiSum = 0;
+                const groupRecNames = group.items.map((item) => item.name);
 
                 return (
                   <Fragment key={group.key}>
-                    <tr>
+                    {/* Group Header Row with Sticky First Cell so Label Never Clips */}
+                    <tr
+                      style={{
+                        background: theme === 'light' ? '#f1f5f9' : 'rgba(56, 189, 248, 0.08)',
+                      }}
+                    >
                       <td
-                        colSpan={7 + displayedMonths.length}
                         style={{
-                          background: theme === 'light' ? '#f1f5f9' : 'rgba(56, 189, 248, 0.08)',
+                          position: 'sticky',
+                          left: 0,
+                          zIndex: 1,
+                          background: theme === 'light' ? '#f1f5f9' : '#132338',
                           fontWeight: 700,
-                          fontSize: '12px',
+                          fontSize: '11.5px',
                           textTransform: 'uppercase',
                           letterSpacing: '0.05em',
                           color: group.color,
-                          padding: '9px 14px',
+                          whiteSpace: 'nowrap',
                         }}
                       >
                         {group.label} ({group.items.length})
                       </td>
+                      <td colSpan={5 + displayedMonths.length} />
                     </tr>
 
                     {group.items.map((r) => {
@@ -1226,15 +1433,16 @@ function RecruiterPerformanceSection({
                       const periodStats = viewScope === 'qtd' ? (chNode.qtd || {}) : (chNode.overall || {});
                       const offered = periodStats.offered || 0;
                       const joined = periodStats.joined || 0;
-                      const roi = Number(periodStats.roi) || 0;
+                      const avgRoi = getRecruiterAvgRoi(chNode);
                       const monthlyTarget = Number(r.monthlyTarget ?? r.target ?? 0);
                       const target = getRecruiterPeriodTarget(r);
                       const attainmentPct = target > 0 ? Math.round((joined / target) * 100) : 0;
-                      const roiGap = Math.max(0, Math.round((periodRoiTarget - roi) * 10) / 10);
+                      const roiGap = Math.max(0, Math.round((roiTarget - avgRoi) * 10) / 10);
 
                       groupTarget += target;
                       groupOffered += offered;
                       groupJoined += joined;
+                      groupRoiSum += avgRoi;
 
                       return (
                         <tr key={`${group.key}-${r.name}`}>
@@ -1245,32 +1453,20 @@ function RecruiterPerformanceSection({
                               left: 0,
                               zIndex: 1,
                               background: theme === 'light' ? '#ffffff' : '#0f172a',
+                              whiteSpace: 'nowrap',
                             }}
                           >
                             {r.name}
                           </td>
-                          <td>
-                            <span
-                              style={{
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                padding: '2px 8px',
-                                borderRadius: '6px',
-                                background: r.hiringType === 'Bulk' ? 'rgba(167, 139, 250, 0.15)' : 'rgba(56, 189, 248, 0.15)',
-                                color: r.hiringType === 'Bulk' ? '#a78bfa' : '#38bdf8',
-                              }}
-                            >
-                              {r.hiringType}
-                            </span>
-                          </td>
-                          <td className="n" style={{ fontWeight: 600 }}>
+
+                          <td className="n" style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
                             {target > 0 ? (
-                              <div>
-                                <span>{fmt(target)}</span>
-                                <span style={{ display: 'block', fontSize: '10px', color: mutedColor }}>
+                              <span>
+                                {fmt(target)}{' '}
+                                <span style={{ fontSize: '11px', color: mutedColor, fontWeight: 400 }}>
                                   ({fmt(monthlyTarget)}/mo)
                                 </span>
-                              </div>
+                              </span>
                             ) : '—'}
                           </td>
 
@@ -1283,22 +1479,45 @@ function RecruiterPerformanceSection({
                             return (
                               <td key={ym} className="n" style={{ whiteSpace: 'nowrap' }}>
                                 {mOff === 0 && mJoin === 0 ? (
-                                  <span style={{ color: mutedColor, opacity: 0.45 }}>—</span>
+                                  <span style={{ color: mutedColor, opacity: 0.4 }}>—</span>
                                 ) : (
-                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                    <span>
-                                      <span style={{ color: '#38bdf8', fontWeight: 600 }}>{fmt(mOff)}</span>
-                                      {' / '}
-                                      <strong style={{ color: '#10b981' }}>{fmt(mJoin)}</strong>
-                                    </span>
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    <RecClickPill
+                                      value={mOff}
+                                      color="#38bdf8"
+                                      title={`View ${r.name}'s offered candidates in ${formatYearMonth(ym)}`}
+                                      onClick={() =>
+                                        handleOpenRecModal({
+                                          recruiterName: r.name,
+                                          monthsList: [ym],
+                                          metricType: 'momOffered',
+                                          labelPrefix: `${r.name} (${formatYearMonth(ym)})`,
+                                        })
+                                      }
+                                    />
+                                    <span style={{ color: mutedColor, fontSize: '11px' }}>/</span>
+                                    <RecClickPill
+                                      value={mJoin}
+                                      color="#10b981"
+                                      title={`View ${r.name}'s joined candidates in ${formatYearMonth(ym)}`}
+                                      onClick={() =>
+                                        handleOpenRecModal({
+                                          recruiterName: r.name,
+                                          monthsList: [ym],
+                                          metricType: 'momJoined',
+                                          labelPrefix: `${r.name} (${formatYearMonth(ym)})`,
+                                        })
+                                      }
+                                    />
                                     <span
                                       style={{
-                                        fontSize: '11px',
-                                        padding: '1px 6px',
+                                        fontSize: '10.5px',
+                                        padding: '1px 5px',
                                         borderRadius: '4px',
-                                        background: mRoi >= monthlyRoiTarget ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.07)',
-                                        color: mRoi >= monthlyRoiTarget ? '#10b981' : mutedColor,
+                                        background: mRoi >= roiTarget ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.07)',
+                                        color: mRoi >= roiTarget ? '#10b981' : mutedColor,
                                         fontWeight: 600,
+                                        marginLeft: '2px',
                                       }}
                                     >
                                       {mRoi.toFixed(1)}x
@@ -1310,18 +1529,44 @@ function RecruiterPerformanceSection({
                           })}
 
                           <td className="n" style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
-                            <span style={{ color: '#38bdf8' }}>{fmt(offered)}</span>
-                            {' / '}
-                            <span style={{ color: '#10b981' }}>{fmt(joined)}</span>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <RecClickPill
+                                value={offered}
+                                color="#38bdf8"
+                                title={`View all ${viewScope === 'qtd' ? 'QTD' : 'Overall'} offered candidates for ${r.name}`}
+                                onClick={() =>
+                                  handleOpenRecModal({
+                                    recruiterName: r.name,
+                                    monthsList: displayedMonths,
+                                    metricType: 'momOffered',
+                                    labelPrefix: `${r.name} (${viewScope === 'qtd' ? 'QTD' : 'Overall'})`,
+                                  })
+                                }
+                              />
+                              <span style={{ color: mutedColor, fontSize: '11px' }}>/</span>
+                              <RecClickPill
+                                value={joined}
+                                color="#10b981"
+                                title={`View all ${viewScope === 'qtd' ? 'QTD' : 'Overall'} joined candidates for ${r.name}`}
+                                onClick={() =>
+                                  handleOpenRecModal({
+                                    recruiterName: r.name,
+                                    monthsList: displayedMonths,
+                                    metricType: 'momJoined',
+                                    labelPrefix: `${r.name} (${viewScope === 'qtd' ? 'QTD' : 'Overall'})`,
+                                  })
+                                }
+                              />
+                            </div>
                           </td>
 
-                          <td className="n">
+                          <td className="n" style={{ whiteSpace: 'nowrap' }}>
                             {target > 0 ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                                <span style={{ fontSize: '12px', fontWeight: 600 }}>
-                                  {fmt(joined)} / {fmt(target)} ({attainmentPct}%)
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '11.5px', fontWeight: 600 }}>
+                                  {fmt(joined)}/{fmt(target)} ({attainmentPct}%)
                                 </span>
-                                <div style={{ width: '80px', height: '5px', background: 'rgba(148,163,184,0.2)', borderRadius: '3px', overflow: 'hidden' }}>
+                                <div style={{ width: '54px', height: '5px', background: 'rgba(148,163,184,0.2)', borderRadius: '3px', overflow: 'hidden' }}>
                                   <div
                                     style={{
                                       width: `${Math.min(100, attainmentPct)}%`,
@@ -1336,13 +1581,13 @@ function RecruiterPerformanceSection({
                             )}
                           </td>
 
-                          <td className="n">{renderRoiBadge(roi, periodRoiTarget)}</td>
+                          <td className="n">{renderRoiBadge(avgRoi, roiTarget)}</td>
 
-                          <td className="n" style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>
-                            {roi >= periodRoiTarget ? (
-                              <span style={{ color: '#10b981', fontWeight: 600 }}>✓ Achieved ({roi.toFixed(1)}x)</span>
+                          <td className="n" style={{ fontSize: '11.5px', whiteSpace: 'nowrap' }}>
+                            {avgRoi >= roiTarget ? (
+                              <span style={{ color: '#10b981', fontWeight: 600 }}>✓ Achieved ({avgRoi.toFixed(1)}x)</span>
                             ) : (
-                              <span style={{ color: '#eab308', fontWeight: 500 }}>Needs +{roiGap.toFixed(1)}x to {periodRoiTarget}x</span>
+                              <span style={{ color: '#eab308', fontWeight: 500 }}>Needs +{roiGap.toFixed(1)}x to {roiTarget}x</span>
                             )}
                           </td>
                         </tr>
@@ -1350,7 +1595,7 @@ function RecruiterPerformanceSection({
                     })}
 
                     {/* Subtotal Row per Hiring Type */}
-                    <tr style={{ fontWeight: 700, background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.02)' }}>
+                    <tr style={{ fontWeight: 700, background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.025)' }}>
                       <td
                         style={{
                           position: 'sticky',
@@ -1361,7 +1606,6 @@ function RecruiterPerformanceSection({
                       >
                         Subtotal · {group.key}
                       </td>
-                      <td>—</td>
                       <td className="n">{fmt(groupTarget)}</td>
                       {displayedMonths.map((ym) => {
                         let mOffSum = 0;
@@ -1373,18 +1617,74 @@ function RecruiterPerformanceSection({
                           mJoinSum += ms.joined || 0;
                         });
                         return (
-                          <td key={ym} className="n">
-                            <span style={{ color: '#38bdf8' }}>{fmt(mOffSum)}</span> / <span style={{ color: '#10b981' }}>{fmt(mJoinSum)}</span>
+                          <td key={ym} className="n" style={{ whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <RecClickPill
+                                value={mOffSum}
+                                color="#38bdf8"
+                                onClick={() =>
+                                  handleOpenRecModal({
+                                    recruiterNamesList: groupRecNames,
+                                    monthsList: [ym],
+                                    metricType: 'momOffered',
+                                    labelPrefix: `${group.key} Subtotal (${formatYearMonth(ym)})`,
+                                  })
+                                }
+                              />
+                              <span style={{ color: mutedColor, fontSize: '11px' }}>/</span>
+                              <RecClickPill
+                                value={mJoinSum}
+                                color="#10b981"
+                                onClick={() =>
+                                  handleOpenRecModal({
+                                    recruiterNamesList: groupRecNames,
+                                    monthsList: [ym],
+                                    metricType: 'momJoined',
+                                    labelPrefix: `${group.key} Subtotal (${formatYearMonth(ym)})`,
+                                  })
+                                }
+                              />
+                            </div>
                           </td>
                         );
                       })}
-                      <td className="n">
-                        <span style={{ color: '#38bdf8' }}>{fmt(groupOffered)}</span> / <span style={{ color: '#10b981' }}>{fmt(groupJoined)}</span>
+                      <td className="n" style={{ whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <RecClickPill
+                            value={groupOffered}
+                            color="#38bdf8"
+                            onClick={() =>
+                              handleOpenRecModal({
+                                recruiterNamesList: groupRecNames,
+                                monthsList: displayedMonths,
+                                metricType: 'momOffered',
+                                labelPrefix: `${group.key} Subtotal (${viewScope === 'qtd' ? 'QTD' : 'Overall'})`,
+                              })
+                            }
+                          />
+                          <span style={{ color: mutedColor, fontSize: '11px' }}>/</span>
+                          <RecClickPill
+                            value={groupJoined}
+                            color="#10b981"
+                            onClick={() =>
+                              handleOpenRecModal({
+                                recruiterNamesList: groupRecNames,
+                                monthsList: displayedMonths,
+                                metricType: 'momJoined',
+                                labelPrefix: `${group.key} Subtotal (${viewScope === 'qtd' ? 'QTD' : 'Overall'})`,
+                              })
+                            }
+                          />
+                        </div>
                       </td>
                       <td className="n">
                         {groupTarget > 0 ? `${Math.round((groupJoined / groupTarget) * 100)}%` : '—'}
                       </td>
-                      <td className="n">—</td>
+                      <td className="n">
+                        {group.items.length > 0
+                          ? renderRoiBadge(Math.round((groupRoiSum / group.items.length) * 10) / 10, roiTarget)
+                          : '—'}
+                      </td>
                       <td className="n">—</td>
                     </tr>
                   </Fragment>
@@ -1405,26 +1705,73 @@ function RecruiterPerformanceSection({
                   >
                     Former / Unlisted Recruiters
                   </td>
-                  <td>—</td>
                   <td className="n">—</td>
                   {displayedMonths.map((ym) => {
                     const uStat = (activeSheetTotals.unlistedByMonth && activeSheetTotals.unlistedByMonth[ym]) || { offered: 0, joined: 0 };
                     return (
-                      <td key={ym} className="n">
+                      <td key={ym} className="n" style={{ whiteSpace: 'nowrap' }}>
                         {uStat.offered === 0 && uStat.joined === 0 ? (
                           '—'
                         ) : (
-                          <span>
-                            <span style={{ color: '#38bdf8' }}>{fmt(uStat.offered)}</span> / <span style={{ color: '#10b981' }}>{fmt(uStat.joined)}</span>
-                          </span>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <RecClickPill
+                              value={uStat.offered}
+                              color="#38bdf8"
+                              onClick={() =>
+                                handleOpenRecModal({
+                                  unlistedOnly: true,
+                                  monthsList: [ym],
+                                  metricType: 'momOffered',
+                                  labelPrefix: `Former / Unlisted Recruiters (${formatYearMonth(ym)})`,
+                                })
+                              }
+                            />
+                            <span style={{ color: mutedColor, fontSize: '11px' }}>/</span>
+                            <RecClickPill
+                              value={uStat.joined}
+                              color="#10b981"
+                              onClick={() =>
+                                handleOpenRecModal({
+                                  unlistedOnly: true,
+                                  monthsList: [ym],
+                                  metricType: 'momJoined',
+                                  labelPrefix: `Former / Unlisted Recruiters (${formatYearMonth(ym)})`,
+                                })
+                              }
+                            />
+                          </div>
                         )}
                       </td>
                     );
                   })}
-                  <td className="n" style={{ fontWeight: 700 }}>
-                    <span style={{ color: '#38bdf8' }}>{fmt(summaryKpis.unlistedOffered)}</span>
-                    {' / '}
-                    <span style={{ color: '#10b981' }}>{fmt(summaryKpis.unlistedJoined)}</span>
+                  <td className="n" style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <RecClickPill
+                        value={summaryKpis.unlistedOffered}
+                        color="#38bdf8"
+                        onClick={() =>
+                          handleOpenRecModal({
+                            unlistedOnly: true,
+                            monthsList: displayedMonths,
+                            metricType: 'momOffered',
+                            labelPrefix: `Former / Unlisted Recruiters (${viewScope === 'qtd' ? 'QTD' : 'Overall'})`,
+                          })
+                        }
+                      />
+                      <span style={{ color: mutedColor, fontSize: '11px' }}>/</span>
+                      <RecClickPill
+                        value={summaryKpis.unlistedJoined}
+                        color="#10b981"
+                        onClick={() =>
+                          handleOpenRecModal({
+                            unlistedOnly: true,
+                            monthsList: displayedMonths,
+                            metricType: 'momJoined',
+                            labelPrefix: `Former / Unlisted Recruiters (${viewScope === 'qtd' ? 'QTD' : 'Overall'})`,
+                          })
+                        }
+                      />
+                    </div>
                   </td>
                   <td className="n">—</td>
                   <td className="n">—</td>
@@ -1446,18 +1793,65 @@ function RecruiterPerformanceSection({
                 >
                   Total (Direct from Master Offered)
                 </td>
-                <td>All</td>
                 <td className="n">{fmt(summaryKpis.totalTarget)}</td>
                 {displayedMonths.map((ym) => {
                   const dMonth = (activeSheetTotals.byMonth && activeSheetTotals.byMonth[ym]) || { offered: 0, joined: 0 };
                   return (
-                    <td key={ym} className="n">
-                      <span style={{ color: '#38bdf8' }}>{fmt(dMonth.offered)}</span> / <span style={{ color: '#10b981' }}>{fmt(dMonth.joined)}</span>
+                    <td key={ym} className="n" style={{ whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <RecClickPill
+                          value={dMonth.offered}
+                          color="#38bdf8"
+                          onClick={() =>
+                            handleOpenRecModal({
+                              monthsList: [ym],
+                              metricType: 'momOffered',
+                              labelPrefix: `Master Offered Total (${formatYearMonth(ym)})`,
+                            })
+                          }
+                        />
+                        <span style={{ color: mutedColor, fontSize: '11px' }}>/</span>
+                        <RecClickPill
+                          value={dMonth.joined}
+                          color="#10b981"
+                          onClick={() =>
+                            handleOpenRecModal({
+                              monthsList: [ym],
+                              metricType: 'momJoined',
+                              labelPrefix: `Master Joined Total (${formatYearMonth(ym)})`,
+                            })
+                          }
+                        />
+                      </div>
                     </td>
                   );
                 })}
-                <td className="n">
-                  <span style={{ color: '#38bdf8' }}>{fmt(summaryKpis.totalOffered)}</span> / <span style={{ color: '#10b981' }}>{fmt(summaryKpis.totalJoined)}</span>
+                <td className="n" style={{ whiteSpace: 'nowrap' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <RecClickPill
+                      value={summaryKpis.totalOffered}
+                      color="#38bdf8"
+                      onClick={() =>
+                        handleOpenRecModal({
+                          monthsList: displayedMonths,
+                          metricType: 'momOffered',
+                          labelPrefix: `Master Offered Total (${viewScope === 'qtd' ? 'QTD' : 'Overall'})`,
+                        })
+                      }
+                    />
+                    <span style={{ color: mutedColor, fontSize: '11px' }}>/</span>
+                    <RecClickPill
+                      value={summaryKpis.totalJoined}
+                      color="#10b981"
+                      onClick={() =>
+                        handleOpenRecModal({
+                          monthsList: displayedMonths,
+                          metricType: 'momJoined',
+                          labelPrefix: `Master Joined Total (${viewScope === 'qtd' ? 'QTD' : 'Overall'})`,
+                        })
+                      }
+                    />
+                  </div>
                 </td>
                 <td className="n">
                   {summaryKpis.totalTarget > 0
@@ -2238,8 +2632,10 @@ export default function Dashboard({ unitKey = 'overall' }) {
                 <RecruiterPerformanceSection
                   recruiterPerformance={data.recruiterPerformance}
                   recruiterPerformanceByBu={data.recruiterPerformanceByBu}
+                  momSeries={data.momSeries || []}
                   selectedBu={bu}
                   theme={theme}
+                  onOpenCandidateModal={setModalData}
                 />
 
                 {checks.length > 0 && (
