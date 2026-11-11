@@ -22,6 +22,14 @@ const METRIC_LABELS = {
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+const REC_CHANNEL_OPTIONS = [
+  { key: 'all', label: 'Overall (All Channels)' },
+  { key: 'internalGroup', label: 'Internal (Internal, Careers Page, Campus)' },
+  { key: 'employeeReferral', label: 'Employee Referral' },
+  { key: 'businessReference', label: 'Business Reference' },
+  { key: 'external', label: 'External' },
+];
+
 function formatYearMonth(ym) {
   const m = /^(\d{4})-(\d{2})$/.exec(String(ym || ''));
   if (!m) return ym;
@@ -885,7 +893,7 @@ function ChannelAnalysisSection({
   );
 }
 
-/* ---------- Recruiter Performance Section (Monthly Target * 3 for QTD, Direct Master Offered Totals) ---------- */
+/* ---------- Recruiter Performance Section (With Channel Dropdown & Direct Master Offered Totals) ---------- */
 
 function RecruiterPerformanceSection({
   recruiterPerformance,
@@ -894,6 +902,7 @@ function RecruiterPerformanceSection({
   theme
 }) {
   const [viewScope, setViewScope] = useState('qtd'); // 'qtd' | 'overall'
+  const [channelScope, setChannelScope] = useState('all'); // 'all' | 'internalGroup' | 'employeeReferral' | 'businessReference' | 'external'
 
   const activePerf = useMemo(() => {
     if (selectedBu !== 'all' && recruiterPerformanceByBu && recruiterPerformanceByBu[selectedBu]) {
@@ -936,6 +945,17 @@ function RecruiterPerformanceSection({
     ].filter((g) => g.items.length > 0);
   }, [activePerf]);
 
+  // Helper to resolve the active channel node for a recruiter
+  const getRecChannelData = useCallback((r) => {
+    if (channelScope !== 'all' && r.byChannel && r.byChannel[channelScope]) {
+      return r.byChannel[channelScope];
+    }
+    if (r.byChannel && r.byChannel.all) {
+      return r.byChannel.all;
+    }
+    return r;
+  }, [channelScope]);
+
   // Helper to get scaled target for a recruiter (Monthly Target * 3 for QTD)
   const getRecruiterPeriodTarget = useCallback((r) => {
     const mTarget = Number(r.monthlyTarget ?? r.target ?? 0);
@@ -945,16 +965,28 @@ function RecruiterPerformanceSection({
     return Number(r.overallTarget ?? mTarget * Math.max(1, displayedMonths.length));
   }, [viewScope, displayedMonths.length]);
 
+  // Resolve active sheetTotals bucket for the selected channel filter
+  const activeSheetTotals = useMemo(() => {
+    const st = activePerf.sheetTotals || {};
+    if (channelScope !== 'all' && st.byChannel && st.byChannel[channelScope]) {
+      return st.byChannel[channelScope];
+    }
+    if (st.byChannel && st.byChannel.all) {
+      return st.byChannel.all;
+    }
+    return st;
+  }, [activePerf, channelScope]);
+
   const summaryKpis = useMemo(() => {
     const list = Array.isArray(activePerf.recruiters) ? activePerf.recruiters : [];
-    const sheetTotals = activePerf.sheetTotals || {};
     let totalTarget = 0;
     let sumRecOffered = 0;
     let sumRecJoined = 0;
     let metTargetCount = 0;
 
     list.forEach((r) => {
-      const bucket = viewScope === 'qtd' ? (r.qtd || {}) : (r.overall || {});
+      const chNode = getRecChannelData(r);
+      const bucket = viewScope === 'qtd' ? (chNode.qtd || {}) : (chNode.overall || {});
       totalTarget += getRecruiterPeriodTarget(r);
       sumRecOffered += bucket.offered || 0;
       sumRecJoined += bucket.joined || 0;
@@ -962,11 +994,11 @@ function RecruiterPerformanceSection({
     });
 
     // Pull Grand Totals directly from Master Offered sheetTotals (so departed Oct recruiters are included)
-    const directPeriod = viewScope === 'qtd' ? sheetTotals.qtd : sheetTotals.overall;
+    const directPeriod = viewScope === 'qtd' ? activeSheetTotals.qtd : activeSheetTotals.overall;
     const totalOffered = directPeriod && typeof directPeriod.offered === 'number' ? directPeriod.offered : sumRecOffered;
     const totalJoined = directPeriod && typeof directPeriod.joined === 'number' ? directPeriod.joined : sumRecJoined;
 
-    const unlistedPeriod = viewScope === 'qtd' ? sheetTotals.unlistedQtd : sheetTotals.unlistedOverall;
+    const unlistedPeriod = viewScope === 'qtd' ? activeSheetTotals.unlistedQtd : activeSheetTotals.unlistedOverall;
     const unlistedOffered = unlistedPeriod ? (unlistedPeriod.offered || 0) : Math.max(0, totalOffered - sumRecOffered);
     const unlistedJoined = unlistedPeriod ? (unlistedPeriod.joined || 0) : Math.max(0, totalJoined - sumRecJoined);
 
@@ -979,7 +1011,7 @@ function RecruiterPerformanceSection({
       metTargetCount,
       totalRecruiters: list.length
     };
-  }, [activePerf, viewScope, periodRoiTarget, getRecruiterPeriodTarget]);
+  }, [activePerf, viewScope, periodRoiTarget, getRecChannelData, getRecruiterPeriodTarget, activeSheetTotals]);
 
   const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
   const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.12)';
@@ -1016,7 +1048,10 @@ function RecruiterPerformanceSection({
     );
   };
 
-  const sheetTotals = activePerf.sheetTotals || {};
+  const selectedChannelLabel = useMemo(() => {
+    const hit = REC_CHANNEL_OPTIONS.find((o) => o.key === channelScope);
+    return hit ? hit.label : 'Overall (All Channels)';
+  }, [channelScope]);
 
   return (
     <section
@@ -1037,11 +1072,12 @@ function RecruiterPerformanceSection({
           <p className="kicker" style={{ marginBottom: '4px' }}>Recruiter Efficiency & ROI</p>
           <h2 style={{ margin: 0, fontSize: '22px' }}>Recruiter Performance</h2>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
-            {selectedBu === 'all' ? 'All Business Units' : selectedBu} · Monthly Target: {monthlyRoiTarget}x ROI · Quarterly Target (×3): {monthlyRoiTarget * 3}x ROI
+            {selectedBu === 'all' ? 'All Business Units' : selectedBu} · {selectedChannelLabel} · Monthly Target: {monthlyRoiTarget}x ROI · Quarterly Target (×3): {monthlyRoiTarget * 3}x ROI
           </p>
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
+          {/* Master Offered / Joined KPI Card */}
           <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.35)' }}>
             <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#38bdf8', display: 'block', fontWeight: 600 }}>
               {viewScope === 'qtd' ? 'QTD Master Offered / Joined' : 'Overall Master Offered / Joined'}
@@ -1051,15 +1087,7 @@ function RecruiterPerformanceSection({
             </strong>
           </div>
 
-          <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.35)' }}>
-            <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#10b981', display: 'block', fontWeight: 600 }}>
-              {viewScope === 'qtd' ? 'QTD Target (Monthly × 3)' : 'Overall Target'}
-            </span>
-            <strong style={{ fontSize: '17px', color: '#10b981' }}>
-              {fmt(summaryKpis.totalJoined)} / {fmt(summaryKpis.totalTarget)}
-            </strong>
-          </div>
-
+          {/* ROI Target Achieved Card */}
           <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(234, 179, 8, 0.12)', border: '1px solid rgba(234, 179, 8, 0.35)' }}>
             <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#eab308', display: 'block', fontWeight: 600 }}>
               ≥ {periodRoiTarget}x ROI Achieved
@@ -1069,6 +1097,30 @@ function RecruiterPerformanceSection({
             </strong>
           </div>
 
+          {/* Channel Dropdown Filter */}
+          <select
+            value={channelScope}
+            onChange={(e) => setChannelScope(e.target.value)}
+            aria-label="Filter Recruiter Performance by Channel"
+            style={{
+              padding: '10px 14px',
+              borderRadius: '8px',
+              background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.08)',
+              color: 'inherit',
+              border: '1px solid #38bdf8',
+              fontWeight: 600,
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            {REC_CHANNEL_OPTIONS.map((opt) => (
+              <option key={opt.key} value={opt.key} style={{ background: '#0f172a', color: '#fff' }}>
+                Channel: {opt.label}
+              </option>
+            ))}
+          </select>
+
+          {/* Period Dropdown Filter (QTD vs Overall) */}
           <select
             value={viewScope}
             onChange={(e) => setViewScope(e.target.value)}
@@ -1107,7 +1159,7 @@ function RecruiterPerformanceSection({
         }}
       >
         <strong style={{ color: textColor }}>ROI Channel Weights (Fulltime & Contract):</strong>
-        <span><b style={{ color: '#10b981' }}>100%</b> Internal · Careers Page · Campus</span>
+        <span><b style={{ color: '#10b981' }}>100%</b> Internal (Internal, Careers Page, Campus)</span>
         <span><b style={{ color: '#eab308' }}>20%</b> Employee Referral · Business Reference</span>
         <span><b style={{ color: '#f87171' }}>0%</b> External & Interns</span>
         <span style={{ marginLeft: 'auto' }}>
@@ -1170,7 +1222,8 @@ function RecruiterPerformanceSection({
                     </tr>
 
                     {group.items.map((r) => {
-                      const periodStats = viewScope === 'qtd' ? (r.qtd || {}) : (r.overall || {});
+                      const chNode = getRecChannelData(r);
+                      const periodStats = viewScope === 'qtd' ? (chNode.qtd || {}) : (chNode.overall || {});
                       const offered = periodStats.offered || 0;
                       const joined = periodStats.joined || 0;
                       const roi = Number(periodStats.roi) || 0;
@@ -1222,7 +1275,7 @@ function RecruiterPerformanceSection({
                           </td>
 
                           {displayedMonths.map((ym) => {
-                            const mStat = (r.byMonth && r.byMonth[ym]) || { offered: 0, joined: 0, roi: 0 };
+                            const mStat = (chNode.byMonth && chNode.byMonth[ym]) || { offered: 0, joined: 0, roi: 0 };
                             const mOff = mStat.offered || 0;
                             const mJoin = mStat.joined || 0;
                             const mRoi = Number(mStat.roi) || 0;
@@ -1314,7 +1367,8 @@ function RecruiterPerformanceSection({
                         let mOffSum = 0;
                         let mJoinSum = 0;
                         group.items.forEach((r) => {
-                          const ms = (r.byMonth && r.byMonth[ym]) || { offered: 0, joined: 0 };
+                          const chNode = getRecChannelData(r);
+                          const ms = (chNode.byMonth && chNode.byMonth[ym]) || { offered: 0, joined: 0 };
                           mOffSum += ms.offered || 0;
                           mJoinSum += ms.joined || 0;
                         });
@@ -1354,7 +1408,7 @@ function RecruiterPerformanceSection({
                   <td>—</td>
                   <td className="n">—</td>
                   {displayedMonths.map((ym) => {
-                    const uStat = (sheetTotals.unlistedByMonth && sheetTotals.unlistedByMonth[ym]) || { offered: 0, joined: 0 };
+                    const uStat = (activeSheetTotals.unlistedByMonth && activeSheetTotals.unlistedByMonth[ym]) || { offered: 0, joined: 0 };
                     return (
                       <td key={ym} className="n">
                         {uStat.offered === 0 && uStat.joined === 0 ? (
@@ -1395,7 +1449,7 @@ function RecruiterPerformanceSection({
                 <td>All</td>
                 <td className="n">{fmt(summaryKpis.totalTarget)}</td>
                 {displayedMonths.map((ym) => {
-                  const dMonth = (sheetTotals.byMonth && sheetTotals.byMonth[ym]) || { offered: 0, joined: 0 };
+                  const dMonth = (activeSheetTotals.byMonth && activeSheetTotals.byMonth[ym]) || { offered: 0, joined: 0 };
                   return (
                     <td key={ym} className="n">
                       <span style={{ color: '#38bdf8' }}>{fmt(dMonth.offered)}</span> / <span style={{ color: '#10b981' }}>{fmt(dMonth.joined)}</span>
