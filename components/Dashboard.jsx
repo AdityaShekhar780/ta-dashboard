@@ -282,7 +282,7 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
   const splitCards = [
     {
       key: 'adHoc',
-      label: 'Ad-Hoc (Col G)',
+      label: 'Ad-Hoc',
       value: adHoc,
       share: pct(adHoc),
       color: '#38bdf8',
@@ -291,7 +291,7 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
     },
     {
       key: 'monthlyApproved',
-      label: 'Monthly Approved (Col H)',
+      label: 'Monthly Approved',
       value: monthlyApproved,
       share: pct(monthlyApproved),
       color: '#10b981',
@@ -300,7 +300,7 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
     },
     {
       key: 'lastMonthCf',
-      label: 'Last Month C/F (Col I)',
+      label: 'Last Month C/F',
       value: lastMonthCf,
       share: pct(lastMonthCf),
       color: '#eab308',
@@ -331,8 +331,8 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
           border: '1px solid rgba(255, 255, 255, 0.18)',
           borderRadius: '14px',
           width: '100%',
-          maxWidth: '820px',
-          maxHeight: '85vh',
+          maxWidth: '860px',
+          maxHeight: '88vh',
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 20px 45px rgba(0, 0, 0, 0.65)',
@@ -380,16 +380,16 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
               gap: '14px',
-              marginBottom: '22px',
+              marginBottom: '20px',
             }}
           >
             {splitCards.map((c) => (
               <div
                 key={c.key}
                 style={{
-                  padding: '16px 18px',
+                  padding: '14px 16px',
                   borderRadius: '10px',
                   background: c.bg,
                   border: `1px solid ${c.border}`,
@@ -402,8 +402,8 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
                   {c.label}
                 </span>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' }}>
-                  <strong style={{ fontSize: '28px', color: c.color, lineHeight: 1.1 }}>{fmt(c.value)}</strong>
-                  <span style={{ fontSize: '13px', fontWeight: 600, opacity: 0.85 }}>{c.share}% of total</span>
+                  <strong style={{ fontSize: '26px', color: c.color, lineHeight: 1.1 }}>{fmt(c.value)}</strong>
+                  <span style={{ fontSize: '12px', fontWeight: 600, opacity: 0.85 }}>{c.share}% of total</span>
                 </div>
                 <div style={{ width: '100%', height: '6px', background: 'rgba(148, 163, 184, 0.2)', borderRadius: '3px', overflow: 'hidden', marginTop: '4px' }}>
                   <div style={{ width: `${Math.min(100, c.share)}%`, height: '100%', background: c.color, borderRadius: '3px' }} />
@@ -413,45 +413,42 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
           </div>
 
           {/* Per-Business Unit Breakdown Table */}
-          <div className="table-scroll">
-            <table className="jobs" style={{ margin: 0, width: '100%' }}>
-              <thead>
-                <tr>
-                  <th>Business Unit</th>
-                  <th className="n">Total Positions</th>
-                  <th className="n" style={{ color: '#38bdf8' }}>Ad-Hoc (Col G)</th>
-                  <th className="n" style={{ color: '#10b981' }}>Monthly Approved (Col H)</th>
-                  <th className="n" style={{ color: '#eab308' }}>Last Month C/F (Col I)</th>
+          <table className="bu-table" style={{ margin: 0, width: '100%', tableLayout: 'fixed' }}>
+            <thead>
+              <tr>
+                <th style={{ width: '36%' }}>Business Unit</th>
+                <th className="n" style={{ width: '16%' }}>Total Positions</th>
+                <th className="n" style={{ width: '16%', color: '#38bdf8' }}>Ad-Hoc</th>
+                <th className="n" style={{ width: '16%', color: '#10b981' }}>Monthly Approved</th>
+                <th className="n" style={{ width: '16%', color: '#eab308' }}>Last Month C/F</th>
+              </tr>
+            </thead>
+            <tbody>
+              {scopeBUs.map((b) => (
+                <tr key={`${b.unitKey || 'u'}-${b.label}`}>
+                  <td style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.label}</td>
+                  <td className="n" style={{ fontWeight: 700 }}>{fmt(b.manpower?.total)}</td>
+                  <td className="n" style={{ color: '#38bdf8', fontWeight: 600 }}>{fmt(b.manpower?.adHoc)}</td>
+                  <td className="n" style={{ color: '#10b981', fontWeight: 600 }}>{fmt(b.manpower?.monthlyApproved)}</td>
+                  <td className="n" style={{ color: '#eab308', fontWeight: 600 }}>{fmt(b.manpower?.lastMonthCf)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {scopeBUs.map((b) => (
-                  <tr key={`${b.unitKey || 'u'}-${b.label}`}>
-                    <td style={{ fontWeight: 600 }}>{b.label}</td>
-                    <td className="n" style={{ fontWeight: 700 }}>{fmt(b.manpower?.total)}</td>
-                    <td className="n" style={{ color: '#38bdf8', fontWeight: 600 }}>{fmt(b.manpower?.adHoc)}</td>
-                    <td className="n" style={{ color: '#10b981', fontWeight: 600 }}>{fmt(b.manpower?.monthlyApproved)}</td>
-                    <td className="n" style={{ color: '#eab308', fontWeight: 600 }}>{fmt(b.manpower?.lastMonthCf)}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr style={{ fontWeight: 800 }}>
-                  <td>Total</td>
-                  <td className="n">{fmt(totalPos)}</td>
-                  <td className="n" style={{ color: '#38bdf8' }}>{fmt(adHoc)}</td>
-                  <td className="n" style={{ color: '#10b981' }}>{fmt(monthlyApproved)}</td>
-                  <td className="n" style={{ color: '#eab308' }}>{fmt(lastMonthCf)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ fontWeight: 800 }}>
+                <td>Total</td>
+                <td className="n">{fmt(totalPos)}</td>
+                <td className="n" style={{ color: '#38bdf8' }}>{fmt(adHoc)}</td>
+                <td className="n" style={{ color: '#10b981' }}>{fmt(monthlyApproved)}</td>
+                <td className="n" style={{ color: '#eab308' }}>{fmt(lastMonthCf)}</td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </div>
     </div>
   );
 }
-
 /* ---------- Candidate Details Modal ---------- */
 
 function CandidateModal({ modalData, onClose }) {
