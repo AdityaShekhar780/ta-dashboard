@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const nf = new Intl.NumberFormat('en-IN');
-const fmt = (n) => nf.format(n || 0);
+const fmt = (n) => (n === '—' || n === '-' ? '—' : nf.format(Number(n) || 0));
 const norm = (s) => String(s ?? '').trim().toLowerCase();
 
 const UNIT_META = {
@@ -449,6 +449,7 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
     </div>
   );
 }
+
 /* ---------- Candidate Details Modal ---------- */
 
 function CandidateModal({ modalData, onClose }) {
@@ -2117,7 +2118,7 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal, theme }) {
               </tr>
             </thead>
             <tbody>
-              {buJobs.map((j) => {
+              {buJobs.map((j, idx) => {
                 const isReplacementRole =
                   Boolean(j.isReplacement) ||
                   Number(j.replacement) > 0 ||
@@ -2131,7 +2132,7 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal, theme }) {
                   : undefined;
 
                 return (
-                  <tr key={`${j.unitKey || 'u'}-${j.jobId}`} style={repRowStyle}>
+                  <tr key={`${j.unitKey || 'u'}-${j.jobId}-${j.role || ''}-${j.department || ''}-${idx}`} style={repRowStyle}>
                     <td style={{ fontWeight: 600 }}>{j.department || '—'}</td>
                     <td className="mono" style={{ whiteSpace: 'nowrap' }}>
                       <span style={isReplacementRole ? { color: '#fbbf24', fontWeight: 700 } : undefined}>
@@ -2158,7 +2159,7 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal, theme }) {
                     </td>
                     <td>{j.role || '—'}</td>
                     <td>{j.category || '—'}</td>
-                    <td><StatusBadge status={j.status} /></td>
+                    <td>{j.status && j.status !== '—' ? <StatusBadge status={j.status} /> : '—'}</td>
                     <td className="n">{fmt(j.total)}</td>
                     <td className="n" style={{ fontSize: '12px' }}>{j.reqActivationDate || '—'}</td>
                     <td className="n">{fmt(j.topOfFunnel)}</td>
@@ -2806,14 +2807,25 @@ export default function Dashboard({ unitKey = 'overall' }) {
                               </Fragment>
                             ))}
                             {muTotals && (
-                              <tr style={{ fontWeight: 600 }}>
-                                <td>Subtotal · Masters’ Union</td>
-                                <td className="n">{fmt(muTotals.openRoles)}</td>
-                                <td className="n">{fmt(muTotals.total)}</td>
-                                <td className="n">{fmt(muTotals.yetToOffer)}</td>
-                                <td className="n">{fmt(muTotals.offered)}</td>
-                                <td className="n">{fmt(muTotals.joined)}</td>
-                                <td className="n">{fmt(muTotals.pending)}</td>
+                              <tr
+                                className="bu-subtotal-row mu-subtotal"
+                                style={{
+                                  fontWeight: 700,
+                                  background: theme === 'light' ? 'rgba(16, 185, 129, 0.14)' : 'rgba(16, 185, 129, 0.18)',
+                                  boxShadow: 'inset 4px 0 0 #10b981',
+                                  borderTop: '1px solid rgba(16, 185, 129, 0.4)',
+                                  borderBottom: '2px solid rgba(16, 185, 129, 0.45)',
+                                }}
+                              >
+                                <td style={{ color: theme === 'light' ? '#047857' : '#34d399', fontWeight: 800, letterSpacing: '0.02em' }}>
+                                  Subtotal · Masters’ Union
+                                </td>
+                                <td className="n" style={{ color: theme === 'light' ? '#065f46' : '#ecfdf5', fontWeight: 800 }}>{fmt(muTotals.openRoles)}</td>
+                                <td className="n" style={{ color: theme === 'light' ? '#065f46' : '#ecfdf5', fontWeight: 800 }}>{fmt(muTotals.total)}</td>
+                                <td className="n" style={{ color: theme === 'light' ? '#065f46' : '#ecfdf5', fontWeight: 800 }}>{fmt(muTotals.yetToOffer)}</td>
+                                <td className="n" style={{ color: theme === 'light' ? '#065f46' : '#ecfdf5', fontWeight: 800 }}>{fmt(muTotals.offered)}</td>
+                                <td className="n" style={{ color: theme === 'light' ? '#065f46' : '#ecfdf5', fontWeight: 800 }}>{fmt(muTotals.joined)}</td>
+                                <td className="n" style={{ color: theme === 'light' ? '#047857' : '#34d399', fontWeight: 800 }}>{fmt(muTotals.pending)}</td>
                               </tr>
                             )}
                             {datasets.tetr.businessUnits.map((b) => (
@@ -2837,14 +2849,25 @@ export default function Dashboard({ unitKey = 'overall' }) {
                               </Fragment>
                             ))}
                             {tetrTotals && (
-                              <tr style={{ fontWeight: 600 }}>
-                                <td>Subtotal · TETR</td>
-                                <td className="n">{fmt(tetrTotals.openRoles)}</td>
-                                <td className="n">{fmt(tetrTotals.total)}</td>
-                                <td className="n">{fmt(tetrTotals.yetToOffer)}</td>
-                                <td className="n">{fmt(tetrTotals.offered)}</td>
-                                <td className="n">{fmt(tetrTotals.joined)}</td>
-                                <td className="n">{fmt(tetrTotals.pending)}</td>
+                              <tr
+                                className="bu-subtotal-row tetr-subtotal"
+                                style={{
+                                  fontWeight: 700,
+                                  background: theme === 'light' ? 'rgba(56, 189, 248, 0.14)' : 'rgba(56, 189, 248, 0.18)',
+                                  boxShadow: 'inset 4px 0 0 #38bdf8',
+                                  borderTop: '1px solid rgba(56, 189, 248, 0.4)',
+                                  borderBottom: '2px solid rgba(56, 189, 248, 0.45)',
+                                }}
+                              >
+                                <td style={{ color: theme === 'light' ? '#0369a1' : '#38bdf8', fontWeight: 800, letterSpacing: '0.02em' }}>
+                                  Subtotal · TETR
+                                </td>
+                                <td className="n" style={{ color: theme === 'light' ? '#0c4a6e' : '#f0f9ff', fontWeight: 800 }}>{fmt(tetrTotals.openRoles)}</td>
+                                <td className="n" style={{ color: theme === 'light' ? '#0c4a6e' : '#f0f9ff', fontWeight: 800 }}>{fmt(tetrTotals.total)}</td>
+                                <td className="n" style={{ color: theme === 'light' ? '#0c4a6e' : '#f0f9ff', fontWeight: 800 }}>{fmt(tetrTotals.yetToOffer)}</td>
+                                <td className="n" style={{ color: theme === 'light' ? '#0c4a6e' : '#f0f9ff', fontWeight: 800 }}>{fmt(tetrTotals.offered)}</td>
+                                <td className="n" style={{ color: theme === 'light' ? '#0c4a6e' : '#f0f9ff', fontWeight: 800 }}>{fmt(tetrTotals.joined)}</td>
+                                <td className="n" style={{ color: theme === 'light' ? '#0369a1' : '#38bdf8', fontWeight: 800 }}>{fmt(tetrTotals.pending)}</td>
                               </tr>
                             )}
                           </>
