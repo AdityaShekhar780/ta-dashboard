@@ -39,8 +39,25 @@ function formatYearMonth(ym) {
 }
 
 function sumManpower(bus) {
-  const out = { openRoles: 0, needToClose: 0, closedRoles: 0, total: 0, yetToOffer: 0, offered: 0, joined: 0, pending: 0 };
-  for (const b of bus) for (const k of Object.keys(out)) out[k] += b.manpower[k] || 0;
+  const out = {
+    openRoles: 0,
+    needToClose: 0,
+    closedRoles: 0,
+    total: 0,
+    adHoc: 0,
+    monthlyApproved: 0,
+    lastMonthCf: 0,
+    yetToOffer: 0,
+    offered: 0,
+    joined: 0,
+    pending: 0,
+    replacement: 0,
+  };
+  for (const b of bus) {
+    for (const k of Object.keys(out)) {
+      out[k] += b.manpower?.[k] || 0;
+    }
+  }
   return out;
 }
 
@@ -248,6 +265,191 @@ function AccessGate({ children }) {
   }
 
   return children({ currentUser, onSignOut: () => { localStorage.removeItem('ta_dashboard_user'); setCurrentUser(null); } });
+}
+
+/* ---------- Total Positions Breakdown Modal (Ad-Hoc, Monthly Approved, Last Month C/F) ---------- */
+
+function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedBu, unitTitle, theme }) {
+  if (!open) return null;
+
+  const totalPos = kpi.total || 0;
+  const adHoc = kpi.adHoc || 0;
+  const monthlyApproved = kpi.monthlyApproved || 0;
+  const lastMonthCf = kpi.lastMonthCf || 0;
+
+  const pct = (val) => (totalPos > 0 ? Math.round((val / totalPos) * 1000) / 10 : 0);
+
+  const splitCards = [
+    {
+      key: 'adHoc',
+      label: 'Ad-Hoc (Col G)',
+      value: adHoc,
+      share: pct(adHoc),
+      color: '#38bdf8',
+      bg: 'rgba(56, 189, 248, 0.12)',
+      border: 'rgba(56, 189, 248, 0.4)',
+    },
+    {
+      key: 'monthlyApproved',
+      label: 'Monthly Approved (Col H)',
+      value: monthlyApproved,
+      share: pct(monthlyApproved),
+      color: '#10b981',
+      bg: 'rgba(16, 185, 129, 0.12)',
+      border: 'rgba(16, 185, 129, 0.4)',
+    },
+    {
+      key: 'lastMonthCf',
+      label: 'Last Month C/F (Col I)',
+      value: lastMonthCf,
+      share: pct(lastMonthCf),
+      color: '#eab308',
+      bg: 'rgba(234, 179, 8, 0.12)',
+      border: 'rgba(234, 179, 8, 0.4)',
+    },
+  ];
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.75)',
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: theme === 'light' ? '#ffffff' : '#0f172a',
+          color: theme === 'light' ? '#0f172a' : '#f8fafc',
+          border: '1px solid rgba(255, 255, 255, 0.18)',
+          borderRadius: '14px',
+          width: '100%',
+          maxWidth: '820px',
+          maxHeight: '85vh',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 20px 45px rgba(0, 0, 0, 0.65)',
+        }}
+      >
+        <div
+          style={{
+            padding: '18px 22px',
+            borderBottom: '1px solid rgba(148, 163, 184, 0.2)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <div>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#eab308', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Total Positions Split · {selectedBu === 'all' ? 'All Business Units' : selectedBu}
+            </div>
+            <h3 style={{ margin: '4px 0 0', fontSize: '20px' }}>
+              {unitTitle} — {fmt(totalPos)} Total Positions
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close modal"
+            style={{
+              background: 'rgba(148, 163, 184, 0.15)',
+              border: '1px solid rgba(148, 163, 184, 0.3)',
+              borderRadius: '8px',
+              color: 'inherit',
+              width: '34px',
+              height: '34px',
+              fontSize: '18px',
+              cursor: 'pointer',
+            }}
+          >
+            &times;
+          </button>
+        </div>
+
+        <div style={{ padding: '20px 22px', overflowY: 'auto', flex: 1 }}>
+          {/* 3 Summary Split Cards */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+              gap: '14px',
+              marginBottom: '22px',
+            }}
+          >
+            {splitCards.map((c) => (
+              <div
+                key={c.key}
+                style={{
+                  padding: '16px 18px',
+                  borderRadius: '10px',
+                  background: c.bg,
+                  border: `1px solid ${c.border}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                }}
+              >
+                <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: c.color, letterSpacing: '0.03em' }}>
+                  {c.label}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' }}>
+                  <strong style={{ fontSize: '28px', color: c.color, lineHeight: 1.1 }}>{fmt(c.value)}</strong>
+                  <span style={{ fontSize: '13px', fontWeight: 600, opacity: 0.85 }}>{c.share}% of total</span>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: 'rgba(148, 163, 184, 0.2)', borderRadius: '3px', overflow: 'hidden', marginTop: '4px' }}>
+                  <div style={{ width: `${Math.min(100, c.share)}%`, height: '100%', background: c.color, borderRadius: '3px' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Per-Business Unit Breakdown Table */}
+          <div className="table-scroll">
+            <table className="jobs" style={{ margin: 0, width: '100%' }}>
+              <thead>
+                <tr>
+                  <th>Business Unit</th>
+                  <th className="n">Total Positions</th>
+                  <th className="n" style={{ color: '#38bdf8' }}>Ad-Hoc (Col G)</th>
+                  <th className="n" style={{ color: '#10b981' }}>Monthly Approved (Col H)</th>
+                  <th className="n" style={{ color: '#eab308' }}>Last Month C/F (Col I)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scopeBUs.map((b) => (
+                  <tr key={`${b.unitKey || 'u'}-${b.label}`}>
+                    <td style={{ fontWeight: 600 }}>{b.label}</td>
+                    <td className="n" style={{ fontWeight: 700 }}>{fmt(b.manpower?.total)}</td>
+                    <td className="n" style={{ color: '#38bdf8', fontWeight: 600 }}>{fmt(b.manpower?.adHoc)}</td>
+                    <td className="n" style={{ color: '#10b981', fontWeight: 600 }}>{fmt(b.manpower?.monthlyApproved)}</td>
+                    <td className="n" style={{ color: '#eab308', fontWeight: 600 }}>{fmt(b.manpower?.lastMonthCf)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ fontWeight: 800 }}>
+                  <td>Total</td>
+                  <td className="n">{fmt(totalPos)}</td>
+                  <td className="n" style={{ color: '#38bdf8' }}>{fmt(adHoc)}</td>
+                  <td className="n" style={{ color: '#10b981' }}>{fmt(monthlyApproved)}</td>
+                  <td className="n" style={{ color: '#eab308' }}>{fmt(lastMonthCf)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ---------- Candidate Details Modal ---------- */
@@ -951,8 +1153,8 @@ function RecruiterPerformanceSection({
   theme,
   onOpenCandidateModal
 }) {
-  const [viewScope, setViewScope] = useState('qtd'); // 'qtd' | 'overall'
-  const [channelScope, setChannelScope] = useState('all'); // 'all' | 'internalGroup' | 'employeeReferral' | 'businessReference' | 'external'
+  const [viewScope, setViewScope] = useState('qtd');
+  const [channelScope, setChannelScope] = useState('all');
 
   const activePerf = useMemo(() => {
     if (selectedBu !== 'all' && recruiterPerformanceByBu && recruiterPerformanceByBu[selectedBu]) {
@@ -973,10 +1175,8 @@ function RecruiterPerformanceSection({
     return activePerf.months || [];
   }, [viewScope, activePerf]);
 
-  // Fixed 15x Monthly ROI Baseline & 15x Average Quarterly/Overall ROI Target
   const roiTarget = 15;
 
-  // Elapsed months in the displayed period (so future unelapsed quarter months like Dec '26 don't dilute average ROI)
   const currentYm = useMemo(() => todayIST().slice(0, 7), []);
   const elapsedMonthsForAvg = useMemo(() => {
     const elapsed = displayedMonths.filter((ym) => ym <= currentYm);
@@ -993,7 +1193,6 @@ function RecruiterPerformanceSection({
     ].filter((g) => g.items.length > 0);
   }, [activePerf]);
 
-  // Helper to resolve the active channel node for a recruiter
   const getRecChannelData = useCallback((r) => {
     if (channelScope !== 'all' && r.byChannel && r.byChannel[channelScope]) {
       return r.byChannel[channelScope];
@@ -1004,7 +1203,6 @@ function RecruiterPerformanceSection({
     return r;
   }, [channelScope]);
 
-  // Compute Average ROI across elapsed months in the selected period
   const getRecruiterAvgRoi = useCallback((chNode) => {
     if (!chNode || !chNode.byMonth || elapsedMonthsForAvg.length === 0) return 0;
     let sum = 0;
@@ -1015,7 +1213,6 @@ function RecruiterPerformanceSection({
     return Math.round((sum / elapsedMonthsForAvg.length) * 10) / 10;
   }, [elapsedMonthsForAvg]);
 
-  // Helper to get scaled target for a recruiter (Monthly Target * 3 for QTD)
   const getRecruiterPeriodTarget = useCallback((r) => {
     const mTarget = Number(r.monthlyTarget ?? r.target ?? 0);
     if (viewScope === 'qtd') {
@@ -1024,7 +1221,6 @@ function RecruiterPerformanceSection({
     return Number(r.overallTarget ?? mTarget * Math.max(1, displayedMonths.length));
   }, [viewScope, displayedMonths.length]);
 
-  // Resolve active sheetTotals bucket for the selected channel filter
   const activeSheetTotals = useMemo(() => {
     const st = activePerf.sheetTotals || {};
     if (channelScope !== 'all' && st.byChannel && st.byChannel[channelScope]) {
@@ -1077,7 +1273,6 @@ function RecruiterPerformanceSection({
     return hit ? hit.label : 'Overall (All Channels)';
   }, [channelScope]);
 
-  // Map momSeries by month for instant candidate modal lookup when clicking any Offer/Join count
   const momByMonthMap = useMemo(() => {
     const map = {};
     (momSeries || []).forEach((item) => {
@@ -1215,7 +1410,6 @@ function RecruiterPerformanceSection({
           </p>
         </div>
 
-        {/* Right-Aligned Uniform KPI & Filter Control Bar */}
         <div
           style={{
             display: 'flex',
@@ -1403,7 +1597,6 @@ function RecruiterPerformanceSection({
 
                 return (
                   <Fragment key={group.key}>
-                    {/* Group Header Row with Sticky First Cell so Label Never Clips */}
                     <tr
                       style={{
                         background: theme === 'light' ? '#f1f5f9' : 'rgba(56, 189, 248, 0.08)',
@@ -1691,7 +1884,7 @@ function RecruiterPerformanceSection({
                 );
               })}
 
-              {/* Former / Unlisted Recruiters Row (so totals reconcile 100% with Master Offered) */}
+              {/* Former / Unlisted Recruiters Row */}
               {(summaryKpis.unlistedOffered > 0 || summaryKpis.unlistedJoined > 0) && (
                 <tr style={{ fontStyle: 'italic', color: mutedColor, background: theme === 'light' ? '#fffbeb' : 'rgba(234, 179, 8, 0.05)' }}>
                   <td
@@ -1881,7 +2074,7 @@ function MetricCellButton({ value, onClick }) {
   );
 }
 
-function BuJobsRow({ buLabel, allJobs, onOpenJobModal }) {
+function BuJobsRow({ buLabel, allJobs, onOpenJobModal, theme }) {
   const buJobs = useMemo(() => {
     return (allJobs || []).filter((j) => j.businessUnit === buLabel).sort((a, b) => norm(a.department).localeCompare(norm(b.department)));
   }, [buLabel, allJobs]);
@@ -1891,8 +2084,14 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal }) {
   return (
     <tr>
       <td colSpan={17} style={{ padding: '14px 18px', background: 'rgba(0, 0, 0, 0.2)', borderBottom: '2px solid rgba(128,128,128,0.15)' }}>
-        <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '10px', color: '#eab308', letterSpacing: '0.02em' }}>
-          {buLabel} — {fmt(buJobs.length)} Jobs (Sorted by Department)
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: '#eab308', letterSpacing: '0.02em' }}>
+            {buLabel} — {fmt(buJobs.length)} Jobs (Sorted by Department)
+          </div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#f59e0b', fontWeight: 600 }}>
+            <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(245, 158, 11, 0.28)', border: '1px solid #f59e0b', display: 'inline-block' }} />
+            Highlighted row = Replacement Role
+          </div>
         </div>
         <div className="table-scroll">
           <table className="jobs" style={{ margin: 0, width: '100%' }}>
@@ -1921,30 +2120,66 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal }) {
               </tr>
             </thead>
             <tbody>
-              {buJobs.map((j) => (
-                <tr key={`${j.unitKey || 'u'}-${j.jobId}`}>
-                  <td style={{ fontWeight: 600 }}>{j.department || '—'}</td>
-                  <td className="mono">{j.jobId}</td>
-                  <td>{j.role || '—'}</td>
-                  <td>{j.category || '—'}</td>
-                  <td><StatusBadge status={j.status} /></td>
-                  <td className="n">{fmt(j.total)}</td>
-                  <td className="n" style={{ fontSize: '12px' }}>{j.reqActivationDate || '—'}</td>
-                  <td className="n">{fmt(j.topOfFunnel)}</td>
-                  <td className="n">{fmt(j.taShortlisted)}</td>
-                  <td className="n">{fmt(j.resumeScreenPending)}</td>
-                  <td className="n">{fmt(j.candidatesR1)}</td>
-                  <td className="n">{fmt(j.r1Select)}</td>
-                  <td className="n">{fmt(j.candidatesR2)}</td>
-                  <td className="n">{fmt(j.r2Select)}</td>
-                  <td className="n">{fmt(j.candidatesR3)}</td>
-                  <td className="n">{fmt(j.r3Select)}</td>
-                  <td className="n"><MetricCellButton value={j.yetToOffer} onClick={() => onOpenJobModal(j, 'yetToOffer')} /></td>
-                  <td className="n"><MetricCellButton value={j.offered} onClick={() => onOpenJobModal(j, 'offered')} /></td>
-                  <td className="n"><MetricCellButton value={j.joined} onClick={() => onOpenJobModal(j, 'joined')} /></td>
-                  <td className="n strong">{fmt(j.pending)}</td>
-                </tr>
-              ))}
+              {buJobs.map((j) => {
+                const isReplacementRole =
+                  Boolean(j.isReplacement) ||
+                  Number(j.replacement) > 0 ||
+                  norm(j.category).includes('replace');
+
+                const repRowStyle = isReplacementRole
+                  ? {
+                      background: theme === 'light' ? 'rgba(254, 243, 199, 0.85)' : 'rgba(245, 158, 11, 0.16)',
+                      boxShadow: 'inset 4px 0 0 #f59e0b',
+                    }
+                  : undefined;
+
+                return (
+                  <tr key={`${j.unitKey || 'u'}-${j.jobId}`} style={repRowStyle}>
+                    <td style={{ fontWeight: 600 }}>{j.department || '—'}</td>
+                    <td className="mono" style={{ whiteSpace: 'nowrap' }}>
+                      <span style={isReplacementRole ? { color: '#fbbf24', fontWeight: 700 } : undefined}>
+                        {j.jobId}
+                      </span>
+                      {isReplacementRole && (
+                        <span
+                          title="Replacement Position"
+                          style={{
+                            marginLeft: '6px',
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            background: 'rgba(245, 158, 11, 0.25)',
+                            border: '1px solid rgba(245, 158, 11, 0.6)',
+                            color: theme === 'light' ? '#b45309' : '#fde68a',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          REPLACEMENT{Number(j.replacement) > 1 ? ` (${j.replacement})` : ''}
+                        </span>
+                      )}
+                    </td>
+                    <td>{j.role || '—'}</td>
+                    <td>{j.category || '—'}</td>
+                    <td><StatusBadge status={j.status} /></td>
+                    <td className="n">{fmt(j.total)}</td>
+                    <td className="n" style={{ fontSize: '12px' }}>{j.reqActivationDate || '—'}</td>
+                    <td className="n">{fmt(j.topOfFunnel)}</td>
+                    <td className="n">{fmt(j.taShortlisted)}</td>
+                    <td className="n">{fmt(j.resumeScreenPending)}</td>
+                    <td className="n">{fmt(j.candidatesR1)}</td>
+                    <td className="n">{fmt(j.r1Select)}</td>
+                    <td className="n">{fmt(j.candidatesR2)}</td>
+                    <td className="n">{fmt(j.r2Select)}</td>
+                    <td className="n">{fmt(j.candidatesR3)}</td>
+                    <td className="n">{fmt(j.r3Select)}</td>
+                    <td className="n"><MetricCellButton value={j.yetToOffer} onClick={() => onOpenJobModal(j, 'yetToOffer')} /></td>
+                    <td className="n"><MetricCellButton value={j.offered} onClick={() => onOpenJobModal(j, 'offered')} /></td>
+                    <td className="n"><MetricCellButton value={j.joined} onClick={() => onOpenJobModal(j, 'joined')} /></td>
+                    <td className="n strong">{fmt(j.pending)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -2081,6 +2316,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const [bu, setBu] = useState('all');
   const [showAll, setShowAll] = useState(false);
   const [modalData, setModalData] = useState(null);
+  const [showPositionsSplitModal, setShowPositionsSplitModal] = useState(false);
   
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -2479,8 +2715,55 @@ export default function Dashboard({ unitKey = 'overall' }) {
                 </nav>
 
                 <section aria-label="Manpower summary" className="kpis">
-                  <div><span>Open roles</span><b>{fmt(kpi.openRoles)}</b>{kpi.needToClose > 0 && <small>{fmt(kpi.needToClose)} need to close</small>}</div>
-                  <div><span>Total positions</span><b>{fmt(kpi.total)}</b></div>
+                  <div>
+                    <span>Open roles</span>
+                    <b>{fmt(kpi.openRoles)}</b>
+                    {kpi.needToClose > 0 && <small>{fmt(kpi.needToClose)} need to close</small>}
+                  </div>
+
+                  {/* Clickable Total Positions KPI Card */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setShowPositionsSplitModal(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setShowPositionsSplitModal(true);
+                      }
+                    }}
+                    title="Click to view split between Ad-Hoc, Monthly Approved & Last Month C/F"
+                    style={{
+                      cursor: 'pointer',
+                      position: 'relative',
+                      transition: 'background 0.15s ease, box-shadow 0.15s ease',
+                    }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                      <span>Total positions</span>
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          padding: '1px 6px',
+                          borderRadius: '999px',
+                          background: 'rgba(56, 189, 248, 0.16)',
+                          border: '1px solid rgba(56, 189, 248, 0.45)',
+                          color: '#38bdf8',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        View Split
+                      </span>
+                    </span>
+                    <b style={{ color: '#38bdf8', textDecoration: 'underline', textDecorationColor: 'rgba(56, 189, 248, 0.45)', textUnderlineOffset: '4px' }}>
+                      {fmt(kpi.total)}
+                    </b>
+                    <small style={{ color: '#94a3b8' }}>
+                      Click for Ad-Hoc · Approved · C/F
+                    </small>
+                  </div>
+
                   <div><span>Yet to offer</span><b>{fmt(kpi.yetToOffer)}</b></div>
                   <div><span>Offered</span><b>{fmt(kpi.offered)}</b></div>
                   <div><span>Joined</span><b>{fmt(kpi.joined)}</b></div>
@@ -2521,7 +2804,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
                                   <td className="n">{fmt(b.manpower.pending)}</td>
                                 </tr>
                                 {bu === b.label && (
-                                  <BuJobsRow buLabel={b.label} allJobs={datasets.mu.jobs} onOpenJobModal={openJobModal} />
+                                  <BuJobsRow buLabel={b.label} allJobs={datasets.mu.jobs} onOpenJobModal={openJobModal} theme={theme} />
                                 )}
                               </Fragment>
                             ))}
@@ -2552,7 +2835,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
                                   <td className="n">{fmt(b.manpower.pending)}</td>
                                 </tr>
                                 {bu === b.label && (
-                                  <BuJobsRow buLabel={b.label} allJobs={datasets.tetr.jobs} onOpenJobModal={openJobModal} />
+                                  <BuJobsRow buLabel={b.label} allJobs={datasets.tetr.jobs} onOpenJobModal={openJobModal} theme={theme} />
                                 )}
                               </Fragment>
                             ))}
@@ -2585,7 +2868,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
                                 <td className="n">{fmt(b.manpower.pending)}</td>
                               </tr>
                               {bu === b.label && (
-                                <BuJobsRow buLabel={b.label} allJobs={data.jobs} onOpenJobModal={openJobModal} />
+                                <BuJobsRow buLabel={b.label} allJobs={data.jobs} onOpenJobModal={openJobModal} theme={theme} />
                               )}
                             </Fragment>
                           ))
@@ -2628,7 +2911,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
                   theme={theme}
                 />
 
-                {/* Confidential-Safe Recruiter Performance Section */}
                 <RecruiterPerformanceSection
                   recruiterPerformance={data.recruiterPerformance}
                   recruiterPerformanceByBu={data.recruiterPerformanceByBu}
@@ -2651,6 +2933,16 @@ export default function Dashboard({ unitKey = 'overall' }) {
               </>
             )}
           </main>
+
+          <TotalPositionsModal
+            open={showPositionsSplitModal}
+            onClose={() => setShowPositionsSplitModal(false)}
+            scopeBUs={scopeBUs}
+            kpi={kpi}
+            selectedBu={bu}
+            unitTitle={currentMeta.title}
+            theme={theme}
+          />
 
           {modalData && (
             <CandidateModal modalData={modalData} onClose={() => setModalData(null)} />
