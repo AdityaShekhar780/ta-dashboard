@@ -454,10 +454,14 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
   );
 }
 
-/* ---------- Pending Positions Breakdown Modal (By Job Health: On Track, Delayed, Critical — Excludes Closed) ---------- */
+/* ---------- Pending Positions Breakdown Modal (Clickable Cards & Table Cells -> Job List & Full Details) ---------- */
 
-function PendingPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedBu, unitTitle, theme }) {
-  if (!open) return null;
+function PendingPositionsModal({ open, onClose, scopeBUs = [], allJobs = [], kpi = {}, selectedBu, unitTitle, theme }) {
+  const [drillFilter, setDrillFilter] = useState(null); // { health: 'all' | 'On Track' | 'Delayed' | 'Critical', buLabel: 'all' | string }
+
+  useEffect(() => {
+    if (!open) setDrillFilter(null);
+  }, [open]);
 
   const onTrack = kpi.pendingOnTrack || 0;
   const delayed = kpi.pendingDelayed || 0;
@@ -469,33 +473,93 @@ function PendingPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selecte
 
   const healthCards = [
     {
-      key: 'onTrack',
+      key: 'On Track',
       label: 'On Track',
       value: onTrack,
       share: pct(onTrack),
       color: '#10b981',
       bg: 'rgba(16, 185, 129, 0.12)',
-      border: 'rgba(16, 185, 129, 0.4)',
+      border: 'rgba(16, 185, 129, 0.45)',
     },
     {
-      key: 'delayed',
+      key: 'Delayed',
       label: 'Delayed',
       value: delayed,
       share: pct(delayed),
       color: '#eab308',
       bg: 'rgba(234, 179, 8, 0.12)',
-      border: 'rgba(234, 179, 8, 0.4)',
+      border: 'rgba(234, 179, 8, 0.45)',
     },
     {
-      key: 'critical',
+      key: 'Critical',
       label: 'Critical',
       value: critical,
       share: pct(critical),
       color: '#f87171',
       bg: 'rgba(239, 68, 68, 0.12)',
-      border: 'rgba(239, 68, 68, 0.4)',
+      border: 'rgba(239, 68, 68, 0.45)',
     },
   ];
+
+  // Filter jobs when user clicks a card or a table cell inside the Pending modal
+  const drilledJobs = useMemo(() => {
+    if (!drillFilter) return [];
+    const targetBu = drillFilter.buLabel && drillFilter.buLabel !== 'all' ? drillFilter.buLabel : selectedBu;
+
+    return (allJobs || []).filter((j) => {
+      if (j.isManualForm) return false;
+      const st = norm(j.status);
+      const jh = norm(j.jobHealth);
+      // Strictly exclude Closed jobs and jobs with 0 pending positions
+      if (st === 'closed' || jh.includes('close')) return false;
+      if ((Number(j.pending) || 0) <= 0) return false;
+
+      if (targetBu !== 'all' && j.businessUnit !== targetBu) return false;
+
+      if (drillFilter.health === 'On Track') return jh.includes('track');
+      if (drillFilter.health === 'Delayed') return jh.includes('delay');
+      if (drillFilter.health === 'Critical') return jh.includes('crit');
+      // 'all' health inside the modal means any of On Track, Delayed, or Critical
+      return jh.includes('track') || jh.includes('delay') || jh.includes('crit');
+    });
+  }, [drillFilter, allJobs, selectedBu]);
+
+  const drilledPendingSum = useMemo(() => {
+    return drilledJobs.reduce((acc, j) => acc + (Number(j.pending) || 0), 0);
+  }, [drilledJobs]);
+
+  if (!open) return null;
+
+  const renderClickNum = (val, color, onClick, labelHint) => {
+    const n = Number(val) || 0;
+    if (n <= 0) return <span style={{ color, opacity: 0.45 }}>0</span>;
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        title={labelHint || 'Click to view jobs'}
+        style={{
+          background:
+            color === '#10b981'
+              ? 'rgba(16, 185, 129, 0.15)'
+              : color === '#eab308'
+              ? 'rgba(234, 179, 8, 0.15)'
+              : color === '#f87171'
+              ? 'rgba(239, 68, 68, 0.15)'
+              : 'rgba(56, 189, 248, 0.15)',
+          border: `1px solid ${color}`,
+          borderRadius: '6px',
+          padding: '2px 9px',
+          color,
+          fontWeight: 700,
+          fontSize: '12.5px',
+          cursor: 'pointer',
+        }}
+      >
+        {fmt(n)}
+      </button>
+    );
+  };
 
   return (
     <div
@@ -519,11 +583,12 @@ function PendingPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selecte
           border: '1px solid rgba(255, 255, 255, 0.18)',
           borderRadius: '14px',
           width: '100%',
-          maxWidth: '860px',
+          maxWidth: drillFilter ? '1180px' : '880px',
           maxHeight: '88vh',
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 20px 45px rgba(0, 0, 0, 0.65)',
+          transition: 'max-width 0.18s ease',
         }}
       >
         <div
@@ -534,110 +599,291 @@ function PendingPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selecte
             justifyContent: 'space-between',
             alignItems: 'center',
             gap: '12px',
+            flexWrap: 'wrap',
           }}
         >
           <div>
             <div style={{ fontSize: '12px', fontWeight: 700, color: '#eab308', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Pending Positions by Job Health (Excluding Closed) · {selectedBu === 'all' ? 'All Business Units' : selectedBu}
+              Pending Positions by Job Health (Excluding Closed) ·{' '}
+              {drillFilter?.buLabel && drillFilter.buLabel !== 'all'
+                ? drillFilter.buLabel
+                : selectedBu === 'all'
+                ? 'All Business Units'
+                : selectedBu}
             </div>
             <h3 style={{ margin: '4px 0 0', fontSize: '20px' }}>
-              {unitTitle} — {fmt(totalHealthPending || kpi.pending)} Pending Positions
+              {drillFilter
+                ? `${drillFilter.health === 'all' ? 'All Active Health Categories' : drillFilter.health} — ${fmt(drilledJobs.length)} Jobs (${fmt(drilledPendingSum)} Pending Positions)`
+                : `${unitTitle} — ${fmt(totalHealthPending || kpi.pending)} Pending Positions`}
             </h3>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close modal"
-            style={{
-              background: 'rgba(148, 163, 184, 0.15)',
-              border: '1px solid rgba(148, 163, 184, 0.3)',
-              borderRadius: '8px',
-              color: 'inherit',
-              width: '34px',
-              height: '34px',
-              fontSize: '18px',
-              cursor: 'pointer',
-            }}
-          >
-            &times;
-          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {drillFilter && (
+              <button
+                type="button"
+                onClick={() => setDrillFilter(null)}
+                style={{
+                  padding: '7px 13px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(56, 189, 248, 0.5)',
+                  background: 'rgba(56, 189, 248, 0.14)',
+                  color: '#38bdf8',
+                  fontWeight: 700,
+                  fontSize: '12.5px',
+                  cursor: 'pointer',
+                }}
+              >
+                ← Back to BU Summary
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close modal"
+              style={{
+                background: 'rgba(148, 163, 184, 0.15)',
+                border: '1px solid rgba(148, 163, 184, 0.3)',
+                borderRadius: '8px',
+                color: 'inherit',
+                width: '34px',
+                height: '34px',
+                fontSize: '18px',
+                cursor: 'pointer',
+              }}
+            >
+              &times;
+            </button>
+          </div>
         </div>
 
         <div style={{ padding: '20px 22px', overflowY: 'auto', flex: 1 }}>
+          {/* 3 Clickable Summary Cards (Always visible so user can switch between On Track / Delayed / Critical) */}
           <div
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
               gap: '14px',
-              marginBottom: '20px',
+              marginBottom: '18px',
             }}
           >
-            {healthCards.map((c) => (
-              <div
-                key={c.key}
-                style={{
-                  padding: '14px 16px',
-                  borderRadius: '10px',
-                  background: c.bg,
-                  border: `1px solid ${c.border}`,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
-                }}
-              >
-                <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: c.color, letterSpacing: '0.03em' }}>
-                  {c.label}
-                </span>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' }}>
-                  <strong style={{ fontSize: '26px', color: c.color, lineHeight: 1.1 }}>{fmt(c.value)}</strong>
-                  <span style={{ fontSize: '12px', fontWeight: 600, opacity: 0.85 }}>{c.share}% of pending</span>
+            {healthCards.map((c) => {
+              const isSelectedCard = drillFilter && drillFilter.health === c.key && (drillFilter.buLabel === 'all' || !drillFilter.buLabel);
+              return (
+                <div
+                  key={c.key}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() =>
+                    setDrillFilter(
+                      isSelectedCard ? null : { health: c.key, buLabel: 'all' }
+                    )
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setDrillFilter(isSelectedCard ? null : { health: c.key, buLabel: 'all' });
+                    }
+                  }}
+                  title={`Click to view ${c.label} jobs`}
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: '10px',
+                    background: c.bg,
+                    border: isSelectedCard ? `2px solid ${c.color}` : `1px solid ${c.border}`,
+                    boxShadow: isSelectedCard ? `0 0 0 3px ${c.bg}` : 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: c.color, letterSpacing: '0.03em' }}>
+                      {c.label}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        padding: '1px 7px',
+                        borderRadius: '999px',
+                        background: 'rgba(0,0,0,0.25)',
+                        color: c.color,
+                      }}
+                    >
+                      {isSelectedCard ? 'Showing Jobs' : 'View Jobs →'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' }}>
+                    <strong style={{ fontSize: '26px', color: c.color, lineHeight: 1.1 }}>{fmt(c.value)}</strong>
+                    <span style={{ fontSize: '12px', fontWeight: 600, opacity: 0.85 }}>{c.share}% of pending</span>
+                  </div>
+                  <div style={{ width: '100%', height: '6px', background: 'rgba(148, 163, 184, 0.2)', borderRadius: '3px', overflow: 'hidden', marginTop: '4px' }}>
+                    <div style={{ width: `${Math.min(100, c.share)}%`, height: '100%', background: c.color, borderRadius: '3px' }} />
+                  </div>
                 </div>
-                <div style={{ width: '100%', height: '6px', background: 'rgba(148, 163, 184, 0.2)', borderRadius: '3px', overflow: 'hidden', marginTop: '4px' }}>
-                  <div style={{ width: `${Math.min(100, c.share)}%`, height: '100%', background: c.color, borderRadius: '3px' }} />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          <div className="table-scroll">
-            <table className="bu-table" style={{ margin: 0, width: '100%', tableLayout: 'fixed', minWidth: '540px' }}>
-              <thead>
-                <tr>
-                  <th style={{ width: '36%' }}>Business Unit</th>
-                  <th className="n" style={{ width: '16%' }}>Pending Positions</th>
-                  <th className="n" style={{ width: '16%', color: '#10b981' }}>On Track</th>
-                  <th className="n" style={{ width: '16%', color: '#eab308' }}>Delayed</th>
-                  <th className="n" style={{ width: '16%', color: '#f87171' }}>Critical</th>
-                </tr>
-              </thead>
-              <tbody>
-                {scopeBUs.map((b) => {
-                  const buOnTrack = b.manpower?.pendingOnTrack || 0;
-                  const buDelayed = b.manpower?.pendingDelayed || 0;
-                  const buCritical = b.manpower?.pendingCritical || 0;
-                  const buHealthSum = buOnTrack + buDelayed + buCritical;
-                  return (
-                    <tr key={`${b.unitKey || 'u'}-${b.label}`}>
-                      <td style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.label}</td>
-                      <td className="n" style={{ fontWeight: 700 }}>{fmt(buHealthSum || b.manpower?.pending)}</td>
-                      <td className="n" style={{ color: '#10b981', fontWeight: 600 }}>{fmt(buOnTrack)}</td>
-                      <td className="n" style={{ color: '#eab308', fontWeight: 600 }}>{fmt(buDelayed)}</td>
-                      <td className="n" style={{ color: '#f87171', fontWeight: 600 }}>{fmt(buCritical)}</td>
+          {!drillFilter ? (
+            <>
+              <p className="muted" style={{ margin: '0 0 10px', fontSize: '12.5px' }}>
+                Click any card above or any number in the table below to see the full list of jobs and details:
+              </p>
+              <div className="table-scroll">
+                <table className="bu-table" style={{ margin: 0, width: '100%', tableLayout: 'fixed', minWidth: '540px' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: '36%' }}>Business Unit</th>
+                      <th className="n" style={{ width: '16%' }}>Pending Positions</th>
+                      <th className="n" style={{ width: '16%', color: '#10b981' }}>On Track</th>
+                      <th className="n" style={{ width: '16%', color: '#eab308' }}>Delayed</th>
+                      <th className="n" style={{ width: '16%', color: '#f87171' }}>Critical</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr style={{ fontWeight: 800 }}>
-                  <td>Total</td>
-                  <td className="n">{fmt(totalHealthPending || kpi.pending)}</td>
-                  <td className="n" style={{ color: '#10b981' }}>{fmt(onTrack)}</td>
-                  <td className="n" style={{ color: '#eab308' }}>{fmt(delayed)}</td>
-                  <td className="n" style={{ color: '#f87171' }}>{fmt(critical)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {scopeBUs.map((b) => {
+                      const buOnTrack = b.manpower?.pendingOnTrack || 0;
+                      const buDelayed = b.manpower?.pendingDelayed || 0;
+                      const buCritical = b.manpower?.pendingCritical || 0;
+                      const buHealthSum = buOnTrack + buDelayed + buCritical;
+                      return (
+                        <tr key={`${b.unitKey || 'u'}-${b.label}`}>
+                          <td style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.label}</td>
+                          <td className="n" style={{ fontWeight: 700 }}>
+                            {renderClickNum(
+                              buHealthSum || b.manpower?.pending,
+                              '#38bdf8',
+                              () => setDrillFilter({ health: 'all', buLabel: b.label }),
+                              `View all pending jobs in ${b.label}`
+                            )}
+                          </td>
+                          <td className="n">
+                            {renderClickNum(
+                              buOnTrack,
+                              '#10b981',
+                              () => setDrillFilter({ health: 'On Track', buLabel: b.label }),
+                              `View On Track pending jobs in ${b.label}`
+                            )}
+                          </td>
+                          <td className="n">
+                            {renderClickNum(
+                              buDelayed,
+                              '#eab308',
+                              () => setDrillFilter({ health: 'Delayed', buLabel: b.label }),
+                              `View Delayed pending jobs in ${b.label}`
+                            )}
+                          </td>
+                          <td className="n">
+                            {renderClickNum(
+                              buCritical,
+                              '#f87171',
+                              () => setDrillFilter({ health: 'Critical', buLabel: b.label }),
+                              `View Critical pending jobs in ${b.label}`
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ fontWeight: 800 }}>
+                      <td>Total</td>
+                      <td className="n">
+                        {renderClickNum(
+                          totalHealthPending || kpi.pending,
+                          '#38bdf8',
+                          () => setDrillFilter({ health: 'all', buLabel: 'all' }),
+                          'View all pending jobs'
+                        )}
+                      </td>
+                      <td className="n">
+                        {renderClickNum(
+                          onTrack,
+                          '#10b981',
+                          () => setDrillFilter({ health: 'On Track', buLabel: 'all' }),
+                          'View all On Track pending jobs'
+                        )}
+                      </td>
+                      <td className="n">
+                        {renderClickNum(
+                          delayed,
+                          '#eab308',
+                          () => setDrillFilter({ health: 'Delayed', buLabel: 'all' }),
+                          'View all Delayed pending jobs'
+                        )}
+                      </td>
+                      <td className="n">
+                        {renderClickNum(
+                          critical,
+                          '#f87171',
+                          () => setDrillFilter({ health: 'Critical', buLabel: 'all' }),
+                          'View all Critical pending jobs'
+                        )}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </>
+          ) : (
+            /* Drilled-Down Job List Table */
+            <div className="table-scroll">
+              {drilledJobs.length === 0 ? (
+                <p className="muted" style={{ textAlign: 'center', padding: '28px 0' }}>
+                  No pending jobs found for this filter.
+                </p>
+              ) : (
+                <table className="jobs" style={{ margin: 0, width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th>Job ID</th>
+                      <th>Role</th>
+                      <th>Business Unit</th>
+                      <th>Department</th>
+                      <th>Cat.</th>
+                      <th>Status</th>
+                      <th>Job Health</th>
+                      <th className="n">Req Act. Date</th>
+                      <th className="n">Target Date</th>
+                      <th className="n">Days to Target</th>
+                      <th className="n">Total</th>
+                      <th className="n">TOF</th>
+                      <th className="n">Yet to Offer</th>
+                      <th className="n">Offered</th>
+                      <th className="n">Joined</th>
+                      <th className="n">Pending</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drilledJobs.map((j, idx) => (
+                      <tr key={`${j.unitKey || 'u'}-${j.jobId}-${idx}`}>
+                        <td className="mono" style={{ fontWeight: 700, color: '#38bdf8', whiteSpace: 'nowrap' }}>{j.jobId || '—'}</td>
+                        <td style={{ fontWeight: 600 }}>{j.role || '—'}</td>
+                        <td>{j.businessUnit || '—'}</td>
+                        <td>{j.department || '—'}</td>
+                        <td>{j.category || '—'}</td>
+                        <td><StatusBadge status={j.status} /></td>
+                        <td><JobHealthBadge health={j.jobHealth} /></td>
+                        <td className="n" style={{ whiteSpace: 'nowrap' }}>{j.reqActivationDate || '—'}</td>
+                        <td className="n" style={{ whiteSpace: 'nowrap' }}>{j.targetDate || '—'}</td>
+                        <td className="n">{j.daysToTarget || '—'}</td>
+                        <td className="n">{fmt(j.total)}</td>
+                        <td className="n">{fmt(j.topOfFunnel)}</td>
+                        <td className="n">{fmt(j.yetToOffer)}</td>
+                        <td className="n">{fmt(j.offered)}</td>
+                        <td className="n">{fmt(j.joined)}</td>
+                        <td className="n strong" style={{ color: '#fde047', fontWeight: 800 }}>{fmt(j.pending)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -730,7 +976,6 @@ function CvLess5Modal({ open, onClose, jobs = [], selectedBu, unitTitle, theme }
                     <th>Business Unit</th>
                     <th>Department</th>
                     <th>Category</th>
-                    <th>Job Health</th>
                     <th className="n">Req Act. Date</th>
                     <th className="n">TOF (Top of Funnel)</th>
                   </tr>
@@ -743,7 +988,6 @@ function CvLess5Modal({ open, onClose, jobs = [], selectedBu, unitTitle, theme }
                       <td>{j.businessUnit || '—'}</td>
                       <td>{j.department || '—'}</td>
                       <td>{j.category || '—'}</td>
-                      <td><JobHealthBadge health={j.jobHealth} /></td>
                       <td className="n" style={{ whiteSpace: 'nowrap' }}>{j.reqActivationDate || '—'}</td>
                       <td className="n" style={{ fontWeight: 800, color: '#f87171' }}>{fmt(j.topOfFunnel)}</td>
                     </tr>
@@ -2449,6 +2693,8 @@ function JobHealthBadge({ health }) {
   );
 }
 
+/* ---------- Expandable Business Unit Jobs Table (Job Health Column Removed) ---------- */
+
 function BuJobsRow({ buLabel, allJobs, onOpenJobModal, theme }) {
   const buJobs = useMemo(() => {
     return (allJobs || []).filter((j) => j.businessUnit === buLabel).sort((a, b) => norm(a.department).localeCompare(norm(b.department)));
@@ -2477,7 +2723,6 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal, theme }) {
                 <th>Role</th>
                 <th>Cat.</th>
                 <th>Status</th>
-                <th>Job Health</th>
                 <th className="n">Total</th>
                 <th className="n" title="Req Activation Date">Req Act.</th>
                 <th className="n" title="Top of Funnel">Top Funnel</th>
@@ -2538,7 +2783,6 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal, theme }) {
                     <td>{j.role || '—'}</td>
                     <td>{j.category || '—'}</td>
                     <td>{j.status && j.status !== '—' ? <StatusBadge status={j.status} /> : '—'}</td>
-                    <td><JobHealthBadge health={j.jobHealth} /></td>
                     <td className="n">{fmt(j.total)}</td>
                     <td className="n" style={{ fontSize: '12px' }}>{j.reqActivationDate || '—'}</td>
                     <td className="n">{fmt(j.topOfFunnel)}</td>
@@ -2871,7 +3115,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const muTotals = useMemo(() => (datasets.mu ? sumManpower(datasets.mu.businessUnits) : null), [datasets.mu]);
   const tetrTotals = useMemo(() => (datasets.tetr ? sumManpower(datasets.tetr.businessUnits) : null), [datasets.tetr]);
 
-  // Filter jobs with CV < 5 for the current Payroll Unit + Business Unit selection
   const cvLess5Jobs = useMemo(() => {
     if (!data || !Array.isArray(data.jobs)) return [];
     return data.jobs.filter((j) => {
@@ -3445,6 +3688,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
             open={showPendingHealthModal}
             onClose={() => setShowPendingHealthModal(false)}
             scopeBUs={scopeBUs}
+            allJobs={data ? data.jobs : []}
             kpi={kpi}
             selectedBu={bu}
             unitTitle={currentMeta.title}
