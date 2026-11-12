@@ -380,7 +380,7 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
               gap: '14px',
               marginBottom: '20px',
             }}
@@ -413,37 +413,39 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
           </div>
 
           {/* Per-Business Unit Breakdown Table */}
-          <table className="bu-table" style={{ margin: 0, width: '100%', tableLayout: 'fixed' }}>
-            <thead>
-              <tr>
-                <th style={{ width: '36%' }}>Business Unit</th>
-                <th className="n" style={{ width: '16%' }}>Total Positions</th>
-                <th className="n" style={{ width: '16%', color: '#38bdf8' }}>Ad-Hoc</th>
-                <th className="n" style={{ width: '16%', color: '#10b981' }}>Monthly Approved</th>
-                <th className="n" style={{ width: '16%', color: '#eab308' }}>Last Month C/F</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scopeBUs.map((b) => (
-                <tr key={`${b.unitKey || 'u'}-${b.label}`}>
-                  <td style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.label}</td>
-                  <td className="n" style={{ fontWeight: 700 }}>{fmt(b.manpower?.total)}</td>
-                  <td className="n" style={{ color: '#38bdf8', fontWeight: 600 }}>{fmt(b.manpower?.adHoc)}</td>
-                  <td className="n" style={{ color: '#10b981', fontWeight: 600 }}>{fmt(b.manpower?.monthlyApproved)}</td>
-                  <td className="n" style={{ color: '#eab308', fontWeight: 600 }}>{fmt(b.manpower?.lastMonthCf)}</td>
+          <div className="table-scroll">
+            <table className="bu-table" style={{ margin: 0, width: '100%', tableLayout: 'fixed', minWidth: '540px' }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '36%' }}>Business Unit</th>
+                  <th className="n" style={{ width: '16%' }}>Total Positions</th>
+                  <th className="n" style={{ width: '16%', color: '#38bdf8' }}>Ad-Hoc</th>
+                  <th className="n" style={{ width: '16%', color: '#10b981' }}>Monthly Approved</th>
+                  <th className="n" style={{ width: '16%', color: '#eab308' }}>Last Month C/F</th>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr style={{ fontWeight: 800 }}>
-                <td>Total</td>
-                <td className="n">{fmt(totalPos)}</td>
-                <td className="n" style={{ color: '#38bdf8' }}>{fmt(adHoc)}</td>
-                <td className="n" style={{ color: '#10b981' }}>{fmt(monthlyApproved)}</td>
-                <td className="n" style={{ color: '#eab308' }}>{fmt(lastMonthCf)}</td>
-              </tr>
-            </tfoot>
-          </table>
+              </thead>
+              <tbody>
+                {scopeBUs.map((b) => (
+                  <tr key={`${b.unitKey || 'u'}-${b.label}`}>
+                    <td style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.label}</td>
+                    <td className="n" style={{ fontWeight: 700 }}>{fmt(b.manpower?.total)}</td>
+                    <td className="n" style={{ color: '#38bdf8', fontWeight: 600 }}>{fmt(b.manpower?.adHoc)}</td>
+                    <td className="n" style={{ color: '#10b981', fontWeight: 600 }}>{fmt(b.manpower?.monthlyApproved)}</td>
+                    <td className="n" style={{ color: '#eab308', fontWeight: 600 }}>{fmt(b.manpower?.lastMonthCf)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ fontWeight: 800 }}>
+                  <td>Total</td>
+                  <td className="n">{fmt(totalPos)}</td>
+                  <td className="n" style={{ color: '#38bdf8' }}>{fmt(adHoc)}</td>
+                  <td className="n" style={{ color: '#10b981' }}>{fmt(monthlyApproved)}</td>
+                  <td className="n" style={{ color: '#eab308' }}>{fmt(lastMonthCf)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -612,6 +614,8 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
         borderRadius: '12px',
         background: theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)',
         border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.12)',
+        maxWidth: '100%',
+        overflow: 'hidden',
       }}
     >
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '18px' }}>
@@ -650,7 +654,7 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
         </span>
       </div>
 
-      <div className="table-scroll" style={{ width: '100%', overflowX: 'auto', paddingBottom: '6px' }}>
+      <div className="table-scroll" style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '6px' }}>
         <svg viewBox={`0 0 ${width} ${height}`} style={{ width: `${width}px`, minWidth: `${width}px`, height: 'auto', display: 'block' }}>
           {Array.from({ length: yTicks + 1 }, (_, idx) => {
             const val = idx * stepVal;
@@ -695,7 +699,7 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
   );
 }
 
-/* ---------- Channel Analysis Section ---------- */
+/* ---------- Channel Analysis Section (Mobile-Responsive Grid & Contained SVG Scroll) ---------- */
 
 function ChannelAnalysisSection({ 
   channelBreakdown = {}, channelBreakdownByBu = {}, 
@@ -792,7 +796,7 @@ function ChannelAnalysisSection({
 
   const colors = ['#38bdf8', '#34d399', '#facc15', '#a78bfa', '#fb923c', '#f472b6'];
 
-  const width = Math.max(1100, activeMomSeries.length * 72);
+  const width = Math.max(960, activeMomSeries.length * 68);
   const height = 300;
   const padL = 46;
   const padR = 32;
@@ -820,15 +824,40 @@ function ChannelAnalysisSection({
       className="panel"
       style={{
         marginTop: '28px',
-        padding: '24px',
+        padding: '22px',
         borderRadius: '12px',
         background: cardBg,
         border: `1px solid ${borderColor}`,
         color: textColor,
         boxSizing: 'border-box',
         width: '100%',
+        maxWidth: '100%',
+        overflow: 'hidden',
       }}
     >
+      <style jsx>{`
+        .channel-analysis-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.45fr);
+          gap: 18px;
+          align-items: stretch;
+          width: 100%;
+        }
+        @media (max-width: 1024px) {
+          .channel-analysis-grid {
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          }
+          .channel-eff-card {
+            grid-column: 1 / -1;
+          }
+        }
+        @media (max-width: 680px) {
+          .channel-analysis-grid {
+            grid-template-columns: minmax(0, 1fr);
+          }
+        }
+      `}</style>
+
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '22px' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '22px' }}>Channel Analysis</h2>
@@ -837,7 +866,7 @@ function ChannelAnalysisSection({
           </p>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
           <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.35)' }}>
             <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#38bdf8', display: 'block', fontWeight: 600 }}>Total Joinings</span>
             <strong style={{ fontSize: '18px', color: '#38bdf8' }}>{fmt(totalJoinings)}</strong>
@@ -853,11 +882,12 @@ function ChannelAnalysisSection({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(270px, 1fr) minmax(270px, 1fr) minmax(390px, 1.6fr)', gap: '20px', alignItems: 'stretch', width: '100%' }}>
+      <div className="channel-analysis-grid">
         
         {/* Card 1: Overall Joinings by Channel */}
         <div
           style={{
+            minWidth: 0,
             padding: '18px',
             borderRadius: '10px',
             background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.22)',
@@ -897,6 +927,7 @@ function ChannelAnalysisSection({
         {/* Card 2: Current Month Channel View */}
         <div
           style={{
+            minWidth: 0,
             padding: '18px',
             borderRadius: '10px',
             background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.22)',
@@ -933,9 +964,11 @@ function ChannelAnalysisSection({
           </div>
         </div>
 
-        {/* Card 3: Wider Channel Conversion Efficiency Card */}
+        {/* Card 3: Channel Conversion Efficiency Card */}
         <div
+          className="channel-eff-card"
           style={{
+            minWidth: 0,
             padding: '18px',
             borderRadius: '10px',
             background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.22)',
@@ -950,7 +983,7 @@ function ChannelAnalysisSection({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
               <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>Channel Conversion Efficiency</h3>
               
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                 <select 
                   value={effMode} 
                   onChange={(e) => setEffMode(e.target.value)}
@@ -981,7 +1014,7 @@ function ChannelAnalysisSection({
                 const barColor = colors[idx % colors.length];
                 return (
                   <div key={item.channel} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', fontWeight: 500, gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', fontWeight: 500, gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: barColor, display: 'inline-block', flexShrink: 0 }} />
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.channel}</span>
@@ -1003,6 +1036,9 @@ function ChannelAnalysisSection({
         {/* Card 4: MoM Grouped Channel Trend */}
         <div
           style={{
+            minWidth: 0,
+            maxWidth: '100%',
+            overflow: 'hidden',
             padding: '18px',
             borderRadius: '10px',
             background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.22)',
@@ -1036,7 +1072,7 @@ function ChannelAnalysisSection({
           {activeMomSeries.length === 0 ? (
             <p className="muted" style={{ textAlign: 'center', padding: '50px 0' }}>No channel trend data available for this Business Unit.</p>
           ) : (
-            <div className="table-scroll" style={{ width: '100%', maxWidth: '100%', overflowX: 'scroll', paddingBottom: '10px' }}>
+            <div className="table-scroll" style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '10px' }}>
               <svg viewBox={`0 0 ${width} ${height}`} style={{ width: `${width}px`, minWidth: `${width}px`, height: 'auto', display: 'block' }}>
                 {Array.from({ length: yTicks + 1 }, (_, idx) => {
                   const val = idx * stepVal;
@@ -1372,6 +1408,8 @@ function RecruiterPerformanceSection({
         color: textColor,
         boxSizing: 'border-box',
         width: '100%',
+        maxWidth: '100%',
+        overflow: 'hidden',
       }}
     >
       <style jsx>{`
@@ -1400,7 +1438,7 @@ function RecruiterPerformanceSection({
           borderBottom: `1px solid ${borderColor}`,
         }}
       >
-        <div style={{ minWidth: '260px', flex: '1 1 auto' }}>
+        <div style={{ minWidth: '240px', flex: '1 1 auto' }}>
           <p className="kicker" style={{ marginBottom: '2px', fontSize: '11px' }}>Recruiter Efficiency & ROI</p>
           <h2 style={{ margin: 0, fontSize: '21px', lineHeight: 1.2 }}>Recruiter Performance</h2>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
@@ -1491,6 +1529,7 @@ function RecruiterPerformanceSection({
             aria-label="Filter Recruiter Performance by Channel"
             style={{
               height: '42px',
+              maxWidth: '100%',
               padding: '0 12px',
               borderRadius: '8px',
               background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.06)',
@@ -1516,6 +1555,7 @@ function RecruiterPerformanceSection({
             aria-label="Recruiter performance period"
             style={{
               height: '42px',
+              maxWidth: '100%',
               padding: '0 12px',
               borderRadius: '8px',
               background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.06)',
@@ -1563,7 +1603,7 @@ function RecruiterPerformanceSection({
           No recruiters found. Make sure the <b>Recruiters</b> tab is populated and published from the sheet.
         </p>
       ) : (
-        <div className="table-scroll" style={{ width: '100%', overflowX: 'auto' }}>
+        <div className="table-scroll" style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
           <table className="jobs rec-compact-table" style={{ margin: 0, width: '100%', minWidth: `${Math.max(900, 530 + displayedMonths.length * 125)}px` }}>
             <thead>
               <tr>
@@ -2513,8 +2553,15 @@ export default function Dashboard({ unitKey = 'overall' }) {
               padding-left: 28px !important;
               padding-right: 28px !important;
             }
+            @media (max-width: 768px) {
+              .wrap, .top-inner {
+                padding-left: 14px !important;
+                padding-right: 14px !important;
+              }
+            }
             .table-scroll {
               overflow-x: auto !important;
+              -webkit-overflow-scrolling: touch;
               scrollbar-width: thin;
               scrollbar-color: rgba(148, 163, 184, 0.45) rgba(15, 23, 42, 0.4);
             }
