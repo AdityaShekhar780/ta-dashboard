@@ -30,12 +30,138 @@ const REC_CHANNEL_OPTIONS = [
   { key: 'external', label: 'External' },
 ];
 
+const FUNNEL_STAGE_GROUPS = [
+  {
+    stage: 'TA Round',
+    rows: [
+      { key: 'tof', label: 'ToF' },
+      { key: 'taShortlist', label: 'TA Shortlist' },
+      { key: 'resumeShortlist', label: 'Resume Shortlist' },
+    ],
+  },
+  {
+    stage: '1st Round',
+    rows: [
+      { key: 'r1Tof', label: 'R1 Interview ToF' },
+      { key: 'r1Shortlist', label: 'R1 Shortlist' },
+      { key: 'r1Reject', label: 'R1 Reject' },
+      { key: 'r1NotRated', label: 'R1 Not Rated' },
+    ],
+  },
+  {
+    stage: '2nd Round',
+    rows: [
+      { key: 'r2Tof', label: 'R2 Interview ToF' },
+      { key: 'r2Shortlist', label: 'R2 Shortlist' },
+      { key: 'r2Reject', label: 'R2 Reject' },
+      { key: 'r2NotRated', label: 'R2 Not Rated' },
+    ],
+  },
+  {
+    stage: '3rd Round',
+    rows: [
+      { key: 'r3Tof', label: 'R3 Interview ToF' },
+      { key: 'r3Shortlist', label: 'R3 Shortlist' },
+      { key: 'r3Reject', label: 'R3 Reject' },
+      { key: 'r3NotRated', label: 'R3 Not Rated' },
+    ],
+  },
+  {
+    stage: 'Offers',
+    rows: [
+      { key: 'offered', label: 'Offered' },
+      { key: 'offeredCurrentJoining', label: 'Offered (Current month Joining)' },
+    ],
+  },
+  {
+    stage: 'Joining Stage',
+    rows: [
+      { key: 'joined', label: 'Joined' },
+      { key: 'offerDrop', label: 'Offer Drop' },
+    ],
+  },
+];
+
+const BIFURCATION_GROUPS = [
+  {
+    headerBanner: 'Joining Bifurcation',
+    stage: 'Channel',
+    showNonInternalPctRow: true,
+    rows: [
+      { key: 'chInternal', label: 'Internal' },
+      { key: 'chCampus', label: 'Campus' },
+      { key: 'chEmpReferral', label: 'Employee Referral' },
+      { key: 'chBusReference', label: 'Business Reference' },
+      { key: 'chExternal', label: 'External' },
+    ],
+  },
+  {
+    headerBanner: 'Internal',
+    stage: 'Source',
+    rows: [
+      { key: 'srcNaukri', label: 'Naukri' },
+      { key: 'srcLinkedin', label: 'LinkedIn' },
+      { key: 'srcIndeed', label: 'Indeed' },
+      { key: 'srcOthers', label: 'Others' },
+    ],
+  },
+  {
+    stage: 'Employment Type',
+    rows: [
+      { key: 'empFulltime', label: 'Fulltime' },
+      { key: 'empContract', label: 'Contract' },
+      { key: 'empIntern', label: 'Intern' },
+    ],
+  },
+  {
+    stage: 'Category',
+    rows: [
+      { key: 'catA', label: 'A' },
+      { key: 'catB', label: 'B' },
+      { key: 'catC', label: 'C' },
+    ],
+  },
+];
+
+const ALL_FUNNEL_KEYS = [
+  ...FUNNEL_STAGE_GROUPS.flatMap((g) => g.rows.map((r) => r.key)),
+  ...BIFURCATION_GROUPS.flatMap((g) => g.rows.map((r) => r.key)),
+];
+
 function formatYearMonth(ym) {
   const m = /^(\d{4})-(\d{2})$/.exec(String(ym || ''));
   if (!m) return ym;
   const yr = m[1].slice(2);
   const idx = parseInt(m[2], 10) - 1;
   return `${MONTH_NAMES[idx] || m[2]} '${yr}`;
+}
+
+function formatMonthDash(ym) {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(ym || ''));
+  if (!m) return ym;
+  const yr = m[1].slice(2);
+  const idx = parseInt(m[2], 10) - 1;
+  return `${MONTH_NAMES[idx] || m[2]}-${yr}`;
+}
+
+function generateMonthSequence(startYm, endYm) {
+  const out = [];
+  const m1 = /^(\d{4})-(\d{2})$/.exec(startYm);
+  const m2 = /^(\d{4})-(\d{2})$/.exec(endYm);
+  if (!m1 || !m2) return out;
+  let y = parseInt(m1[1], 10);
+  let m = parseInt(m1[2], 10);
+  const ey = parseInt(m2[1], 10);
+  const em = parseInt(m2[2], 10);
+  while (y < ey || (y === ey && m <= em)) {
+    out.push(`${y}-${String(m).padStart(2, '0')}`);
+    m++;
+    if (m > 12) {
+      m = 1;
+      y++;
+    }
+  }
+  return out;
 }
 
 function sumManpower(bus) {
@@ -457,7 +583,7 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
 /* ---------- Pending Positions Breakdown Modal (Clickable Cards & Table Cells -> Job List & Full Details) ---------- */
 
 function PendingPositionsModal({ open, onClose, scopeBUs = [], allJobs = [], kpi = {}, selectedBu, unitTitle, theme }) {
-  const [drillFilter, setDrillFilter] = useState(null); // { health: 'all' | 'On Track' | 'Delayed' | 'Critical', buLabel: 'all' | string }
+  const [drillFilter, setDrillFilter] = useState(null);
 
   useEffect(() => {
     if (!open) setDrillFilter(null);
@@ -501,7 +627,6 @@ function PendingPositionsModal({ open, onClose, scopeBUs = [], allJobs = [], kpi
     },
   ];
 
-  // Filter jobs when user clicks a card or a table cell inside the Pending modal
   const drilledJobs = useMemo(() => {
     if (!drillFilter) return [];
     const targetBu = drillFilter.buLabel && drillFilter.buLabel !== 'all' ? drillFilter.buLabel : selectedBu;
@@ -510,7 +635,6 @@ function PendingPositionsModal({ open, onClose, scopeBUs = [], allJobs = [], kpi
       if (j.isManualForm) return false;
       const st = norm(j.status);
       const jh = norm(j.jobHealth);
-      // Strictly exclude Closed jobs and jobs with 0 pending positions
       if (st === 'closed' || jh.includes('close')) return false;
       if ((Number(j.pending) || 0) <= 0) return false;
 
@@ -519,7 +643,6 @@ function PendingPositionsModal({ open, onClose, scopeBUs = [], allJobs = [], kpi
       if (drillFilter.health === 'On Track') return jh.includes('track');
       if (drillFilter.health === 'Delayed') return jh.includes('delay');
       if (drillFilter.health === 'Critical') return jh.includes('crit');
-      // 'all' health inside the modal means any of On Track, Delayed, or Critical
       return jh.includes('track') || jh.includes('delay') || jh.includes('crit');
     });
   }, [drillFilter, allJobs, selectedBu]);
@@ -658,7 +781,6 @@ function PendingPositionsModal({ open, onClose, scopeBUs = [], allJobs = [], kpi
         </div>
 
         <div style={{ padding: '20px 22px', overflowY: 'auto', flex: 1 }}>
-          {/* 3 Clickable Summary Cards (Always visible so user can switch between On Track / Delayed / Critical) */}
           <div
             style={{
               display: 'grid',
@@ -830,7 +952,6 @@ function PendingPositionsModal({ open, onClose, scopeBUs = [], allJobs = [], kpi
               </div>
             </>
           ) : (
-            /* Drilled-Down Job List Table */
             <div className="table-scroll">
               {drilledJobs.length === 0 ? (
                 <p className="muted" style={{ textAlign: 'center', padding: '28px 0' }}>
@@ -890,7 +1011,7 @@ function PendingPositionsModal({ open, onClose, scopeBUs = [], allJobs = [], kpi
   );
 }
 
-/* ---------- Jobs With < 5 CVs Modal (Job ID, Business Unit, Department, Category, Req Act Date, TOF) ---------- */
+/* ---------- Jobs With < 5 CVs Modal ---------- */
 
 function CvLess5Modal({ open, onClose, jobs = [], selectedBu, unitTitle, theme }) {
   if (!open) return null;
@@ -1244,6 +1365,408 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
             );
           })}
         </svg>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- NEW: Stage-Wise Recruitment Funnel & Joining Bifurcation Section ---------- */
+
+function RecruitmentFunnelAndBifurcationSection({
+  funnelAnalytics,
+  selectedBu,
+  theme,
+}) {
+  const [selectedRecruiter, setSelectedRecruiter] = useState('all');
+  const [periodMode, setPeriodMode] = useState('fy26_27'); // 'fy26_27' | 'fy25_26' | 'all_from_jun25'
+
+  const recruitersList = useMemo(() => {
+    const raw = funnelAnalytics?.recruiters || [];
+    return Array.from(new Set(raw.filter((r) => r && norm(r) !== 'unassigned'))).sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }, [funnelAnalytics]);
+
+  useEffect(() => {
+    if (selectedRecruiter !== 'all' && !recruitersList.includes(selectedRecruiter)) {
+      setSelectedRecruiter('all');
+    }
+  }, [recruitersList, selectedRecruiter]);
+
+  const activeMonthlyMap = useMemo(() => {
+    if (!funnelAnalytics) return {};
+    if (selectedBu === 'all') {
+      if (selectedRecruiter === 'all') {
+        return funnelAnalytics.byMonth || {};
+      }
+      return (funnelAnalytics.byRecruiter && funnelAnalytics.byRecruiter[selectedRecruiter]) || {};
+    } else {
+      if (selectedRecruiter === 'all') {
+        return (funnelAnalytics.byBu && funnelAnalytics.byBu[selectedBu]) || {};
+      }
+      return (
+        (funnelAnalytics.byBuAndRecruiter &&
+          funnelAnalytics.byBuAndRecruiter[selectedBu] &&
+          funnelAnalytics.byBuAndRecruiter[selectedBu][selectedRecruiter]) ||
+        {}
+      );
+    }
+  }, [funnelAnalytics, selectedBu, selectedRecruiter]);
+
+  const displayedMonths = useMemo(() => {
+    if (periodMode === 'fy26_27') {
+      return generateMonthSequence('2026-04', '2027-03');
+    }
+    if (periodMode === 'fy25_26') {
+      return generateMonthSequence('2025-06', '2026-03');
+    }
+    // All months from June 2025 through March 2027
+    return generateMonthSequence('2025-06', '2027-03');
+  }, [periodMode]);
+
+  const ytdColumnLabel = useMemo(() => {
+    if (periodMode === 'fy26_27') return 'YTD (2026-2027)';
+    if (periodMode === 'fy25_26') return 'YTD (Jun 25 - Mar 26)';
+    return 'Total (Jun 25 - Mar 27)';
+  }, [periodMode]);
+
+  const getCellVal = useCallback(
+    (ym, metricKey) => {
+      const mObj = activeMonthlyMap[ym];
+      return mObj ? Number(mObj[metricKey] || 0) : 0;
+    },
+    [activeMonthlyMap]
+  );
+
+  const getRowYtd = useCallback(
+    (metricKey) => {
+      return displayedMonths.reduce((sum, ym) => sum + getCellVal(ym, metricKey), 0);
+    },
+    [displayedMonths, getCellVal]
+  );
+
+  const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
+  const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.14)';
+  const textColor = theme === 'light' ? '#0f172a' : '#f8fafc';
+  const mutedColor = theme === 'light' ? '#475569' : '#94a3b8';
+  const stageCellBg = theme === 'light' ? '#f8fafc' : '#0f172a';
+  const rowCellBg = theme === 'light' ? '#ffffff' : 'rgba(15, 23, 42, 0.65)';
+  const gridBorder = theme === 'light' ? '1px solid #cbd5e1' : '1px solid rgba(148, 163, 184, 0.22)';
+
+  return (
+    <section
+      className="panel"
+      style={{
+        marginTop: '28px',
+        padding: '22px',
+        borderRadius: '12px',
+        background: cardBg,
+        border: `1px solid ${borderColor}`,
+        color: textColor,
+        boxSizing: 'border-box',
+        width: '100%',
+        maxWidth: '100%',
+        overflow: 'hidden',
+      }}
+    >
+      <style jsx>{`
+        .funnel-matrix-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 12.5px;
+        }
+        .funnel-matrix-table th,
+        .funnel-matrix-table td {
+          padding: 7px 10px;
+          border: ${gridBorder};
+          white-space: nowrap;
+        }
+        .funnel-matrix-table thead th {
+          background: #064e3b;
+          color: #fde047;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          font-size: 12px;
+          text-align: center;
+        }
+        .funnel-matrix-table thead th.left-hdr {
+          text-align: left;
+        }
+      `}</style>
+
+      {/* Top Header & Slicers */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '16px',
+          marginBottom: '18px',
+          paddingBottom: '14px',
+          borderBottom: `1px solid ${borderColor}`,
+        }}
+      >
+        <div>
+          <p className="kicker" style={{ marginBottom: '3px' }}>End-to-End Conversion & Joining Split</p>
+          <h2 style={{ margin: 0, fontSize: '21px' }}>Stage-Wise Recruitment Funnel & Joining Bifurcation</h2>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
+            {selectedBu === 'all' ? 'All Business Units' : selectedBu} ·{' '}
+            {selectedRecruiter === 'all' ? 'All Recruiters' : `Recruiter: ${selectedRecruiter}`} · Data from June 2025
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
+          {/* Recruiter Dropdown */}
+          <select
+            value={selectedRecruiter}
+            onChange={(e) => setSelectedRecruiter(e.target.value)}
+            aria-label="Filter Funnel by Recruiter"
+            style={{
+              height: '40px',
+              padding: '0 12px',
+              borderRadius: '8px',
+              background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.06)',
+              color: 'inherit',
+              border: '1px solid rgba(56, 189, 248, 0.55)',
+              fontWeight: 600,
+              fontSize: '12.5px',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="all" style={{ background: '#0f172a', color: '#fff' }}>
+              Recruiter: All Recruiters
+            </option>
+            {recruitersList.map((rName) => (
+              <option key={rName} value={rName} style={{ background: '#0f172a', color: '#fff' }}>
+                Recruiter: {rName}
+              </option>
+            ))}
+          </select>
+
+          {/* Timeline / FY Period Slicer */}
+          <select
+            value={periodMode}
+            onChange={(e) => setPeriodMode(e.target.value)}
+            aria-label="Select Funnel Timeline"
+            style={{
+              height: '40px',
+              padding: '0 12px',
+              borderRadius: '8px',
+              background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.06)',
+              color: 'inherit',
+              border: '1px solid rgba(234, 179, 8, 0.65)',
+              fontWeight: 600,
+              fontSize: '12.5px',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="fy26_27" style={{ background: '#0f172a', color: '#fff' }}>
+              FY 2026-27 (Apr-26 to Mar-27)
+            </option>
+            <option value="fy25_26" style={{ background: '#0f172a', color: '#fff' }}>
+              FY 2025-26 (Jun-25 to Mar-26)
+            </option>
+            <option value="all_from_jun25" style={{ background: '#0f172a', color: '#fff' }}>
+              All Months (Jun-25 to Mar-27)
+            </option>
+          </select>
+        </div>
+      </div>
+
+      {/* Table 1: Stage-Wise Recruitment Funnel */}
+      <div className="table-scroll" style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', marginBottom: '26px' }}>
+        <table className="funnel-matrix-table" style={{ minWidth: `${340 + displayedMonths.length * 76}px` }}>
+          <thead>
+            <tr>
+              <th className="left-hdr" style={{ width: '130px' }}>STAGES</th>
+              <th className="left-hdr" style={{ width: '210px' }}>FUNNEL</th>
+              {displayedMonths.map((ym) => (
+                <th key={ym}>{formatMonthDash(ym)}</th>
+              ))}
+              <th style={{ minWidth: '120px' }}>{ytdColumnLabel}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {FUNNEL_STAGE_GROUPS.map((group) =>
+              group.rows.map((row, rIdx) => {
+                const ytdVal = getRowYtd(row.key);
+                return (
+                  <tr key={row.key} style={{ background: rowCellBg }}>
+                    {rIdx === 0 && (
+                      <td
+                        rowSpan={group.rows.length}
+                        style={{
+                          fontWeight: 800,
+                          textAlign: 'center',
+                          verticalAlign: 'middle',
+                          background: stageCellBg,
+                          color: theme === 'light' ? '#0f172a' : '#e2e8f0',
+                        }}
+                      >
+                        {group.stage}
+                      </td>
+                    )}
+                    <td style={{ fontWeight: 600 }}>{row.label}</td>
+                    {displayedMonths.map((ym) => {
+                      const v = getCellVal(ym, row.key);
+                      return (
+                        <td
+                          key={ym}
+                          style={{
+                            textAlign: 'center',
+                            color: v === 0 ? mutedColor : textColor,
+                            fontWeight: v > 0 ? 500 : 400,
+                          }}
+                        >
+                          {fmt(v)}
+                        </td>
+                      );
+                    })}
+                    <td
+                      style={{
+                        textAlign: 'center',
+                        fontWeight: 800,
+                        background: theme === 'light' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.12)',
+                        color: theme === 'light' ? '#065f46' : '#34d399',
+                      }}
+                    >
+                      {fmt(ytdVal)}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Table 2: Joining Bifurcation (Channel, Internal Source, Employment Type, Category) */}
+      <div className="table-scroll" style={{ width: '100%', maxWidth: '100%', overflowX: 'auto' }}>
+        <table className="funnel-matrix-table" style={{ minWidth: `${340 + displayedMonths.length * 76}px` }}>
+          <thead>
+            <tr>
+              <th className="left-hdr" style={{ width: '130px' }}>STAGES</th>
+              <th className="left-hdr" style={{ width: '210px' }}>FUNNEL</th>
+              {displayedMonths.map((ym) => (
+                <th key={ym}>{formatMonthDash(ym)}</th>
+              ))}
+              <th style={{ minWidth: '120px' }}>{ytdColumnLabel}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {BIFURCATION_GROUPS.map((group) => (
+              <Fragment key={group.stage}>
+                {group.headerBanner && (
+                  <tr>
+                    <td
+                      colSpan={2}
+                      style={{
+                        background: '#064e3b',
+                        color: '#fde047',
+                        fontWeight: 800,
+                        fontSize: '12px',
+                        letterSpacing: '0.03em',
+                      }}
+                    >
+                      {group.headerBanner}
+                    </td>
+                    <td colSpan={displayedMonths.length + 1} style={{ background: stageCellBg }} />
+                  </tr>
+                )}
+
+                {group.rows.map((row, rIdx) => {
+                  const ytdVal = getRowYtd(row.key);
+                  return (
+                    <tr key={row.key} style={{ background: rowCellBg }}>
+                      {rIdx === 0 && (
+                        <td
+                          rowSpan={group.rows.length}
+                          style={{
+                            fontWeight: 800,
+                            textAlign: 'center',
+                            verticalAlign: 'middle',
+                            background: stageCellBg,
+                            color: theme === 'light' ? '#0f172a' : '#e2e8f0',
+                          }}
+                        >
+                          {group.stage}
+                        </td>
+                      )}
+                      <td style={{ fontWeight: 600 }}>{row.label}</td>
+                      {displayedMonths.map((ym) => {
+                        const v = getCellVal(ym, row.key);
+                        return (
+                          <td
+                            key={ym}
+                            style={{
+                              textAlign: 'center',
+                              color: v === 0 ? mutedColor : textColor,
+                              fontWeight: v > 0 ? 500 : 400,
+                            }}
+                          >
+                            {fmt(v)}
+                          </td>
+                        );
+                      })}
+                      <td
+                        style={{
+                          textAlign: 'center',
+                          fontWeight: 800,
+                          background: theme === 'light' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.12)',
+                          color: theme === 'light' ? '#065f46' : '#34d399',
+                        }}
+                      >
+                        {fmt(ytdVal)}
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {/* Percentage Row right below External in the Channel block */}
+                {group.showNonInternalPctRow && (
+                  <tr style={{ background: theme === 'light' ? '#f1f5f9' : 'rgba(234, 179, 8, 0.08)', fontWeight: 700 }}>
+                    <td colSpan={2} style={{ textAlign: 'right', fontSize: '11.5px', color: '#eab308' }}>
+                      Ref. &amp; External Share %
+                    </td>
+                    {displayedMonths.map((ym) => {
+                      const empRef = getCellVal(ym, 'chEmpReferral');
+                      const busRef = getCellVal(ym, 'chBusReference');
+                      const ext = getCellVal(ym, 'chExternal');
+                      const totJoin =
+                        getCellVal(ym, 'chInternal') +
+                        getCellVal(ym, 'chCampus') +
+                        empRef +
+                        busRef +
+                        ext;
+                      const pctVal = totJoin > 0 ? (((empRef + busRef + ext) / totJoin) * 100).toFixed(2) + '%' : '';
+                      return (
+                        <td key={ym} style={{ textAlign: 'center', fontSize: '11.5px', color: '#eab308' }}>
+                          {pctVal}
+                        </td>
+                      );
+                    })}
+                    <td style={{ textAlign: 'center', fontSize: '11.5px', color: '#eab308', fontWeight: 800 }}>
+                      {(() => {
+                        const empRef = getRowYtd('chEmpReferral');
+                        const busRef = getRowYtd('chBusReference');
+                        const ext = getRowYtd('chExternal');
+                        const totJoin =
+                          getRowYtd('chInternal') +
+                          getRowYtd('chCampus') +
+                          empRef +
+                          busRef +
+                          ext;
+                        return totJoin > 0 ? (((empRef + busRef + ext) / totJoin) * 100).toFixed(2) + '%' : '';
+                      })()}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
   );
@@ -2925,6 +3448,56 @@ function mergeChannelMomByBu(muMap = {}, tetrMap = {}) {
   return out;
 }
 
+function mergeFunnelMonthlyBuckets(m1 = {}, m2 = {}) {
+  const out = {};
+  const months = new Set([...Object.keys(m1), ...Object.keys(m2)]);
+  months.forEach((ym) => {
+    const a = m1[ym] || {};
+    const b = m2[ym] || {};
+    const combined = {};
+    ALL_FUNNEL_KEYS.forEach((k) => {
+      combined[k] = (Number(a[k]) || 0) + (Number(b[k]) || 0);
+    });
+    out[ym] = combined;
+  });
+  return out;
+}
+
+function mergeFunnelAnalytics(muFa = {}, tetrFa = {}) {
+  const recruiters = Array.from(
+    new Set([...(muFa.recruiters || []), ...(tetrFa.recruiters || [])])
+  ).sort((a, b) => a.localeCompare(b));
+
+  const byMonth = mergeFunnelMonthlyBuckets(muFa.byMonth, tetrFa.byMonth);
+
+  const byBu = { ...(muFa.byBu || {}), ...(tetrFa.byBu || {}) };
+
+  const byRecruiter = {};
+  const allRecKeys = new Set([
+    ...Object.keys(muFa.byRecruiter || {}),
+    ...Object.keys(tetrFa.byRecruiter || {}),
+  ]);
+  allRecKeys.forEach((rName) => {
+    byRecruiter[rName] = mergeFunnelMonthlyBuckets(
+      muFa.byRecruiter?.[rName],
+      tetrFa.byRecruiter?.[rName]
+    );
+  });
+
+  const byBuAndRecruiter = {
+    ...(muFa.byBuAndRecruiter || {}),
+    ...(tetrFa.byBuAndRecruiter || {}),
+  };
+
+  return {
+    recruiters,
+    byMonth,
+    byBu,
+    byRecruiter,
+    byBuAndRecruiter,
+  };
+}
+
 /* ---------- main ---------- */
 
 export default function Dashboard({ unitKey = 'overall' }) {
@@ -3072,6 +3645,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
         ...(tetr.jobs || []).map((j) => ({ ...j, unitKey: 'tetr', unitLabel: 'TETR' })),
       ],
       momSeries: mergeMomSeries(mu.momSeries, tetr.momSeries),
+      funnelAnalytics: mergeFunnelAnalytics(mu.funnelAnalytics, tetr.funnelAnalytics),
       channelBreakdown: mergeChannelBreakdown(mu.channelBreakdown, tetr.channelBreakdown),
       channelBreakdownByBu: mergeChannelBreakdownByBu(mu.channelBreakdownByBu, tetr.channelBreakdownByBu),
       currentChannelBreakdown: mergeChannelBreakdown(mu.currentChannelBreakdown, tetr.currentChannelBreakdown),
@@ -3360,7 +3934,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
                     {kpi.needToClose > 0 && <small>{fmt(kpi.needToClose)} need to close</small>}
                   </div>
 
-                  {/* Clickable Total Positions KPI Card */}
                   <div
                     role="button"
                     tabIndex={0}
@@ -3407,7 +3980,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
                   <div><span>Offered</span><b>{fmt(kpi.offered)}</b></div>
                   <div><span>Joined</span><b>{fmt(kpi.joined)}</b></div>
 
-                  {/* Clickable Pending Positions KPI Card (Split by Job Health: On Track, Delayed, Critical) */}
                   <div
                     className="hl"
                     role="button"
@@ -3456,7 +4028,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '12px' }}>
                     <h2 style={{ margin: 0 }}>Manpower by Business Unit</h2>
 
-                    {/* CV < 5 Checker Button */}
                     <button
                       type="button"
                       onClick={() => setShowCvLess5Modal(true)}
@@ -3634,6 +4205,13 @@ export default function Dashboard({ unitKey = 'overall' }) {
                   selectedBu={bu}
                   theme={theme}
                   onSelectPoint={openMomModal}
+                />
+
+                {/* NEW: Stage-Wise Recruitment Funnel & Joining Bifurcation right after MoM Offered vs Joined */}
+                <RecruitmentFunnelAndBifurcationSection
+                  funnelAnalytics={data.funnelAnalytics}
+                  selectedBu={bu}
+                  theme={theme}
                 />
 
                 <ChannelAnalysisSection
