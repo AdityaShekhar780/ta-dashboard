@@ -1370,7 +1370,20 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
   );
 }
 
-/* ---------- NEW: Stage-Wise Recruitment Funnel & Joining Bifurcation Section ---------- */
+/* ---------- Sleek Modern Stage-Wise Recruitment Funnel & Joining Bifurcation Section ---------- */
+
+const STAGE_ACCENTS = {
+  'TA Round': { color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.1)', border: 'rgba(56, 189, 248, 0.3)' },
+  '1st Round': { color: '#818cf8', bg: 'rgba(129, 140, 248, 0.1)', border: 'rgba(129, 140, 248, 0.3)' },
+  '2nd Round': { color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.1)', border: 'rgba(167, 139, 250, 0.3)' },
+  '3rd Round': { color: '#f472b6', bg: 'rgba(244, 114, 182, 0.1)', border: 'rgba(244, 114, 182, 0.3)' },
+  'Offers': { color: '#eab308', bg: 'rgba(234, 179, 8, 0.1)', border: 'rgba(234, 179, 8, 0.3)' },
+  'Joining Stage': { color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.3)' },
+  'Channel': { color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.1)', border: 'rgba(56, 189, 248, 0.3)' },
+  'Source': { color: '#34d399', bg: 'rgba(52, 211, 153, 0.1)', border: 'rgba(52, 211, 153, 0.3)' },
+  'Employment Type': { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)' },
+  'Category': { color: '#c084fc', bg: 'rgba(192, 132, 252, 0.1)', border: 'rgba(192, 132, 252, 0.3)' },
+};
 
 function RecruitmentFunnelAndBifurcationSection({
   funnelAnalytics,
@@ -1379,6 +1392,7 @@ function RecruitmentFunnelAndBifurcationSection({
 }) {
   const [selectedRecruiter, setSelectedRecruiter] = useState('all');
   const [periodMode, setPeriodMode] = useState('fy26_27'); // 'fy26_27' | 'fy25_26' | 'all_from_jun25'
+  const [activeTab, setActiveTab] = useState('both'); // 'both' | 'funnel' | 'bifurcation'
 
   const recruitersList = useMemo(() => {
     const raw = funnelAnalytics?.recruiters || [];
@@ -1420,14 +1434,13 @@ function RecruitmentFunnelAndBifurcationSection({
     if (periodMode === 'fy25_26') {
       return generateMonthSequence('2025-06', '2026-03');
     }
-    // All months from June 2025 through March 2027
     return generateMonthSequence('2025-06', '2027-03');
   }, [periodMode]);
 
   const ytdColumnLabel = useMemo(() => {
-    if (periodMode === 'fy26_27') return 'YTD (2026-2027)';
-    if (periodMode === 'fy25_26') return 'YTD (Jun 25 - Mar 26)';
-    return 'Total (Jun 25 - Mar 27)';
+    if (periodMode === 'fy26_27') return 'YTD (26–27)';
+    if (periodMode === 'fy25_26') return 'YTD (25–26)';
+    return 'Total';
   }, [periodMode]);
 
   const getCellVal = useCallback(
@@ -1446,12 +1459,262 @@ function RecruitmentFunnelAndBifurcationSection({
   );
 
   const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
-  const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.14)';
-  const textColor = theme === 'light' ? '#0f172a' : '#f8fafc';
-  const mutedColor = theme === 'light' ? '#475569' : '#94a3b8';
-  const stageCellBg = theme === 'light' ? '#f8fafc' : '#0f172a';
-  const rowCellBg = theme === 'light' ? '#ffffff' : 'rgba(15, 23, 42, 0.65)';
-  const gridBorder = theme === 'light' ? '1px solid #cbd5e1' : '1px solid rgba(148, 163, 184, 0.22)';
+  const subCardBg = theme === 'light' ? '#f8fafc' : 'rgba(15, 23, 42, 0.55)';
+  const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.1)';
+  const rowBorder = theme === 'light' ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.055)';
+  const textColor = theme === 'light' ? '#0f172a' : '#f1f5f9';
+  const mutedColor = theme === 'light' ? '#64748b' : '#64748b';
+  const stickyBg = theme === 'light' ? '#f8fafc' : '#0d1526';
+  const headerBg = theme === 'light' ? '#f1f5f9' : 'rgba(30, 41, 59, 0.75)';
+
+  const renderModernTable = (groups, title, subtitle) => (
+    <div
+      style={{
+        borderRadius: '12px',
+        background: subCardBg,
+        border: `1px solid ${borderColor}`,
+        overflow: 'hidden',
+        marginBottom: '20px',
+      }}
+    >
+      <div
+        style={{
+          padding: '14px 18px',
+          borderBottom: `1px solid ${borderColor}`,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '8px',
+          background: theme === 'light' ? '#ffffff' : 'rgba(255,255,255,0.02)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h3 style={{ margin: 0, fontSize: '15.5px', fontWeight: 700, letterSpacing: '-0.01em' }}>{title}</h3>
+          {subtitle && (
+            <span style={{ fontSize: '12px', color: mutedColor, fontWeight: 500 }}>· {subtitle}</span>
+          )}
+        </div>
+      </div>
+
+      <div className="table-scroll" style={{ width: '100%', maxWidth: '100%', overflowX: 'auto' }}>
+        <table className="sleek-funnel-table" style={{ minWidth: `${260 + displayedMonths.length * 74}px` }}>
+          <thead>
+            <tr>
+              <th
+                style={{
+                  textAlign: 'left',
+                  paddingLeft: '18px',
+                  position: 'sticky',
+                  left: 0,
+                  zIndex: 3,
+                  background: theme === 'light' ? '#f1f5f9' : '#162033',
+                  minWidth: '215px',
+                }}
+              >
+                Stage / Metric
+              </th>
+              {displayedMonths.map((ym) => (
+                <th key={ym} style={{ textAlign: 'right' }}>
+                  {formatYearMonth(ym)}
+                </th>
+              ))}
+              <th style={{ textAlign: 'right', paddingRight: '18px', minWidth: '105px', color: '#38bdf8' }}>
+                {ytdColumnLabel}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((group) => {
+              const accent = STAGE_ACCENTS[group.stage] || STAGE_ACCENTS['TA Round'];
+              return (
+                <Fragment key={group.stage}>
+                  {/* Modern Pill Section Header Row */}
+                  <tr className="stage-band-row">
+                    <td
+                      style={{
+                        position: 'sticky',
+                        left: 0,
+                        zIndex: 2,
+                        background: stickyBg,
+                        padding: '10px 14px 6px 18px',
+                        borderBottom: 'none',
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '7px',
+                          padding: '3px 10px',
+                          borderRadius: '999px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          color: accent.color,
+                          background: accent.bg,
+                          border: `1px solid ${accent.border}`,
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            background: accent.color,
+                            display: 'inline-block',
+                          }}
+                        />
+                        {group.headerBanner ? `${group.headerBanner} · ${group.stage}` : group.stage}
+                      </span>
+                    </td>
+                    <td
+                      colSpan={displayedMonths.length + 1}
+                      style={{ background: stickyBg, borderBottom: 'none', padding: 0 }}
+                    />
+                  </tr>
+
+                  {/* Metric Rows */}
+                  {group.rows.map((row, rIdx) => {
+                    const ytdVal = getRowYtd(row.key);
+                    const isPrimaryRow = rIdx === 0 && group.rows.length > 1;
+                    return (
+                      <tr key={row.key} className="sleek-metric-row">
+                        <td
+                          style={{
+                            position: 'sticky',
+                            left: 0,
+                            zIndex: 1,
+                            background: stickyBg,
+                            paddingLeft: '28px',
+                            fontWeight: isPrimaryRow ? 600 : 500,
+                            color: isPrimaryRow ? textColor : (theme === 'light' ? '#334155' : '#cbd5e1'),
+                            boxShadow: `inset 3px 0 0 ${accent.color}`,
+                          }}
+                        >
+                          {row.label}
+                        </td>
+                        {displayedMonths.map((ym) => {
+                          const v = getCellVal(ym, row.key);
+                          return (
+                            <td
+                              key={ym}
+                              style={{
+                                textAlign: 'right',
+                                fontVariantNumeric: 'tabular-nums',
+                                color: v === 0 ? mutedColor : textColor,
+                                opacity: v === 0 ? 0.38 : 1,
+                                fontWeight: v > 0 ? (isPrimaryRow ? 600 : 500) : 400,
+                              }}
+                            >
+                              {v === 0 ? '—' : fmt(v)}
+                            </td>
+                          );
+                        })}
+                        <td style={{ textAlign: 'right', paddingRight: '18px' }}>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              minWidth: '48px',
+                              textAlign: 'right',
+                              padding: '2px 9px',
+                              borderRadius: '6px',
+                              fontVariantNumeric: 'tabular-nums',
+                              fontWeight: 700,
+                              fontSize: '12.5px',
+                              background: ytdVal > 0 ? accent.bg : 'transparent',
+                              color: ytdVal > 0 ? accent.color : mutedColor,
+                              opacity: ytdVal === 0 ? 0.4 : 1,
+                            }}
+                          >
+                            {ytdVal === 0 ? '—' : fmt(ytdVal)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {/* Soft Amber Highlight Row for Ref. & External Share % */}
+                  {group.showNonInternalPctRow && (
+                    <tr className="sleek-pct-row">
+                      <td
+                        style={{
+                          position: 'sticky',
+                          left: 0,
+                          zIndex: 1,
+                          background: theme === 'light' ? '#fffbeb' : '#181926',
+                          paddingLeft: '28px',
+                          fontWeight: 700,
+                          fontSize: '11.5px',
+                          color: '#eab308',
+                          boxShadow: 'inset 3px 0 0 #eab308',
+                        }}
+                      >
+                        Ref. &amp; External Share %
+                      </td>
+                      {displayedMonths.map((ym) => {
+                        const empRef = getCellVal(ym, 'chEmpReferral');
+                        const busRef = getCellVal(ym, 'chBusReference');
+                        const ext = getCellVal(ym, 'chExternal');
+                        const totJoin =
+                          getCellVal(ym, 'chInternal') +
+                          getCellVal(ym, 'chCampus') +
+                          empRef +
+                          busRef +
+                          ext;
+                        const pctVal = totJoin > 0 ? `${(((empRef + busRef + ext) / totJoin) * 100).toFixed(1)}%` : '—';
+                        return (
+                          <td
+                            key={ym}
+                            style={{
+                              textAlign: 'right',
+                              fontVariantNumeric: 'tabular-nums',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              color: totJoin > 0 ? '#eab308' : mutedColor,
+                              opacity: totJoin > 0 ? 1 : 0.35,
+                              background: theme === 'light' ? 'rgba(254, 243, 199, 0.45)' : 'rgba(234, 179, 8, 0.06)',
+                            }}
+                          >
+                            {pctVal}
+                          </td>
+                        );
+                      })}
+                      <td
+                        style={{
+                          textAlign: 'right',
+                          paddingRight: '18px',
+                          fontVariantNumeric: 'tabular-nums',
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          color: '#eab308',
+                          background: theme === 'light' ? 'rgba(254, 243, 199, 0.45)' : 'rgba(234, 179, 8, 0.06)',
+                        }}
+                      >
+                        {(() => {
+                          const empRef = getRowYtd('chEmpReferral');
+                          const busRef = getRowYtd('chBusReference');
+                          const ext = getRowYtd('chExternal');
+                          const totJoin =
+                            getRowYtd('chInternal') +
+                            getRowYtd('chCampus') +
+                            empRef +
+                            busRef +
+                            ext;
+                          return totJoin > 0 ? `${(((empRef + busRef + ext) / totJoin) * 100).toFixed(1)}%` : '—';
+                        })()}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 
   return (
     <section
@@ -1459,7 +1722,7 @@ function RecruitmentFunnelAndBifurcationSection({
       style={{
         marginTop: '28px',
         padding: '22px',
-        borderRadius: '12px',
+        borderRadius: '14px',
         background: cardBg,
         border: `1px solid ${borderColor}`,
         color: textColor,
@@ -1467,31 +1730,35 @@ function RecruitmentFunnelAndBifurcationSection({
         width: '100%',
         maxWidth: '100%',
         overflow: 'hidden',
+        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       }}
     >
       <style jsx>{`
-        .funnel-matrix-table {
+        .sleek-funnel-table {
           width: 100%;
           border-collapse: collapse;
-          font-size: 12.5px;
+          font-size: 13px;
+          letter-spacing: -0.01em;
         }
-        .funnel-matrix-table th,
-        .funnel-matrix-table td {
-          padding: 7px 10px;
-          border: ${gridBorder};
+        .sleek-funnel-table thead th {
+          background: ${headerBg};
+          color: ${theme === 'light' ? '#475569' : '#94a3b8'};
+          font-weight: 700;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          padding: 11px 12px;
+          border-bottom: 1px solid ${borderColor};
           white-space: nowrap;
         }
-        .funnel-matrix-table thead th {
-          background: #064e3b;
-          color: #fde047;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.03em;
-          font-size: 12px;
-          text-align: center;
+        .sleek-funnel-table tbody td {
+          padding: 8px 12px;
+          border-bottom: ${rowBorder};
+          white-space: nowrap;
+          transition: background 0.12s ease;
         }
-        .funnel-matrix-table thead th.left-hdr {
-          text-align: left;
+        .sleek-metric-row:hover td {
+          background: ${theme === 'light' ? '#f1f5f9' : 'rgba(56, 189, 248, 0.06)'} !important;
         }
       `}</style>
 
@@ -1503,14 +1770,14 @@ function RecruitmentFunnelAndBifurcationSection({
           justifyContent: 'space-between',
           alignItems: 'center',
           gap: '16px',
-          marginBottom: '18px',
-          paddingBottom: '14px',
-          borderBottom: `1px solid ${borderColor}`,
+          marginBottom: '20px',
         }}
       >
         <div>
           <p className="kicker" style={{ marginBottom: '3px' }}>End-to-End Conversion & Joining Split</p>
-          <h2 style={{ margin: 0, fontSize: '21px' }}>Stage-Wise Recruitment Funnel & Joining Bifurcation</h2>
+          <h2 style={{ margin: 0, fontSize: '21px', letterSpacing: '-0.02em' }}>
+            Stage-Wise Recruitment Funnel &amp; Joining Bifurcation
+          </h2>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
             {selectedBu === 'all' ? 'All Business Units' : selectedBu} ·{' '}
             {selectedRecruiter === 'all' ? 'All Recruiters' : `Recruiter: ${selectedRecruiter}`} · Data from June 2025
@@ -1518,18 +1785,54 @@ function RecruitmentFunnelAndBifurcationSection({
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
+          {/* View Segmented Toggle */}
+          <div
+            style={{
+              display: 'inline-flex',
+              padding: '3px',
+              borderRadius: '8px',
+              background: theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.06)',
+              border: `1px solid ${borderColor}`,
+            }}
+          >
+            {[
+              { id: 'both', label: 'Both' },
+              { id: 'funnel', label: 'Funnel' },
+              { id: 'bifurcation', label: 'Bifurcation' },
+            ].map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setActiveTab(t.id)}
+                style={{
+                  padding: '5px 11px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  background: activeTab === t.id ? '#059669' : 'transparent',
+                  color: activeTab === t.id ? '#ffffff' : 'inherit',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
           {/* Recruiter Dropdown */}
           <select
             value={selectedRecruiter}
             onChange={(e) => setSelectedRecruiter(e.target.value)}
             aria-label="Filter Funnel by Recruiter"
             style={{
-              height: '40px',
+              height: '38px',
               padding: '0 12px',
               borderRadius: '8px',
               background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.06)',
               color: 'inherit',
-              border: '1px solid rgba(56, 189, 248, 0.55)',
+              border: '1px solid rgba(56, 189, 248, 0.45)',
               fontWeight: 600,
               fontSize: '12.5px',
               cursor: 'pointer',
@@ -1551,227 +1854,46 @@ function RecruitmentFunnelAndBifurcationSection({
             onChange={(e) => setPeriodMode(e.target.value)}
             aria-label="Select Funnel Timeline"
             style={{
-              height: '40px',
+              height: '38px',
               padding: '0 12px',
               borderRadius: '8px',
               background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.06)',
               color: 'inherit',
-              border: '1px solid rgba(234, 179, 8, 0.65)',
+              border: '1px solid rgba(234, 179, 8, 0.55)',
               fontWeight: 600,
               fontSize: '12.5px',
               cursor: 'pointer',
             }}
           >
             <option value="fy26_27" style={{ background: '#0f172a', color: '#fff' }}>
-              FY 2026-27 (Apr-26 to Mar-27)
+              FY 2026–27 (Apr ’26 – Mar ’27)
             </option>
             <option value="fy25_26" style={{ background: '#0f172a', color: '#fff' }}>
-              FY 2025-26 (Jun-25 to Mar-26)
+              FY 2025–26 (Jun ’25 – Mar ’26)
             </option>
             <option value="all_from_jun25" style={{ background: '#0f172a', color: '#fff' }}>
-              All Months (Jun-25 to Mar-27)
+              All Months (Jun ’25 – Mar ’27)
             </option>
           </select>
         </div>
       </div>
 
-      {/* Table 1: Stage-Wise Recruitment Funnel */}
-      <div className="table-scroll" style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', marginBottom: '26px' }}>
-        <table className="funnel-matrix-table" style={{ minWidth: `${340 + displayedMonths.length * 76}px` }}>
-          <thead>
-            <tr>
-              <th className="left-hdr" style={{ width: '130px' }}>STAGES</th>
-              <th className="left-hdr" style={{ width: '210px' }}>FUNNEL</th>
-              {displayedMonths.map((ym) => (
-                <th key={ym}>{formatMonthDash(ym)}</th>
-              ))}
-              <th style={{ minWidth: '120px' }}>{ytdColumnLabel}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {FUNNEL_STAGE_GROUPS.map((group) =>
-              group.rows.map((row, rIdx) => {
-                const ytdVal = getRowYtd(row.key);
-                return (
-                  <tr key={row.key} style={{ background: rowCellBg }}>
-                    {rIdx === 0 && (
-                      <td
-                        rowSpan={group.rows.length}
-                        style={{
-                          fontWeight: 800,
-                          textAlign: 'center',
-                          verticalAlign: 'middle',
-                          background: stageCellBg,
-                          color: theme === 'light' ? '#0f172a' : '#e2e8f0',
-                        }}
-                      >
-                        {group.stage}
-                      </td>
-                    )}
-                    <td style={{ fontWeight: 600 }}>{row.label}</td>
-                    {displayedMonths.map((ym) => {
-                      const v = getCellVal(ym, row.key);
-                      return (
-                        <td
-                          key={ym}
-                          style={{
-                            textAlign: 'center',
-                            color: v === 0 ? mutedColor : textColor,
-                            fontWeight: v > 0 ? 500 : 400,
-                          }}
-                        >
-                          {fmt(v)}
-                        </td>
-                      );
-                    })}
-                    <td
-                      style={{
-                        textAlign: 'center',
-                        fontWeight: 800,
-                        background: theme === 'light' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.12)',
-                        color: theme === 'light' ? '#065f46' : '#34d399',
-                      }}
-                    >
-                      {fmt(ytdVal)}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      {(activeTab === 'both' || activeTab === 'funnel') &&
+        renderModernTable(
+          FUNNEL_STAGE_GROUPS,
+          'Stage-Wise Recruitment Funnel',
+          'TA Round, Interviews (R1–R3), Offers & Joinings'
+        )}
 
-      {/* Table 2: Joining Bifurcation (Channel, Internal Source, Employment Type, Category) */}
-      <div className="table-scroll" style={{ width: '100%', maxWidth: '100%', overflowX: 'auto' }}>
-        <table className="funnel-matrix-table" style={{ minWidth: `${340 + displayedMonths.length * 76}px` }}>
-          <thead>
-            <tr>
-              <th className="left-hdr" style={{ width: '130px' }}>STAGES</th>
-              <th className="left-hdr" style={{ width: '210px' }}>FUNNEL</th>
-              {displayedMonths.map((ym) => (
-                <th key={ym}>{formatMonthDash(ym)}</th>
-              ))}
-              <th style={{ minWidth: '120px' }}>{ytdColumnLabel}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {BIFURCATION_GROUPS.map((group) => (
-              <Fragment key={group.stage}>
-                {group.headerBanner && (
-                  <tr>
-                    <td
-                      colSpan={2}
-                      style={{
-                        background: '#064e3b',
-                        color: '#fde047',
-                        fontWeight: 800,
-                        fontSize: '12px',
-                        letterSpacing: '0.03em',
-                      }}
-                    >
-                      {group.headerBanner}
-                    </td>
-                    <td colSpan={displayedMonths.length + 1} style={{ background: stageCellBg }} />
-                  </tr>
-                )}
-
-                {group.rows.map((row, rIdx) => {
-                  const ytdVal = getRowYtd(row.key);
-                  return (
-                    <tr key={row.key} style={{ background: rowCellBg }}>
-                      {rIdx === 0 && (
-                        <td
-                          rowSpan={group.rows.length}
-                          style={{
-                            fontWeight: 800,
-                            textAlign: 'center',
-                            verticalAlign: 'middle',
-                            background: stageCellBg,
-                            color: theme === 'light' ? '#0f172a' : '#e2e8f0',
-                          }}
-                        >
-                          {group.stage}
-                        </td>
-                      )}
-                      <td style={{ fontWeight: 600 }}>{row.label}</td>
-                      {displayedMonths.map((ym) => {
-                        const v = getCellVal(ym, row.key);
-                        return (
-                          <td
-                            key={ym}
-                            style={{
-                              textAlign: 'center',
-                              color: v === 0 ? mutedColor : textColor,
-                              fontWeight: v > 0 ? 500 : 400,
-                            }}
-                          >
-                            {fmt(v)}
-                          </td>
-                        );
-                      })}
-                      <td
-                        style={{
-                          textAlign: 'center',
-                          fontWeight: 800,
-                          background: theme === 'light' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.12)',
-                          color: theme === 'light' ? '#065f46' : '#34d399',
-                        }}
-                      >
-                        {fmt(ytdVal)}
-                      </td>
-                    </tr>
-                  );
-                })}
-
-                {/* Percentage Row right below External in the Channel block */}
-                {group.showNonInternalPctRow && (
-                  <tr style={{ background: theme === 'light' ? '#f1f5f9' : 'rgba(234, 179, 8, 0.08)', fontWeight: 700 }}>
-                    <td colSpan={2} style={{ textAlign: 'right', fontSize: '11.5px', color: '#eab308' }}>
-                      Ref. &amp; External Share %
-                    </td>
-                    {displayedMonths.map((ym) => {
-                      const empRef = getCellVal(ym, 'chEmpReferral');
-                      const busRef = getCellVal(ym, 'chBusReference');
-                      const ext = getCellVal(ym, 'chExternal');
-                      const totJoin =
-                        getCellVal(ym, 'chInternal') +
-                        getCellVal(ym, 'chCampus') +
-                        empRef +
-                        busRef +
-                        ext;
-                      const pctVal = totJoin > 0 ? (((empRef + busRef + ext) / totJoin) * 100).toFixed(2) + '%' : '';
-                      return (
-                        <td key={ym} style={{ textAlign: 'center', fontSize: '11.5px', color: '#eab308' }}>
-                          {pctVal}
-                        </td>
-                      );
-                    })}
-                    <td style={{ textAlign: 'center', fontSize: '11.5px', color: '#eab308', fontWeight: 800 }}>
-                      {(() => {
-                        const empRef = getRowYtd('chEmpReferral');
-                        const busRef = getRowYtd('chBusReference');
-                        const ext = getRowYtd('chExternal');
-                        const totJoin =
-                          getRowYtd('chInternal') +
-                          getRowYtd('chCampus') +
-                          empRef +
-                          busRef +
-                          ext;
-                        return totJoin > 0 ? (((empRef + busRef + ext) / totJoin) * 100).toFixed(2) + '%' : '';
-                      })()}
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {(activeTab === 'both' || activeTab === 'bifurcation') &&
+        renderModernTable(
+          BIFURCATION_GROUPS,
+          'Joining Bifurcation',
+          'Channel, Internal Source, Employment Type & Category'
+        )}
     </section>
   );
 }
-
 /* ---------- Channel Analysis Section ---------- */
 
 function ChannelAnalysisSection({ 
