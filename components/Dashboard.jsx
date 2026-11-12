@@ -51,6 +51,10 @@ function sumManpower(bus) {
     offered: 0,
     joined: 0,
     pending: 0,
+    pendingOnTrack: 0,
+    pendingDelayed: 0,
+    pendingCritical: 0,
+    cvLess5Count: 0,
     replacement: 0,
   };
   for (const b of bus) {
@@ -376,7 +380,6 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
         </div>
 
         <div style={{ padding: '20px 22px', overflowY: 'auto', flex: 1 }}>
-          {/* 3 Summary Split Cards */}
           <div
             style={{
               display: 'grid',
@@ -412,7 +415,6 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
             ))}
           </div>
 
-          {/* Per-Business Unit Breakdown Table */}
           <div className="table-scroll">
             <table className="bu-table" style={{ margin: 0, width: '100%', tableLayout: 'fixed', minWidth: '540px' }}>
               <thead>
@@ -446,6 +448,310 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
               </tfoot>
             </table>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Pending Positions Breakdown Modal (By Job Health: On Track, Delayed, Critical — Excludes Closed) ---------- */
+
+function PendingPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedBu, unitTitle, theme }) {
+  if (!open) return null;
+
+  const onTrack = kpi.pendingOnTrack || 0;
+  const delayed = kpi.pendingDelayed || 0;
+  const critical = kpi.pendingCritical || 0;
+  const totalHealthPending = onTrack + delayed + critical;
+  const denom = totalHealthPending > 0 ? totalHealthPending : (kpi.pending || 1);
+
+  const pct = (val) => (denom > 0 ? Math.round((val / denom) * 1000) / 10 : 0);
+
+  const healthCards = [
+    {
+      key: 'onTrack',
+      label: 'On Track',
+      value: onTrack,
+      share: pct(onTrack),
+      color: '#10b981',
+      bg: 'rgba(16, 185, 129, 0.12)',
+      border: 'rgba(16, 185, 129, 0.4)',
+    },
+    {
+      key: 'delayed',
+      label: 'Delayed',
+      value: delayed,
+      share: pct(delayed),
+      color: '#eab308',
+      bg: 'rgba(234, 179, 8, 0.12)',
+      border: 'rgba(234, 179, 8, 0.4)',
+    },
+    {
+      key: 'critical',
+      label: 'Critical',
+      value: critical,
+      share: pct(critical),
+      color: '#f87171',
+      bg: 'rgba(239, 68, 68, 0.12)',
+      border: 'rgba(239, 68, 68, 0.4)',
+    },
+  ];
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.75)',
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: theme === 'light' ? '#ffffff' : '#0f172a',
+          color: theme === 'light' ? '#0f172a' : '#f8fafc',
+          border: '1px solid rgba(255, 255, 255, 0.18)',
+          borderRadius: '14px',
+          width: '100%',
+          maxWidth: '860px',
+          maxHeight: '88vh',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 20px 45px rgba(0, 0, 0, 0.65)',
+        }}
+      >
+        <div
+          style={{
+            padding: '18px 22px',
+            borderBottom: '1px solid rgba(148, 163, 184, 0.2)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <div>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#eab308', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Pending Positions by Job Health (Excluding Closed) · {selectedBu === 'all' ? 'All Business Units' : selectedBu}
+            </div>
+            <h3 style={{ margin: '4px 0 0', fontSize: '20px' }}>
+              {unitTitle} — {fmt(totalHealthPending || kpi.pending)} Pending Positions
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close modal"
+            style={{
+              background: 'rgba(148, 163, 184, 0.15)',
+              border: '1px solid rgba(148, 163, 184, 0.3)',
+              borderRadius: '8px',
+              color: 'inherit',
+              width: '34px',
+              height: '34px',
+              fontSize: '18px',
+              cursor: 'pointer',
+            }}
+          >
+            &times;
+          </button>
+        </div>
+
+        <div style={{ padding: '20px 22px', overflowY: 'auto', flex: 1 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '14px',
+              marginBottom: '20px',
+            }}
+          >
+            {healthCards.map((c) => (
+              <div
+                key={c.key}
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: '10px',
+                  background: c.bg,
+                  border: `1px solid ${c.border}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                }}
+              >
+                <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: c.color, letterSpacing: '0.03em' }}>
+                  {c.label}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' }}>
+                  <strong style={{ fontSize: '26px', color: c.color, lineHeight: 1.1 }}>{fmt(c.value)}</strong>
+                  <span style={{ fontSize: '12px', fontWeight: 600, opacity: 0.85 }}>{c.share}% of pending</span>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: 'rgba(148, 163, 184, 0.2)', borderRadius: '3px', overflow: 'hidden', marginTop: '4px' }}>
+                  <div style={{ width: `${Math.min(100, c.share)}%`, height: '100%', background: c.color, borderRadius: '3px' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="table-scroll">
+            <table className="bu-table" style={{ margin: 0, width: '100%', tableLayout: 'fixed', minWidth: '540px' }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '36%' }}>Business Unit</th>
+                  <th className="n" style={{ width: '16%' }}>Pending Positions</th>
+                  <th className="n" style={{ width: '16%', color: '#10b981' }}>On Track</th>
+                  <th className="n" style={{ width: '16%', color: '#eab308' }}>Delayed</th>
+                  <th className="n" style={{ width: '16%', color: '#f87171' }}>Critical</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scopeBUs.map((b) => {
+                  const buOnTrack = b.manpower?.pendingOnTrack || 0;
+                  const buDelayed = b.manpower?.pendingDelayed || 0;
+                  const buCritical = b.manpower?.pendingCritical || 0;
+                  const buHealthSum = buOnTrack + buDelayed + buCritical;
+                  return (
+                    <tr key={`${b.unitKey || 'u'}-${b.label}`}>
+                      <td style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.label}</td>
+                      <td className="n" style={{ fontWeight: 700 }}>{fmt(buHealthSum || b.manpower?.pending)}</td>
+                      <td className="n" style={{ color: '#10b981', fontWeight: 600 }}>{fmt(buOnTrack)}</td>
+                      <td className="n" style={{ color: '#eab308', fontWeight: 600 }}>{fmt(buDelayed)}</td>
+                      <td className="n" style={{ color: '#f87171', fontWeight: 600 }}>{fmt(buCritical)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr style={{ fontWeight: 800 }}>
+                  <td>Total</td>
+                  <td className="n">{fmt(totalHealthPending || kpi.pending)}</td>
+                  <td className="n" style={{ color: '#10b981' }}>{fmt(onTrack)}</td>
+                  <td className="n" style={{ color: '#eab308' }}>{fmt(delayed)}</td>
+                  <td className="n" style={{ color: '#f87171' }}>{fmt(critical)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Jobs With < 5 CVs Modal (Job ID, Business Unit, Department, Category, Req Act Date, TOF) ---------- */
+
+function CvLess5Modal({ open, onClose, jobs = [], selectedBu, unitTitle, theme }) {
+  if (!open) return null;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.75)',
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: theme === 'light' ? '#ffffff' : '#0f172a',
+          color: theme === 'light' ? '#0f172a' : '#f8fafc',
+          border: '1px solid rgba(255, 255, 255, 0.18)',
+          borderRadius: '14px',
+          width: '100%',
+          maxWidth: '960px',
+          maxHeight: '86vh',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 20px 45px rgba(0, 0, 0, 0.65)',
+        }}
+      >
+        <div
+          style={{
+            padding: '18px 22px',
+            borderBottom: '1px solid rgba(148, 163, 184, 0.2)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <div>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Low Top-of-Funnel Alert (CV &lt; 5) · {selectedBu === 'all' ? 'All Business Units' : selectedBu}
+            </div>
+            <h3 style={{ margin: '4px 0 0', fontSize: '20px' }}>
+              {unitTitle} — {fmt(jobs.length)} {jobs.length === 1 ? 'Job Has' : 'Jobs Have'} Less Than 5 CVs
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close modal"
+            style={{
+              background: 'rgba(148, 163, 184, 0.15)',
+              border: '1px solid rgba(148, 163, 184, 0.3)',
+              borderRadius: '8px',
+              color: 'inherit',
+              width: '34px',
+              height: '34px',
+              fontSize: '18px',
+              cursor: 'pointer',
+            }}
+          >
+            &times;
+          </button>
+        </div>
+
+        <div style={{ padding: '18px 22px', overflowY: 'auto', flex: 1 }}>
+          {jobs.length === 0 ? (
+            <p className="muted" style={{ textAlign: 'center', padding: '28px 0' }}>
+              No jobs currently flagged with less than 5 CVs for this selection.
+            </p>
+          ) : (
+            <div className="table-scroll">
+              <table className="jobs" style={{ margin: 0, width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th>Job ID</th>
+                    <th>Role</th>
+                    <th>Business Unit</th>
+                    <th>Department</th>
+                    <th>Category</th>
+                    <th>Job Health</th>
+                    <th className="n">Req Act. Date</th>
+                    <th className="n">TOF (Top of Funnel)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {jobs.map((j, idx) => (
+                    <tr key={`${j.unitKey || 'u'}-${j.jobId}-${idx}`}>
+                      <td className="mono" style={{ fontWeight: 700, color: '#38bdf8' }}>{j.jobId || '—'}</td>
+                      <td style={{ fontWeight: 600 }}>{j.role || '—'}</td>
+                      <td>{j.businessUnit || '—'}</td>
+                      <td>{j.department || '—'}</td>
+                      <td>{j.category || '—'}</td>
+                      <td><JobHealthBadge health={j.jobHealth} /></td>
+                      <td className="n" style={{ whiteSpace: 'nowrap' }}>{j.reqActivationDate || '—'}</td>
+                      <td className="n" style={{ fontWeight: 800, color: '#f87171' }}>{fmt(j.topOfFunnel)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -699,7 +1005,7 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
   );
 }
 
-/* ---------- Channel Analysis Section (Mobile-Responsive Grid & Contained SVG Scroll) ---------- */
+/* ---------- Channel Analysis Section ---------- */
 
 function ChannelAnalysisSection({ 
   channelBreakdown = {}, channelBreakdownByBu = {}, 
@@ -883,8 +1189,6 @@ function ChannelAnalysisSection({
       </div>
 
       <div className="channel-analysis-grid">
-        
-        {/* Card 1: Overall Joinings by Channel */}
         <div
           style={{
             minWidth: 0,
@@ -924,7 +1228,6 @@ function ChannelAnalysisSection({
           </div>
         </div>
 
-        {/* Card 2: Current Month Channel View */}
         <div
           style={{
             minWidth: 0,
@@ -964,7 +1267,6 @@ function ChannelAnalysisSection({
           </div>
         </div>
 
-        {/* Card 3: Channel Conversion Efficiency Card */}
         <div
           className="channel-eff-card"
           style={{
@@ -1033,7 +1335,6 @@ function ChannelAnalysisSection({
           </div>
         </div>
 
-        {/* Card 4: MoM Grouped Channel Trend */}
         <div
           style={{
             minWidth: 0,
@@ -1177,7 +1478,7 @@ function RecClickPill({ value, color, onClick, title }) {
   );
 }
 
-/* ---------- Recruiter Performance Section (15x Target, Average Quarterly ROI, Compact & Clickable) ---------- */
+/* ---------- Recruiter Performance Section ---------- */
 
 function RecruiterPerformanceSection({
   recruiterPerformance,
@@ -1425,7 +1726,6 @@ function RecruiterPerformanceSection({
         }
       `}</style>
 
-      {/* Aligned Top Header Bar */}
       <div
         style={{
           display: 'flex',
@@ -1454,7 +1754,6 @@ function RecruiterPerformanceSection({
             gap: '10px',
           }}
         >
-          {/* KPI Pill 1: Master Offered / Joined */}
           <div
             style={{
               display: 'flex',
@@ -1500,7 +1799,6 @@ function RecruiterPerformanceSection({
             </div>
           </div>
 
-          {/* KPI Pill 2: >= 15x Avg ROI Achieved */}
           <div
             style={{
               display: 'flex',
@@ -1522,7 +1820,6 @@ function RecruiterPerformanceSection({
             </strong>
           </div>
 
-          {/* Channel Dropdown */}
           <select
             value={channelScope}
             onChange={(e) => setChannelScope(e.target.value)}
@@ -1548,7 +1845,6 @@ function RecruiterPerformanceSection({
             ))}
           </select>
 
-          {/* Period Dropdown */}
           <select
             value={viewScope}
             onChange={(e) => setViewScope(e.target.value)}
@@ -1573,7 +1869,6 @@ function RecruiterPerformanceSection({
         </div>
       </div>
 
-      {/* Compact ROI Weighting Legend Bar */}
       <div
         style={{
           display: 'flex',
@@ -1825,7 +2120,6 @@ function RecruiterPerformanceSection({
                       );
                     })}
 
-                    {/* Subtotal Row per Hiring Type */}
                     <tr style={{ fontWeight: 700, background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.025)' }}>
                       <td
                         style={{
@@ -1922,7 +2216,6 @@ function RecruiterPerformanceSection({
                 );
               })}
 
-              {/* Former / Unlisted Recruiters Row */}
               {(summaryKpis.unlistedOffered > 0 || summaryKpis.unlistedJoined > 0) && (
                 <tr style={{ fontStyle: 'italic', color: mutedColor, background: theme === 'light' ? '#fffbeb' : 'rgba(234, 179, 8, 0.05)' }}>
                   <td
@@ -2011,7 +2304,6 @@ function RecruiterPerformanceSection({
               )}
             </tbody>
 
-            {/* Grand Total Footer Directly from Master Offered */}
             <tfoot>
               <tr style={{ fontWeight: 800, background: theme === 'light' ? '#e2e8f0' : 'rgba(16, 185, 129, 0.12)' }}>
                 <td
@@ -2112,6 +2404,51 @@ function MetricCellButton({ value, onClick }) {
   );
 }
 
+function JobHealthBadge({ health }) {
+  const h = norm(health);
+  if (!h || h === '—' || h === '-') return <span>—</span>;
+
+  let bg = 'rgba(148, 163, 184, 0.15)';
+  let border = 'rgba(148, 163, 184, 0.4)';
+  let color = '#94a3b8';
+
+  if (h.includes('track')) {
+    bg = 'rgba(16, 185, 129, 0.16)';
+    border = 'rgba(16, 185, 129, 0.5)';
+    color = '#10b981';
+  } else if (h.includes('delay')) {
+    bg = 'rgba(234, 179, 8, 0.16)';
+    border = 'rgba(234, 179, 8, 0.5)';
+    color = '#eab308';
+  } else if (h.includes('critical') || h.includes('crit')) {
+    bg = 'rgba(239, 68, 68, 0.16)';
+    border = 'rgba(239, 68, 68, 0.5)';
+    color = '#f87171';
+  } else if (h.includes('close')) {
+    bg = 'rgba(148, 163, 184, 0.14)';
+    border = 'rgba(148, 163, 184, 0.35)';
+    color = '#94a3b8';
+  }
+
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        padding: '2px 8px',
+        borderRadius: '999px',
+        fontSize: '11px',
+        fontWeight: 700,
+        background: bg,
+        border: `1px solid ${border}`,
+        color,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {health}
+    </span>
+  );
+}
+
 function BuJobsRow({ buLabel, allJobs, onOpenJobModal, theme }) {
   const buJobs = useMemo(() => {
     return (allJobs || []).filter((j) => j.businessUnit === buLabel).sort((a, b) => norm(a.department).localeCompare(norm(b.department)));
@@ -2140,6 +2477,7 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal, theme }) {
                 <th>Role</th>
                 <th>Cat.</th>
                 <th>Status</th>
+                <th>Job Health</th>
                 <th className="n">Total</th>
                 <th className="n" title="Req Activation Date">Req Act.</th>
                 <th className="n" title="Top of Funnel">Top Funnel</th>
@@ -2200,6 +2538,7 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal, theme }) {
                     <td>{j.role || '—'}</td>
                     <td>{j.category || '—'}</td>
                     <td>{j.status && j.status !== '—' ? <StatusBadge status={j.status} /> : '—'}</td>
+                    <td><JobHealthBadge health={j.jobHealth} /></td>
                     <td className="n">{fmt(j.total)}</td>
                     <td className="n" style={{ fontSize: '12px' }}>{j.reqActivationDate || '—'}</td>
                     <td className="n">{fmt(j.topOfFunnel)}</td>
@@ -2355,6 +2694,8 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const [showAll, setShowAll] = useState(false);
   const [modalData, setModalData] = useState(null);
   const [showPositionsSplitModal, setShowPositionsSplitModal] = useState(false);
+  const [showPendingHealthModal, setShowPendingHealthModal] = useState(false);
+  const [showCvLess5Modal, setShowCvLess5Modal] = useState(false);
   
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -2529,6 +2870,16 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const allTotals = useMemo(() => (data ? sumManpower(data.businessUnits) : null), [data]);
   const muTotals = useMemo(() => (datasets.mu ? sumManpower(datasets.mu.businessUnits) : null), [datasets.mu]);
   const tetrTotals = useMemo(() => (datasets.tetr ? sumManpower(datasets.tetr.businessUnits) : null), [datasets.tetr]);
+
+  // Filter jobs with CV < 5 for the current Payroll Unit + Business Unit selection
+  const cvLess5Jobs = useMemo(() => {
+    if (!data || !Array.isArray(data.jobs)) return [];
+    return data.jobs.filter((j) => {
+      if (j.isManualForm) return false;
+      if (bu !== 'all' && j.businessUnit !== bu) return false;
+      return Boolean(j.cvLess5);
+    });
+  }, [data, bu]);
 
   const checks = useMemo(
     () => (data ? data.checks.filter((c) => bu === 'all' || c.businessUnit === bu) : []),
@@ -2812,11 +3163,90 @@ export default function Dashboard({ unitKey = 'overall' }) {
                   <div><span>Yet to offer</span><b>{fmt(kpi.yetToOffer)}</b></div>
                   <div><span>Offered</span><b>{fmt(kpi.offered)}</b></div>
                   <div><span>Joined</span><b>{fmt(kpi.joined)}</b></div>
-                  <div className="hl"><span>Pending positions</span><b>{fmt(kpi.pending)}</b></div>
+
+                  {/* Clickable Pending Positions KPI Card (Split by Job Health: On Track, Delayed, Critical) */}
+                  <div
+                    className="hl"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setShowPendingHealthModal(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setShowPendingHealthModal(true);
+                      }
+                    }}
+                    title="Click to view Pending Positions split by Job Health (On Track, Delayed, Critical)"
+                    style={{
+                      cursor: 'pointer',
+                      position: 'relative',
+                      transition: 'background 0.15s ease, box-shadow 0.15s ease',
+                    }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                      <span>Pending positions</span>
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          padding: '1px 6px',
+                          borderRadius: '999px',
+                          background: 'rgba(234, 179, 8, 0.22)',
+                          border: '1px solid rgba(234, 179, 8, 0.55)',
+                          color: '#eab308',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Job Health
+                      </span>
+                    </span>
+                    <b style={{ color: '#fde047', textDecoration: 'underline', textDecorationColor: 'rgba(234, 179, 8, 0.5)', textUnderlineOffset: '4px' }}>
+                      {fmt(kpi.pending)}
+                    </b>
+                    <small style={{ color: '#eab308' }}>
+                      Click for On Track · Delayed · Critical
+                    </small>
+                  </div>
                 </section>
 
                 <section>
-                  <h2>Manpower by Business Unit</h2>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '12px' }}>
+                    <h2 style={{ margin: 0 }}>Manpower by Business Unit</h2>
+
+                    {/* CV < 5 Checker Button */}
+                    <button
+                      type="button"
+                      onClick={() => setShowCvLess5Modal(true)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        background: cvLess5Jobs.length > 0 ? 'rgba(239, 68, 68, 0.14)' : 'rgba(148, 163, 184, 0.12)',
+                        border: cvLess5Jobs.length > 0 ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(148, 163, 184, 0.3)',
+                        color: cvLess5Jobs.length > 0 ? '#f87171' : 'inherit',
+                        fontWeight: 700,
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span>Jobs with &lt; 5 CVs</span>
+                      <span
+                        style={{
+                          padding: '2px 9px',
+                          borderRadius: '999px',
+                          background: cvLess5Jobs.length > 0 ? '#ef4444' : 'rgba(148, 163, 184, 0.25)',
+                          color: '#ffffff',
+                          fontWeight: 800,
+                          fontSize: '12px',
+                        }}
+                      >
+                        {fmt(cvLess5Jobs.length)}
+                      </span>
+                    </button>
+                  </div>
+
                   <div className="table-scroll">
                     <table className="bu-table">
                       <thead>
@@ -3006,6 +3436,25 @@ export default function Dashboard({ unitKey = 'overall' }) {
             onClose={() => setShowPositionsSplitModal(false)}
             scopeBUs={scopeBUs}
             kpi={kpi}
+            selectedBu={bu}
+            unitTitle={currentMeta.title}
+            theme={theme}
+          />
+
+          <PendingPositionsModal
+            open={showPendingHealthModal}
+            onClose={() => setShowPendingHealthModal(false)}
+            scopeBUs={scopeBUs}
+            kpi={kpi}
+            selectedBu={bu}
+            unitTitle={currentMeta.title}
+            theme={theme}
+          />
+
+          <CvLess5Modal
+            open={showCvLess5Modal}
+            onClose={() => setShowCvLess5Modal(false)}
+            jobs={cvLess5Jobs}
             selectedBu={bu}
             unitTitle={currentMeta.title}
             theme={theme}
