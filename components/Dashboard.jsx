@@ -1,3 +1,7 @@
+﻿'use client';
+
+'use client';
+
 import React, { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 
 const UNIT_KEYS = ['overall', 'mu', 'tetr'];
@@ -176,21 +180,21 @@ function generateMonthSequence(startYm, endYm) {
 
 function formatInrShort(val) {
   const n = Number(val || 0);
-  if (!isFinite(n) || n === 0) return '₹0';
+  if (!isFinite(n) || n === 0) return 'â‚¹0';
   const abs = Math.abs(n);
   if (abs >= 10000000) {
-    return `₹${(n / 10000000).toFixed(2)} Cr`;
+    return `â‚¹${(n / 10000000).toFixed(2)} Cr`;
   }
   if (abs >= 100000) {
-    return `₹${(n / 100000).toFixed(2)} L`;
+    return `â‚¹${(n / 100000).toFixed(2)} L`;
   }
-  return `₹${Math.round(n).toLocaleString('en-IN')}`;
+  return `â‚¹${Math.round(n).toLocaleString('en-IN')}`;
 }
 
 function formatInrFull(val) {
   const n = Math.round(Number(val || 0));
-  if (!isFinite(n) || n === 0) return '₹0';
-  return `₹${n.toLocaleString('en-IN')}`;
+  if (!isFinite(n) || n === 0) return 'â‚¹0';
+  return `â‚¹${n.toLocaleString('en-IN')}`;
 }
 
 function mergeFunnelMonthMaps(mapA, mapB) {
@@ -300,7 +304,7 @@ function AccessGate({ children, theme }) {
   if (allowedUsers === null) {
     return (
       <div style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
-        Checking access permissions…
+        Checking access permissionsâ€¦
       </div>
     );
   }
@@ -437,7 +441,7 @@ function TotalPositionsModal({ isOpen, onClose, businessUnits, unitName, theme }
               Total Positions Bifurcation
             </p>
             <h3 style={{ margin: '4px 0 0', fontSize: '19px' }}>
-              {unitName} — {fmt(totalPos)} Total Positions
+              {unitName} â€” {fmt(totalPos)} Total Positions
             </h3>
           </div>
           <button
@@ -454,7 +458,7 @@ function TotalPositionsModal({ isOpen, onClose, businessUnits, unitName, theme }
               fontWeight: 700,
             }}
           >
-            ✕
+            âœ•
           </button>
         </div>
 
@@ -662,7 +666,7 @@ function PendingPositionsModal({ isOpen, onClose, businessUnits, jobs, unitName,
               Pending Positions by Job Health (Excluding Closed)
             </p>
             <h3 style={{ margin: '4px 0 0', fontSize: '19px' }}>
-              {unitName} — {fmt(totalHealthPending || kpi?.pending)} Pending Positions
+              {unitName} â€” {fmt(totalHealthPending || kpi?.pending)} Pending Positions
             </h3>
           </div>
           <button
@@ -679,7 +683,7 @@ function PendingPositionsModal({ isOpen, onClose, businessUnits, jobs, unitName,
               fontWeight: 700,
             }}
           >
-            ✕
+            âœ•
           </button>
         </div>
 
@@ -706,7 +710,7 @@ function PendingPositionsModal({ isOpen, onClose, businessUnits, jobs, unitName,
                   <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: c.color }}>
                     {c.label}
                   </span>
-                  <span style={{ fontSize: '11px', color: c.color, fontWeight: 600 }}>View Jobs →</span>
+                  <span style={{ fontSize: '11px', color: c.color, fontWeight: 600 }}>View Jobs â†’</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '6px' }}>
                   <span style={{ fontSize: '26px', fontWeight: 800, color: c.color }}>{fmt(c.val)}</span>
@@ -836,7 +840,7 @@ function PendingPositionsModal({ isOpen, onClose, businessUnits, jobs, unitName,
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <strong style={{ fontSize: '14px' }}>
-                Showing {drilledJobs.length} Job(s) · {drillFilter.buLabel === 'all' ? 'All BUs' : drillFilter.buLabel} ·{' '}
+                Showing {drilledJobs.length} Job(s) Â· {drillFilter.buLabel === 'all' ? 'All BUs' : drillFilter.buLabel} Â·{' '}
                 {drillFilter.health === 'all' ? 'All Health Statuses' : drillFilter.health}
               </strong>
               <button
@@ -852,7 +856,7 @@ function PendingPositionsModal({ isOpen, onClose, businessUnits, jobs, unitName,
                   fontWeight: 600,
                 }}
               >
-                ← Back to BU Summary
+                â† Back to BU Summary
               </button>
             </div>
             <div className="table-scroll">
@@ -875,14 +879,14 @@ function PendingPositionsModal({ isOpen, onClose, businessUnits, jobs, unitName,
                     return (
                       <tr key={`${j.jobId}-${i}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                         <td style={{ padding: '8px', fontWeight: 600 }}>{j.jobId}</td>
-                        <td style={{ padding: '8px', fontWeight: 600 }}>{j.role || '—'}</td>
+                        <td style={{ padding: '8px', fontWeight: 600 }}>{j.role || 'â€”'}</td>
                         <td style={{ padding: '8px' }}>{j.businessUnit}</td>
-                        <td style={{ padding: '8px' }}>{j.department || '—'}</td>
+                        <td style={{ padding: '8px' }}>{j.department || 'â€”'}</td>
                         <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: '#eab308' }}>
                           {fmt(j.pending)}
                         </td>
-                        <td style={{ padding: '8px' }}>{j.targetDate || '—'}</td>
-                        <td style={{ padding: '8px' }}>{j.daysToTarget || '—'}</td>
+                        <td style={{ padding: '8px' }}>{j.targetDate || 'â€”'}</td>
+                        <td style={{ padding: '8px' }}>{j.daysToTarget || 'â€”'}</td>
                         <td style={{ padding: '8px' }}>
                           <span
                             style={{
@@ -895,7 +899,7 @@ function PendingPositionsModal({ isOpen, onClose, businessUnits, jobs, unitName,
                               border: `1px solid ${hs.border}`,
                             }}
                           >
-                            {j.jobHealth || '—'}
+                            {j.jobHealth || 'â€”'}
                           </span>
                         </td>
                       </tr>
@@ -954,7 +958,7 @@ function CvLess5Modal({ isOpen, onClose, jobs, unitName, theme }) {
               Low Pipeline Alert (CV &lt; 5 Checker)
             </p>
             <h3 style={{ margin: '4px 0 0', fontSize: '19px' }}>
-              {unitName} — {fmt(cvJobs.length)} Role(s) Flagged with CV &lt; 5
+              {unitName} â€” {fmt(cvJobs.length)} Role(s) Flagged with CV &lt; 5
             </h3>
           </div>
           <button
@@ -971,7 +975,7 @@ function CvLess5Modal({ isOpen, onClose, jobs, unitName, theme }) {
               fontWeight: 700,
             }}
           >
-            ✕
+            âœ•
           </button>
         </div>
 
@@ -993,15 +997,15 @@ function CvLess5Modal({ isOpen, onClose, jobs, unitName, theme }) {
               {cvJobs.map((j, i) => (
                 <tr key={`${j.jobId}-${i}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                   <td style={{ padding: '8px', fontWeight: 600 }}>{j.jobId}</td>
-                  <td style={{ padding: '8px', fontWeight: 600 }}>{j.role || '—'}</td>
+                  <td style={{ padding: '8px', fontWeight: 600 }}>{j.role || 'â€”'}</td>
                   <td style={{ padding: '8px' }}>{j.businessUnit}</td>
-                  <td style={{ padding: '8px' }}>{j.department || '—'}</td>
+                  <td style={{ padding: '8px' }}>{j.department || 'â€”'}</td>
                   <td style={{ padding: '8px', textAlign: 'right' }}>{fmt(j.topOfFunnel)}</td>
                   <td style={{ padding: '8px', textAlign: 'right' }}>{fmt(j.taShortlisted)}</td>
                   <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: '#eab308' }}>
                     {fmt(j.pending)}
                   </td>
-                  <td style={{ padding: '8px', fontWeight: 700 }}>{j.jobHealth || '—'}</td>
+                  <td style={{ padding: '8px', fontWeight: 700 }}>{j.jobHealth || 'â€”'}</td>
                 </tr>
               ))}
             </tbody>
@@ -1052,10 +1056,10 @@ function JobCandidatesModal({ job, onClose, theme }) {
               className="kicker"
               style={{ margin: 0, color: '#38bdf8', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}
             >
-              {job.businessUnit} · {job.department || 'Department'}
+              {job.businessUnit} Â· {job.department || 'Department'}
             </p>
             <h3 style={{ margin: '4px 0 0', fontSize: '19px' }}>
-              {job.jobId} — {job.role || 'Role'} ({candidates.length} Candidates)
+              {job.jobId} â€” {job.role || 'Role'} ({candidates.length} Candidates)
             </h3>
           </div>
           <button
@@ -1072,7 +1076,7 @@ function JobCandidatesModal({ job, onClose, theme }) {
               fontWeight: 700,
             }}
           >
-            ✕
+            âœ•
           </button>
         </div>
 
@@ -1095,15 +1099,15 @@ function JobCandidatesModal({ job, onClose, theme }) {
               <tbody>
                 {candidates.map((c, idx) => (
                   <tr key={`${c.email}-${idx}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                    <td style={{ padding: '8px', fontWeight: 700 }}>{c.name || '—'}</td>
+                    <td style={{ padding: '8px', fontWeight: 700 }}>{c.name || 'â€”'}</td>
                     <td style={{ padding: '8px' }}>
-                      <div>{c.email || '—'}</div>
+                      <div>{c.email || 'â€”'}</div>
                       <div style={{ fontSize: '11px', opacity: 0.7 }}>{c.phone || ''}</div>
                     </td>
-                    <td style={{ padding: '8px' }}>{c.recruiter || '—'}</td>
-                    <td style={{ padding: '8px' }}>{c.preOfferStatus || '—'}</td>
-                    <td style={{ padding: '8px' }}>{c.status || '—'}</td>
-                    <td style={{ padding: '8px', fontWeight: 700, color: '#10b981' }}>{c.finalStatus || '—'}</td>
+                    <td style={{ padding: '8px' }}>{c.recruiter || 'â€”'}</td>
+                    <td style={{ padding: '8px' }}>{c.preOfferStatus || 'â€”'}</td>
+                    <td style={{ padding: '8px' }}>{c.status || 'â€”'}</td>
+                    <td style={{ padding: '8px', fontWeight: 700, color: '#10b981' }}>{c.finalStatus || 'â€”'}</td>
                     <td style={{ padding: '8px', fontSize: '11.5px' }}>
                       {c.offerDate ? `Off: ${c.offerDate}` : ''}{' '}
                       {c.joiningDate ? `| Join: ${c.joiningDate}` : ''}
@@ -1296,7 +1300,7 @@ function MomOfferedJoinedSection({ momSeries, selectedBu, theme }) {
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
             <strong>
-              {drillMonth.month} — {drillMonth.type} Candidates ({drillMonth.candidates.length})
+              {drillMonth.month} â€” {drillMonth.type} Candidates ({drillMonth.candidates.length})
             </strong>
             <button
               type="button"
@@ -1310,7 +1314,7 @@ function MomOfferedJoinedSection({ momSeries, selectedBu, theme }) {
                 cursor: 'pointer',
               }}
             >
-              Close ✕
+              Close âœ•
             </button>
           </div>
           <div className="table-scroll" style={{ maxHeight: '260px', overflowY: 'auto' }}>
@@ -1650,8 +1654,8 @@ function RecruitmentFunnelAndBifurcationSection({
   }, [periodMode]);
 
   const ytdColumnLabel = useMemo(() => {
-    if (periodMode === 'fy26_27') return 'YTD (26–27)';
-    if (periodMode === 'fy25_26') return 'YTD (25–26)';
+    if (periodMode === 'fy26_27') return 'YTD (26â€“27)';
+    if (periodMode === 'fy25_26') return 'YTD (25â€“26)';
     return 'Total';
   }, [periodMode]);
 
@@ -1704,7 +1708,7 @@ function RecruitmentFunnelAndBifurcationSection({
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <h3 style={{ margin: 0, fontSize: '15.5px', fontWeight: 700, letterSpacing: '-0.01em' }}>{title}</h3>
           {subtitle && (
-            <span style={{ fontSize: '12px', color: mutedColor, fontWeight: 500 }}>· {subtitle}</span>
+            <span style={{ fontSize: '12px', color: mutedColor, fontWeight: 500 }}>Â· {subtitle}</span>
           )}
         </div>
       </div>
@@ -1777,7 +1781,7 @@ function RecruitmentFunnelAndBifurcationSection({
                             display: 'inline-block',
                           }}
                         />
-                        {group.headerBanner ? `${group.headerBanner} · ${group.stage}` : group.stage}
+                        {group.headerBanner ? `${group.headerBanner} Â· ${group.stage}` : group.stage}
                       </span>
                     </td>
                     <td
@@ -1818,7 +1822,7 @@ function RecruitmentFunnelAndBifurcationSection({
                                 fontWeight: v > 0 ? (isPrimaryRow ? 600 : 500) : 400,
                               }}
                             >
-                              {v === 0 ? '—' : fmt(v)}
+                              {v === 0 ? 'â€”' : fmt(v)}
                             </td>
                           );
                         })}
@@ -1838,7 +1842,7 @@ function RecruitmentFunnelAndBifurcationSection({
                               opacity: ytdVal === 0 ? 0.4 : 1,
                             }}
                           >
-                            {ytdVal === 0 ? '—' : fmt(ytdVal)}
+                            {ytdVal === 0 ? 'â€”' : fmt(ytdVal)}
                           </span>
                         </td>
                       </tr>
@@ -1873,7 +1877,7 @@ function RecruitmentFunnelAndBifurcationSection({
                           busRef +
                           ext;
                         const pctVal =
-                          totJoin > 0 ? `${(((empRef + busRef + ext) / totJoin) * 100).toFixed(1)}%` : '—';
+                          totJoin > 0 ? `${(((empRef + busRef + ext) / totJoin) * 100).toFixed(1)}%` : 'â€”';
                         return (
                           <td
                             key={ym}
@@ -1914,7 +1918,7 @@ function RecruitmentFunnelAndBifurcationSection({
                             empRef +
                             busRef +
                             ext;
-                          return totJoin > 0 ? `${(((empRef + busRef + ext) / totJoin) * 100).toFixed(1)}%` : '—';
+                          return totJoin > 0 ? `${(((empRef + busRef + ext) / totJoin) * 100).toFixed(1)}%` : 'â€”';
                         })()}
                       </td>
                     </tr>
@@ -1990,8 +1994,8 @@ function RecruitmentFunnelAndBifurcationSection({
             Stage-Wise Recruitment Funnel &amp; Joining Bifurcation
           </h2>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
-            {selectedBu === 'all' ? 'All Business Units' : selectedBu} ·{' '}
-            {selectedRecruiter === 'all' ? 'All Recruiters' : `Recruiter: ${selectedRecruiter}`} · Data from June 2025
+            {selectedBu === 'all' ? 'All Business Units' : selectedBu} Â·{' '}
+            {selectedRecruiter === 'all' ? 'All Recruiters' : `Recruiter: ${selectedRecruiter}`} Â· Data from June 2025
           </p>
         </div>
 
@@ -2074,13 +2078,13 @@ function RecruitmentFunnelAndBifurcationSection({
             }}
           >
             <option value="fy26_27" style={{ background: '#0f172a', color: '#fff' }}>
-              FY 2026–27 (Apr ’26 – Mar ’27)
+              FY 2026â€“27 (Apr â€™26 â€“ Mar â€™27)
             </option>
             <option value="fy25_26" style={{ background: '#0f172a', color: '#fff' }}>
-              FY 2025–26 (Jun ’25 – Mar ’26)
+              FY 2025â€“26 (Jun â€™25 â€“ Mar â€™26)
             </option>
             <option value="all_from_jun25" style={{ background: '#0f172a', color: '#fff' }}>
-              All Months (Jun ’25 – Mar ’27)
+              All Months (Jun â€™25 â€“ Mar â€™27)
             </option>
           </select>
         </div>
@@ -2090,7 +2094,7 @@ function RecruitmentFunnelAndBifurcationSection({
         renderModernTable(
           FUNNEL_STAGE_GROUPS,
           'Stage-Wise Recruitment Funnel',
-          'TA Round, Interviews (R1–R3), Offers & Joinings'
+          'TA Round, Interviews (R1â€“R3), Offers & Joinings'
         )}
 
       {(activeTab === 'both' || activeTab === 'bifurcation') &&
@@ -2142,8 +2146,8 @@ function CostAndRoiAnalyticsSection({
   }, [periodMode]);
 
   const ytdLabel = useMemo(() => {
-    if (periodMode === 'fy26_27') return 'FY 26–27 YTD';
-    if (periodMode === 'fy25_26') return 'FY 25–26 Total';
+    if (periodMode === 'fy26_27') return 'FY 26â€“27 YTD';
+    if (periodMode === 'fy25_26') return 'FY 25â€“26 Total';
     return 'Overall Total';
   }, [periodMode]);
 
@@ -2346,8 +2350,8 @@ function CostAndRoiAnalyticsSection({
             Cost Analysis: MoM Team ROI &amp; Cost Per Hire (CPH)
           </h2>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
-            {selectedBu === 'all' ? 'All Business Units' : selectedBu} · Target Team ROI:{' '}
-            <strong style={{ color: '#10b981' }}>{roiTarget}x</strong> · External Fee: 8.33% · ER Bonus: Cat A ₹50k / B ₹20k / C ₹7.5k
+            {selectedBu === 'all' ? 'All Business Units' : selectedBu} Â· Target Team ROI:{' '}
+            <strong style={{ color: '#10b981' }}>{roiTarget}x</strong> Â· External Fee: 8.33% Â· ER Bonus: Cat A â‚¹50k / B â‚¹20k / C â‚¹7.5k
           </p>
         </div>
 
@@ -2405,7 +2409,7 @@ function CostAndRoiAnalyticsSection({
               cursor: 'pointer',
             }}
           >
-            TA Tools ({toolsList.length}) · {formatInrShort(activeCostStore?.monthlyToolsCost || 0)}/mo
+            TA Tools ({toolsList.length}) Â· {formatInrShort(activeCostStore?.monthlyToolsCost || 0)}/mo
           </button>
 
           <select
@@ -2425,13 +2429,13 @@ function CostAndRoiAnalyticsSection({
             }}
           >
             <option value="fy26_27" style={{ background: '#0f172a', color: '#fff' }}>
-              FY 2026–27 (Apr ’26 – Mar ’27)
+              FY 2026â€“27 (Apr â€™26 â€“ Mar â€™27)
             </option>
             <option value="fy25_26" style={{ background: '#0f172a', color: '#fff' }}>
-              FY 2025–26 (Jun ’25 – Mar ’26)
+              FY 2025â€“26 (Jun â€™25 â€“ Mar â€™26)
             </option>
             <option value="all_from_jun25" style={{ background: '#0f172a', color: '#fff' }}>
-              All Months (Jun ’25 – Mar ’27)
+              All Months (Jun â€™25 â€“ Mar â€™27)
             </option>
           </select>
         </div>
@@ -2452,7 +2456,7 @@ function CostAndRoiAnalyticsSection({
               Active TA Tool Subscriptions (`TA Tools` Tab)
             </strong>
             <span style={{ fontSize: '12.5px', color: mutedColor }}>
-              Annual Total: <strong>{formatInrFull(activeCostStore?.annualToolsCost || 0)}</strong> · Monthly Run-Rate:{' '}
+              Annual Total: <strong>{formatInrFull(activeCostStore?.annualToolsCost || 0)}</strong> Â· Monthly Run-Rate:{' '}
               <strong style={{ color: '#a78bfa' }}>{formatInrFull(activeCostStore?.monthlyToolsCost || 0)}/mo</strong>
             </span>
           </div>
@@ -2474,7 +2478,7 @@ function CostAndRoiAnalyticsSection({
                 >
                   <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '4px' }}>{t.name}</div>
                   <div style={{ fontSize: '12px', color: mutedColor }}>
-                    Annual: <strong style={{ color: textColor }}>{formatInrShort(t.annualCost)}</strong> · Monthly:{' '}
+                    Annual: <strong style={{ color: textColor }}>{formatInrShort(t.annualCost)}</strong> Â· Monthly:{' '}
                     <strong style={{ color: '#a78bfa' }}>{formatInrShort(t.monthlyCost)}</strong>
                   </div>
                 </div>
@@ -2566,7 +2570,7 @@ function CostAndRoiAnalyticsSection({
             </span>
           </div>
           <div style={{ fontSize: '12px', color: mutedColor, marginTop: '6px' }}>
-            Total Spend: <strong>{formatInrShort(summary.sumActiveCost)}</strong> ({fmt(summary.totalFulltime)} FT ·{' '}
+            Total Spend: <strong>{formatInrShort(summary.sumActiveCost)}</strong> ({fmt(summary.totalFulltime)} FT Â·{' '}
             {fmt(summary.totalIntern)} Intern)
           </div>
         </div>
@@ -2655,10 +2659,10 @@ function CostAndRoiAnalyticsSection({
         >
           <div>
             <h3 style={{ margin: 0, fontSize: '15.5px', fontWeight: 700 }}>
-              MoM Team ROI (x) vs. Cost Per Hire (₹)
+              MoM Team ROI (x) vs. Cost Per Hire (â‚¹)
             </h3>
             <span style={{ fontSize: '12px', color: mutedColor }}>
-              Bars show monthly Cost Per Hire · Green line tracks Team ROI against the {roiTarget}x target benchmark
+              Bars show monthly Cost Per Hire Â· Green line tracks Team ROI against the {roiTarget}x target benchmark
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '12px', fontWeight: 600 }}>
@@ -2672,7 +2676,7 @@ function CostAndRoiAnalyticsSection({
                   border: '1px solid #38bdf8',
                 }}
               />
-              Cost Per Hire (₹)
+              Cost Per Hire (â‚¹)
             </span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#10b981' }}>
               <span style={{ width: '10px', height: '3px', background: '#10b981', display: 'inline-block' }} />
@@ -2855,7 +2859,7 @@ function CostAndRoiAnalyticsSection({
               Monthly Cost Breakdown, Team ROI &amp; CPH Matrix
             </h3>
             <span style={{ fontSize: '12px', color: mutedColor, fontWeight: 500 }}>
-              · Fixed Payroll &amp; Tools + Col R (`Hiring Cost_ER_External`)
+              Â· Fixed Payroll &amp; Tools + Col R (`Hiring Cost_ER_External`)
             </span>
           </div>
         </div>
@@ -2929,35 +2933,35 @@ function CostAndRoiAnalyticsSection({
                   key: 'joined',
                   label: 'Total Joinings (FT + Intern)',
                   accent: '#38bdf8',
-                  format: (v) => (v === 0 ? '—' : fmt(v)),
+                  format: (v) => (v === 0 ? 'â€”' : fmt(v)),
                   ytdVal: summary.totalJoined,
                 },
                 {
                   key: 'teamPayrollCost',
                   label: 'TA Team Payroll (Allocated)',
                   accent: '#64748b',
-                  format: (v) => (v === 0 ? '—' : formatInrShort(v)),
+                  format: (v) => (v === 0 ? 'â€”' : formatInrShort(v)),
                   ytdVal: summary.sumPayroll,
                 },
                 {
                   key: 'toolsCost',
                   label: 'TA Tools Subscription (Monthly)',
                   accent: '#a78bfa',
-                  format: (v) => (v === 0 ? '—' : formatInrShort(v)),
+                  format: (v) => (v === 0 ? 'â€”' : formatInrShort(v)),
                   ytdVal: summary.sumTools,
                 },
                 {
                   key: 'empReferralCost',
                   label: 'Employee Referral Payouts (Col R)',
                   accent: '#eab308',
-                  format: (v) => (v === 0 ? '—' : formatInrShort(v)),
+                  format: (v) => (v === 0 ? 'â€”' : formatInrShort(v)),
                   ytdVal: summary.sumEmpRefCost,
                 },
                 {
                   key: 'externalAgencyCost',
                   label: 'External Agency Fees (8.33% Col R)',
                   accent: '#f87171',
-                  format: (v) => (v === 0 ? '—' : formatInrShort(v)),
+                  format: (v) => (v === 0 ? 'â€”' : formatInrShort(v)),
                   ytdVal: summary.sumExtAgencyCost,
                 },
                 {
@@ -2965,15 +2969,15 @@ function CostAndRoiAnalyticsSection({
                   label: cphMode === 'blended' ? 'Total Blended TA Cost' : 'Total Direct Hiring Cost',
                   accent: '#38bdf8',
                   isBold: true,
-                  format: (v) => (v === 0 ? '—' : formatInrShort(v)),
+                  format: (v) => (v === 0 ? 'â€”' : formatInrShort(v)),
                   ytdVal: summary.sumActiveCost,
                 },
                 {
                   key: 'activeCph',
-                  label: cphMode === 'blended' ? 'Cost Per Hire (Blended ₹)' : 'Cost Per Hire (Direct ₹)',
+                  label: cphMode === 'blended' ? 'Cost Per Hire (Blended â‚¹)' : 'Cost Per Hire (Direct â‚¹)',
                   accent: '#38bdf8',
                   isBadge: true,
-                  format: (v) => (v === 0 ? '—' : formatInrShort(v)),
+                  format: (v) => (v === 0 ? 'â€”' : formatInrShort(v)),
                   ytdVal: summary.ytdCph,
                 },
                 {
@@ -2981,14 +2985,14 @@ function CostAndRoiAnalyticsSection({
                   label: 'Monthly Team ROI (x)',
                   accent: '#10b981',
                   isBadge: true,
-                  format: (v) => (v === 0 ? '—' : `${v.toFixed(1)}x`),
+                  format: (v) => (v === 0 ? 'â€”' : `${v.toFixed(1)}x`),
                   ytdVal: summary.avgTeamRoi,
                 },
                 {
                   key: 'agencyCostSaved',
                   label: 'Est. Agency Fee Saved (Internal)',
                   accent: '#34d399',
-                  format: (v) => (v === 0 ? '—' : formatInrShort(v)),
+                  format: (v) => (v === 0 ? 'â€”' : formatInrShort(v)),
                   ytdVal: summary.sumAgencySaved,
                 },
               ].map((row) => (
@@ -3302,12 +3306,12 @@ function RecruiterPerformanceSection({
             {(unlistedBucket.offered > 0 || unlistedBucket.joined > 0) && (
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', opacity: 0.8 }}>
                 <td style={{ padding: '10px', fontStyle: 'italic' }}>Other / Unlisted Recruiters</td>
-                <td style={{ padding: '10px' }}>—</td>
-                <td style={{ padding: '10px', textAlign: 'right' }}>—</td>
+                <td style={{ padding: '10px' }}>â€”</td>
+                <td style={{ padding: '10px', textAlign: 'right' }}>â€”</td>
                 <td style={{ padding: '10px', textAlign: 'right', color: '#38bdf8' }}>{fmt(unlistedBucket.offered)}</td>
                 <td style={{ padding: '10px', textAlign: 'right', color: '#10b981' }}>{fmt(unlistedBucket.joined)}</td>
-                <td style={{ padding: '10px', textAlign: 'right' }}>—</td>
-                <td style={{ padding: '10px', textAlign: 'right' }}>—</td>
+                <td style={{ padding: '10px', textAlign: 'right' }}>â€”</td>
+                <td style={{ padding: '10px', textAlign: 'right' }}>â€”</td>
               </tr>
             )}
           </tbody>
@@ -3321,7 +3325,7 @@ function RecruiterPerformanceSection({
               }}
             >
               <td style={{ padding: '10px' }}>Team Total</td>
-              <td style={{ padding: '10px' }}>—</td>
+              <td style={{ padding: '10px' }}>â€”</td>
               <td style={{ padding: '10px', textAlign: 'right' }}>{fmt(sumTarget)}</td>
               <td style={{ padding: '10px', textAlign: 'right', color: '#38bdf8' }}>
                 {fmt(directTotalBucket.offered || sumOffered)}
@@ -3330,9 +3334,9 @@ function RecruiterPerformanceSection({
                 {fmt(directTotalBucket.joined || sumJoined)}
               </td>
               <td style={{ padding: '10px', textAlign: 'right' }}>
-                {sumTarget > 0 ? `${Math.round(((directTotalBucket.joined || sumJoined) / sumTarget) * 100)}%` : '—'}
+                {sumTarget > 0 ? `${Math.round(((directTotalBucket.joined || sumJoined) / sumTarget) * 100)}%` : 'â€”'}
               </td>
-              <td style={{ padding: '10px', textAlign: 'right' }}>—</td>
+              <td style={{ padding: '10px', textAlign: 'right' }}>â€”</td>
             </tr>
           </tfoot>
         </table>
@@ -3716,7 +3720,7 @@ export default function Dashboard() {
                 cursor: 'pointer',
               }}
             >
-              {loading ? 'Refreshing…' : '↻ Refresh data'}
+              {loading ? 'Refreshingâ€¦' : 'â†» Refresh data'}
             </button>
 
             <button
@@ -3734,7 +3738,7 @@ export default function Dashboard() {
                 cursor: 'pointer',
               }}
             >
-              {theme === 'dark' ? '☀ Light' : '🌙 Dark'}
+              {theme === 'dark' ? 'â˜€ Light' : 'ðŸŒ™ Dark'}
             </button>
           </div>
         </header>
@@ -3769,7 +3773,7 @@ export default function Dashboard() {
               }}
             >
               <span>Total Positions</span>
-              <span>Split →</span>
+              <span>Split â†’</span>
             </div>
             <div style={{ fontSize: '28px', fontWeight: 800, marginTop: '6px' }}>{fmt(kpi.total)}</div>
             <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>Click for Ad-Hoc / Approved / C/F</div>
@@ -3853,7 +3857,7 @@ export default function Dashboard() {
               }}
             >
               <span>Pending Positions</span>
-              <span>Health →</span>
+              <span>Health â†’</span>
             </div>
             <div style={{ fontSize: '28px', fontWeight: 800, marginTop: '6px', color: '#eab308' }}>
               {fmt(kpi.pending)}
@@ -3884,7 +3888,7 @@ export default function Dashboard() {
               }}
             >
               <span>CV &lt; 5 Roles</span>
-              <span>View →</span>
+              <span>View â†’</span>
             </div>
             <div style={{ fontSize: '28px', fontWeight: 800, marginTop: '6px', color: '#f472b6' }}>
               {fmt(kpi.cvLess5Count)}
@@ -3915,7 +3919,7 @@ export default function Dashboard() {
           >
             <div>
               <p className="kicker" style={{ margin: '0 0 3px' }}>
-                Click any Business Unit row to expand roles · Click a role to inspect candidates
+                Click any Business Unit row to expand roles Â· Click a role to inspect candidates
               </p>
               <h2 style={{ margin: 0, fontSize: '20px' }}>Manpower by Business Unit</h2>
             </div>
@@ -4035,7 +4039,7 @@ export default function Dashboard() {
                         }}
                       >
                         <td style={{ padding: '11px 10px', fontWeight: 700 }}>
-                          <span style={{ marginRight: '8px', color: '#38bdf8' }}>{isExp ? '▾' : '▸'}</span>
+                          <span style={{ marginRight: '8px', color: '#38bdf8' }}>{isExp ? 'â–¾' : 'â–¸'}</span>
                           {b.label}
                         </td>
                         <td style={{ padding: '11px 10px', textAlign: 'right', fontWeight: 700 }}>{fmt(m.total)}</td>
@@ -4095,7 +4099,7 @@ export default function Dashboard() {
                                       >
                                         <td style={{ padding: '7px', fontWeight: 600, color: '#38bdf8' }}>{j.jobId}</td>
                                         <td style={{ padding: '7px', fontWeight: 600 }}>
-                                          {j.role || '—'}
+                                          {j.role || 'â€”'}
                                           {j.isReplacement && (
                                             <span
                                               style={{
@@ -4125,8 +4129,8 @@ export default function Dashboard() {
                                             </span>
                                           )}
                                         </td>
-                                        <td style={{ padding: '7px' }}>{j.department || '—'}</td>
-                                        <td style={{ padding: '7px' }}>{j.status || '—'}</td>
+                                        <td style={{ padding: '7px' }}>{j.department || 'â€”'}</td>
+                                        <td style={{ padding: '7px' }}>{j.status || 'â€”'}</td>
                                         <td style={{ padding: '7px' }}>
                                           <span
                                             style={{
@@ -4139,10 +4143,10 @@ export default function Dashboard() {
                                               border: `1px solid ${hs.border}`,
                                             }}
                                           >
-                                            {j.jobHealth || '—'}
+                                            {j.jobHealth || 'â€”'}
                                           </span>
                                         </td>
-                                        <td style={{ padding: '7px' }}>{j.targetDate || '—'}</td>
+                                        <td style={{ padding: '7px' }}>{j.targetDate || 'â€”'}</td>
                                         <td style={{ padding: '7px', textAlign: 'right' }}>{fmt(j.topOfFunnel)}</td>
                                         <td style={{ padding: '7px', textAlign: 'right' }}>{fmt(j.taShortlisted)}</td>
                                         <td style={{ padding: '7px', textAlign: 'right' }}>{fmt(j.candidatesR1)}</td>
