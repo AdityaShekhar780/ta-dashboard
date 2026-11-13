@@ -564,12 +564,19 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
                 ))}
               </tbody>
               <tfoot>
-                <tr style={{ fontWeight: 800 }}>
-                  <td>Total</td>
-                  <td className="n">{fmt(totalPos)}</td>
-                  <td className="n" style={{ color: '#38bdf8' }}>{fmt(adHoc)}</td>
-                  <td className="n" style={{ color: '#10b981' }}>{fmt(monthlyApproved)}</td>
-                  <td className="n" style={{ color: '#eab308' }}>{fmt(lastMonthCf)}</td>
+                <tr
+                  style={{
+                    fontWeight: 800,
+                    background: theme === 'light' ? '#f1f5f9' : '#1e293b',
+                    color: theme === 'light' ? '#0f172a' : '#f8fafc',
+                    borderTop: '2px solid rgba(56, 189, 248, 0.45)',
+                  }}
+                >
+                  <td style={{ background: 'transparent', color: 'inherit' }}>Total</td>
+                  <td className="n" style={{ background: 'transparent', color: 'inherit' }}>{fmt(totalPos)}</td>
+                  <td className="n" style={{ background: 'transparent', color: '#38bdf8' }}>{fmt(adHoc)}</td>
+                  <td className="n" style={{ background: 'transparent', color: '#10b981' }}>{fmt(monthlyApproved)}</td>
+                  <td className="n" style={{ background: 'transparent', color: '#eab308' }}>{fmt(lastMonthCf)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -912,9 +919,16 @@ function PendingPositionsModal({ open, onClose, scopeBUs = [], allJobs = [], kpi
                     })}
                   </tbody>
                   <tfoot>
-                    <tr style={{ fontWeight: 800 }}>
-                      <td>Total</td>
-                      <td className="n">
+                    <tr
+                      style={{
+                        fontWeight: 800,
+                        background: theme === 'light' ? '#f1f5f9' : '#1e293b',
+                        color: theme === 'light' ? '#0f172a' : '#f8fafc',
+                        borderTop: '2px solid rgba(234, 179, 8, 0.45)',
+                      }}
+                    >
+                      <td style={{ background: 'transparent', color: 'inherit' }}>Total</td>
+                      <td className="n" style={{ background: 'transparent' }}>
                         {renderClickNum(
                           totalHealthPending || kpi.pending,
                           '#38bdf8',
@@ -922,7 +936,7 @@ function PendingPositionsModal({ open, onClose, scopeBUs = [], allJobs = [], kpi
                           'View all pending jobs'
                         )}
                       </td>
-                      <td className="n">
+                      <td className="n" style={{ background: 'transparent' }}>
                         {renderClickNum(
                           onTrack,
                           '#10b981',
@@ -930,7 +944,7 @@ function PendingPositionsModal({ open, onClose, scopeBUs = [], allJobs = [], kpi
                           'View all On Track pending jobs'
                         )}
                       </td>
-                      <td className="n">
+                      <td className="n" style={{ background: 'transparent' }}>
                         {renderClickNum(
                           delayed,
                           '#eab308',
@@ -938,7 +952,7 @@ function PendingPositionsModal({ open, onClose, scopeBUs = [], allJobs = [], kpi
                           'View all Delayed pending jobs'
                         )}
                       </td>
-                      <td className="n">
+                      <td className="n" style={{ background: 'transparent' }}>
                         {renderClickNum(
                           critical,
                           '#f87171',
