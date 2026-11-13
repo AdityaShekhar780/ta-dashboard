@@ -6,6 +6,21 @@ const nf = new Intl.NumberFormat('en-IN');
 const fmt = (n) => (n === '—' || n === '-' ? '—' : nf.format(Number(n) || 0));
 const norm = (s) => String(s ?? '').trim().toLowerCase();
 
+function formatInrShort(val) {
+  const n = Number(val || 0);
+  if (!isFinite(n) || n === 0) return '₹0';
+  const abs = Math.abs(n);
+  if (abs >= 10000000) return `₹${(n / 10000000).toFixed(2)} Cr`;
+  if (abs >= 100000) return `₹${(n / 100000).toFixed(2)} L`;
+  return `₹${Math.round(n).toLocaleString('en-IN')}`;
+}
+
+function formatInrFull(val) {
+  const n = Math.round(Number(val || 0));
+  if (!isFinite(n) || n === 0) return '₹0';
+  return `₹${n.toLocaleString('en-IN')}`;
+}
+
 const UNIT_META = {
   overall: { key: 'overall', label: 'Overall', title: 'Overall (Masters’ Union & TETR)' },
   mu: { key: 'mu', label: 'Masters’ Union', title: 'Masters’ Union' },
@@ -1543,7 +1558,6 @@ function RecruitmentFunnelAndBifurcationSection({
               const accent = STAGE_ACCENTS[group.stage] || STAGE_ACCENTS['TA Round'];
               return (
                 <Fragment key={group.stage}>
-                  {/* Modern Pill Section Header Row */}
                   <tr className="stage-band-row">
                     <td
                       style={{
@@ -1589,7 +1603,6 @@ function RecruitmentFunnelAndBifurcationSection({
                     />
                   </tr>
 
-                  {/* Metric Rows */}
                   {group.rows.map((row, rIdx) => {
                     const ytdVal = getRowYtd(row.key);
                     const isPrimaryRow = rIdx === 0 && group.rows.length > 1;
@@ -1649,7 +1662,6 @@ function RecruitmentFunnelAndBifurcationSection({
                     );
                   })}
 
-                  {/* Soft Amber Highlight Row for Ref. & External Share % */}
                   {group.showNonInternalPctRow && (
                     <tr className="sleek-pct-row">
                       <td
@@ -1776,7 +1788,6 @@ function RecruitmentFunnelAndBifurcationSection({
         }
       `}</style>
 
-      {/* Top Header & Slicers */}
       <div
         style={{
           display: 'flex',
@@ -1799,7 +1810,6 @@ function RecruitmentFunnelAndBifurcationSection({
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
-          {/* View Segmented Toggle */}
           <div
             style={{
               display: 'inline-flex',
@@ -1835,7 +1845,6 @@ function RecruitmentFunnelAndBifurcationSection({
             ))}
           </div>
 
-          {/* Recruiter Dropdown */}
           <select
             value={selectedRecruiter}
             onChange={(e) => setSelectedRecruiter(e.target.value)}
@@ -1862,7 +1871,6 @@ function RecruitmentFunnelAndBifurcationSection({
             ))}
           </select>
 
-          {/* Timeline / FY Period Slicer */}
           <select
             value={periodMode}
             onChange={(e) => setPeriodMode(e.target.value)}
@@ -1908,6 +1916,955 @@ function RecruitmentFunnelAndBifurcationSection({
     </section>
   );
 }
+/* ---------- Cost Analysis: MoM Team ROI & Cost Per Hire (CPH) Section ---------- */
+
+function CostAndRoiAnalyticsSection({
+  costAnalytics,
+  costAnalyticsOverall,
+  unitKey,
+  selectedBu,
+  theme,
+}) {
+  const [periodMode, setPeriodMode] = useState('fy26_27'); // 'fy26_27' | 'fy25_26' | 'all_from_jun25'
+  const [cphMode, setCphMode] = useState('blended'); // 'blended' | 'direct'
+  const [showToolsModal, setShowToolsModal] = useState(false);
+
+  const activeCostStore = useMemo(() => {
+    if (unitKey === 'overall' && selectedBu === 'all') {
+      return costAnalyticsOverall || costAnalytics || {};
+    }
+    return costAnalytics || costAnalyticsOverall || {};
+  }, [unitKey, selectedBu, costAnalytics, costAnalyticsOverall]);
+
+  const activeMonthlyMap = useMemo(() => {
+    if (!activeCostStore) return {};
+    if (selectedBu === 'all') {
+      return activeCostStore.byMonth || {};
+    }
+    return (activeCostStore.byBu && activeCostStore.byBu[selectedBu]) || {};
+  }, [activeCostStore, selectedBu]);
+
+  const displayedMonths = useMemo(() => {
+    if (periodMode === 'fy26_27') {
+      return generateMonthSequence('2026-04', '2027-03');
+    }
+    if (periodMode === 'fy25_26') {
+      return generateMonthSequence('2025-06', '2026-03');
+    }
+    return generateMonthSequence('2025-06', '2027-03');
+  }, [periodMode]);
+
+  const ytdLabel = useMemo(() => {
+    if (periodMode === 'fy26_27') return 'FY 26–27 YTD';
+    if (periodMode === 'fy25_26') return 'FY 25–26 Total';
+    return 'Overall Total';
+  }, [periodMode]);
+
+  const monthSeries = useMemo(() => {
+    return displayedMonths.map((ym) => {
+      const m = activeMonthlyMap[ym] || {};
+      const joined = Number(m.joined || 0);
+      const joinedFulltime = Number(m.joinedFulltime || 0);
+      const joinedIntern = Number(m.joinedIntern || 0);
+      const internalJoined = Number(m.internalJoined || 0);
+      const empReferralJoined = Number(m.empReferralJoined || 0);
+      const busReferenceJoined = Number(m.busReferenceJoined || 0);
+      const externalJoined = Number(m.externalJoined || 0);
+
+      const teamPayrollCost = joined > 0 ? Number(m.teamPayrollCost || 0) : 0;
+      const toolsCost = joined > 0 ? Number(m.toolsCost || 0) : 0;
+      const empReferralCost = Number(m.empReferralCost || 0);
+      const externalAgencyCost = Number(m.externalAgencyCost || 0);
+      const variableCost = Number(m.variableCost || empReferralCost + externalAgencyCost);
+
+      const totalBlendedCost = teamPayrollCost + toolsCost + variableCost;
+      const directCostExclPayroll = toolsCost + variableCost;
+      const activeTotalCost = cphMode === 'blended' ? totalBlendedCost : directCostExclPayroll;
+      const activeCph = joined > 0 ? Math.round(activeTotalCost / joined) : 0;
+
+      const weightedMonthlyRoiVal = Number(m.weightedMonthlyRoiVal || 0);
+      const teamRoi =
+        teamPayrollCost > 0
+          ? Math.round((weightedMonthlyRoiVal / teamPayrollCost) * 10) / 10
+          : 0;
+
+      const agencyCostSaved = Number(m.agencyCostSaved || 0);
+      const totalAnnualCtcHired = Number(m.totalAnnualCtcHired || 0);
+
+      return {
+        month: ym,
+        label: formatYearMonth(ym),
+        joined,
+        joinedFulltime,
+        joinedIntern,
+        internalJoined,
+        empReferralJoined,
+        busReferenceJoined,
+        externalJoined,
+        teamPayrollCost,
+        toolsCost,
+        empReferralCost,
+        externalAgencyCost,
+        variableCost,
+        totalBlendedCost,
+        directCostExclPayroll,
+        activeTotalCost,
+        activeCph,
+        weightedMonthlyRoiVal,
+        teamRoi,
+        agencyCostSaved,
+        totalAnnualCtcHired,
+      };
+    });
+  }, [displayedMonths, activeMonthlyMap, cphMode]);
+
+  const summary = useMemo(() => {
+    let totalJoined = 0;
+    let totalFulltime = 0;
+    let totalIntern = 0;
+    let internalJoined = 0;
+    let empReferralJoined = 0;
+    let busReferenceJoined = 0;
+    let externalJoined = 0;
+
+    let sumPayroll = 0;
+    let sumTools = 0;
+    let sumEmpRefCost = 0;
+    let sumExtAgencyCost = 0;
+    let sumActiveCost = 0;
+    let sumWeightedRoiVal = 0;
+    let sumAgencySaved = 0;
+    let sumAnnualCtc = 0;
+
+    let activeRoiMonths = 0;
+    let sumMonthlyRois = 0;
+
+    monthSeries.forEach((m) => {
+      if (m.joined > 0) {
+        totalJoined += m.joined;
+        totalFulltime += m.joinedFulltime;
+        totalIntern += m.joinedIntern;
+        internalJoined += m.internalJoined;
+        empReferralJoined += m.empReferralJoined;
+        busReferenceJoined += m.busReferenceJoined;
+        externalJoined += m.externalJoined;
+
+        sumPayroll += m.teamPayrollCost;
+        sumTools += m.toolsCost;
+        sumEmpRefCost += m.empReferralCost;
+        sumExtAgencyCost += m.externalAgencyCost;
+        sumActiveCost += m.activeTotalCost;
+        sumWeightedRoiVal += m.weightedMonthlyRoiVal;
+        sumAgencySaved += m.agencyCostSaved;
+        sumAnnualCtc += m.totalAnnualCtcHired;
+
+        if (m.teamRoi > 0) {
+          activeRoiMonths++;
+          sumMonthlyRois += m.teamRoi;
+        }
+      }
+    });
+
+    const avgTeamRoi =
+      sumPayroll > 0
+        ? Math.round((sumWeightedRoiVal / sumPayroll) * 10) / 10
+        : activeRoiMonths > 0
+        ? Math.round((sumMonthlyRois / activeRoiMonths) * 10) / 10
+        : 0;
+
+    const ytdCph = totalJoined > 0 ? Math.round(sumActiveCost / totalJoined) : 0;
+
+    const internalSourcedPool = internalJoined + busReferenceJoined;
+    const internalFixedPoolCost = cphMode === 'blended' ? sumPayroll + sumTools : sumTools;
+    const internalCph =
+      internalSourcedPool > 0 ? Math.round(internalFixedPoolCost / internalSourcedPool) : 0;
+    const referralCph =
+      empReferralJoined > 0 ? Math.round(sumEmpRefCost / empReferralJoined) : 0;
+    const externalCph =
+      externalJoined > 0 ? Math.round(sumExtAgencyCost / externalJoined) : 0;
+
+    return {
+      totalJoined,
+      totalFulltime,
+      totalIntern,
+      internalJoined,
+      empReferralJoined,
+      busReferenceJoined,
+      externalJoined,
+      sumPayroll,
+      sumTools,
+      sumEmpRefCost,
+      sumExtAgencyCost,
+      sumActiveCost,
+      sumWeightedRoiVal,
+      sumAgencySaved,
+      sumAnnualCtc,
+      avgTeamRoi,
+      ytdCph,
+      internalCph,
+      referralCph,
+      externalCph,
+    };
+  }, [monthSeries, cphMode]);
+
+  const toolsList = activeCostStore?.tools || costAnalyticsOverall?.tools || [];
+  const roiTarget = Number(activeCostStore?.roiTarget || 15);
+
+  const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
+  const subCardBg = theme === 'light' ? '#f8fafc' : 'rgba(15, 23, 42, 0.55)';
+  const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.1)';
+  const rowBorder = theme === 'light' ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.055)';
+  const textColor = theme === 'light' ? '#0f172a' : '#f1f5f9';
+  const mutedColor = theme === 'light' ? '#64748b' : '#94a3b8';
+  const stickyBg = theme === 'light' ? '#f8fafc' : '#0d1526';
+  const headerBg = theme === 'light' ? '#f1f5f9' : 'rgba(30, 41, 59, 0.75)';
+
+  const activeChartMonths = monthSeries.filter((m) => m.joined > 0 || m.activeTotalCost > 0);
+  const chartData = activeChartMonths.length > 0 ? activeChartMonths : monthSeries.slice(0, 8);
+  const maxRoi = Math.max(roiTarget * 1.35, ...chartData.map((d) => d.teamRoi || 0), 20);
+  const maxCph = Math.max(...chartData.map((d) => d.activeCph || 0), 50000);
+
+  return (
+    <section
+      className="panel"
+      style={{
+        marginTop: '28px',
+        padding: '22px',
+        borderRadius: '14px',
+        background: cardBg,
+        border: `1px solid ${borderColor}`,
+        color: textColor,
+        boxSizing: 'border-box',
+        width: '100%',
+        maxWidth: '100%',
+        overflow: 'hidden',
+        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '16px',
+          marginBottom: '20px',
+        }}
+      >
+        <div>
+          <p className="kicker" style={{ marginBottom: '3px' }}>
+            Financial Impact &amp; Hiring Efficiency
+          </p>
+          <h2 style={{ margin: 0, fontSize: '21px', letterSpacing: '-0.02em' }}>
+            Cost Analysis: MoM Team ROI &amp; Cost Per Hire (CPH)
+          </h2>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
+            {selectedBu === 'all' ? 'All Business Units' : selectedBu} · Target Team ROI:{' '}
+            <strong style={{ color: '#10b981' }}>{roiTarget}x</strong> · External Fee: 8.33% · ER Bonus: Cat A ₹50k / B ₹20k / C ₹7.5k
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              padding: '3px',
+              borderRadius: '8px',
+              background: theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.06)',
+              border: `1px solid ${borderColor}`,
+            }}
+          >
+            {[
+              { id: 'blended', label: 'Blended CPH (Incl. Payroll)' },
+              { id: 'direct', label: 'Direct CPH (Tools + ER + Ext)' },
+            ].map((mode) => (
+              <button
+                key={mode.id}
+                type="button"
+                onClick={() => setCphMode(mode.id)}
+                style={{
+                  padding: '5px 11px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  background: cphMode === mode.id ? '#0284c7' : 'transparent',
+                  color: cphMode === mode.id ? '#ffffff' : 'inherit',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowToolsModal((prev) => !prev)}
+            style={{
+              height: '38px',
+              padding: '0 13px',
+              borderRadius: '8px',
+              background: showToolsModal
+                ? 'rgba(167, 139, 250, 0.2)'
+                : theme === 'light'
+                ? '#f8fafc'
+                : 'rgba(255,255,255,0.06)',
+              color: '#a78bfa',
+              border: '1px solid rgba(167, 139, 250, 0.45)',
+              fontWeight: 600,
+              fontSize: '12.5px',
+              cursor: 'pointer',
+            }}
+          >
+            TA Tools ({toolsList.length}) · {formatInrShort(activeCostStore?.monthlyToolsCost || 0)}/mo
+          </button>
+
+          <select
+            value={periodMode}
+            onChange={(e) => setPeriodMode(e.target.value)}
+            aria-label="Select Cost Analysis Timeline"
+            style={{
+              height: '38px',
+              padding: '0 12px',
+              borderRadius: '8px',
+              background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.06)',
+              color: 'inherit',
+              border: '1px solid rgba(234, 179, 8, 0.55)',
+              fontWeight: 600,
+              fontSize: '12.5px',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="fy26_27" style={{ background: '#0f172a', color: '#fff' }}>
+              FY 2026–27 (Apr ’26 – Mar ’27)
+            </option>
+            <option value="fy25_26" style={{ background: '#0f172a', color: '#fff' }}>
+              FY 2025–26 (Jun ’25 – Mar ’26)
+            </option>
+            <option value="all_from_jun25" style={{ background: '#0f172a', color: '#fff' }}>
+              All Months (Jun ’25 – Mar ’27)
+            </option>
+          </select>
+        </div>
+      </div>
+
+      {showToolsModal && (
+        <div
+          style={{
+            marginBottom: '20px',
+            padding: '16px 18px',
+            borderRadius: '12px',
+            background: theme === 'light' ? '#f5f3ff' : 'rgba(139, 92, 246, 0.08)',
+            border: '1px solid rgba(167, 139, 250, 0.35)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <strong style={{ fontSize: '14px', color: '#a78bfa' }}>
+              Active TA Tool Subscriptions (`TA Tools` Tab)
+            </strong>
+            <span style={{ fontSize: '12.5px', color: mutedColor }}>
+              Annual Total: <strong>{formatInrFull(activeCostStore?.annualToolsCost || 0)}</strong> · Monthly Run-Rate:{' '}
+              <strong style={{ color: '#a78bfa' }}>{formatInrFull(activeCostStore?.monthlyToolsCost || 0)}/mo</strong>
+            </span>
+          </div>
+          {toolsList.length === 0 ? (
+            <p style={{ margin: 0, fontSize: '12.5px', color: mutedColor }}>
+              No tool rows found in the <code>TA Tools</code> tab yet. Add Tool Name in Col A and Annual Subscription in Col B.
+            </p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
+              {toolsList.map((t, idx) => (
+                <div
+                  key={`${t.name}-${idx}`}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    background: cardBg,
+                    border: `1px solid ${borderColor}`,
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '4px' }}>{t.name}</div>
+                  <div style={{ fontSize: '12px', color: mutedColor }}>
+                    Annual: <strong style={{ color: textColor }}>{formatInrShort(t.annualCost)}</strong> · Monthly:{' '}
+                    <strong style={{ color: '#a78bfa' }}>{formatInrShort(t.monthlyCost)}</strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Top 4 Executive KPI Cards */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+          gap: '14px',
+          marginBottom: '22px',
+        }}
+      >
+        <div
+          style={{
+            padding: '16px 18px',
+            borderRadius: '12px',
+            background: subCardBg,
+            border: `1px solid ${
+              summary.avgTeamRoi >= roiTarget ? 'rgba(16, 185, 129, 0.4)' : 'rgba(234, 179, 8, 0.4)'
+            }`,
+          }}
+        >
+          <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', color: mutedColor }}>
+            {ytdLabel} Team ROI
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '6px' }}>
+            <span
+              style={{
+                fontSize: '28px',
+                fontWeight: 800,
+                fontVariantNumeric: 'tabular-nums',
+                color: summary.avgTeamRoi >= roiTarget ? '#10b981' : '#eab308',
+              }}
+            >
+              {summary.avgTeamRoi.toFixed(1)}x
+            </span>
+            <span
+              style={{
+                fontSize: '11.5px',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: '999px',
+                background:
+                  summary.avgTeamRoi >= roiTarget
+                    ? 'rgba(16, 185, 129, 0.15)'
+                    : 'rgba(234, 179, 8, 0.15)',
+                color: summary.avgTeamRoi >= roiTarget ? '#10b981' : '#eab308',
+              }}
+            >
+              Target {roiTarget}x
+            </span>
+          </div>
+          <div style={{ fontSize: '12px', color: mutedColor, marginTop: '6px' }}>
+            Value Gen: <strong>{formatInrShort(summary.sumWeightedRoiVal)}</strong> vs Payroll:{' '}
+            <strong>{formatInrShort(summary.sumPayroll)}</strong>
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: '16px 18px',
+            borderRadius: '12px',
+            background: subCardBg,
+            border: '1px solid rgba(56, 189, 248, 0.35)',
+          }}
+        >
+          <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', color: mutedColor }}>
+            {ytdLabel} {cphMode === 'blended' ? 'Blended CPH' : 'Direct CPH'}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '6px' }}>
+            <span
+              style={{
+                fontSize: '28px',
+                fontWeight: 800,
+                fontVariantNumeric: 'tabular-nums',
+                color: '#38bdf8',
+              }}
+            >
+              {formatInrShort(summary.ytdCph)}
+            </span>
+            <span style={{ fontSize: '12px', color: mutedColor, fontWeight: 600 }}>
+              across {fmt(summary.totalJoined)} hires
+            </span>
+          </div>
+          <div style={{ fontSize: '12px', color: mutedColor, marginTop: '6px' }}>
+            Total Spend: <strong>{formatInrShort(summary.sumActiveCost)}</strong> ({fmt(summary.totalFulltime)} FT ·{' '}
+            {fmt(summary.totalIntern)} Intern)
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: '16px 18px',
+            borderRadius: '12px',
+            background: subCardBg,
+            border: '1px solid rgba(167, 139, 250, 0.35)',
+          }}
+        >
+          <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', color: mutedColor }}>
+            CPH by Hiring Channel
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px', fontSize: '12.5px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: mutedColor }}>Internal / Campus ({summary.internalJoined}):</span>
+              <strong style={{ color: '#38bdf8', fontVariantNumeric: 'tabular-nums' }}>
+                {formatInrShort(summary.internalCph)}/hire
+              </strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: mutedColor }}>Employee Ref. ({summary.empReferralJoined}):</span>
+              <strong style={{ color: '#eab308', fontVariantNumeric: 'tabular-nums' }}>
+                {formatInrShort(summary.referralCph)}/hire
+              </strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: mutedColor }}>External Agency ({summary.externalJoined}):</span>
+              <strong style={{ color: '#f87171', fontVariantNumeric: 'tabular-nums' }}>
+                {formatInrShort(summary.externalCph)}/hire
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: '16px 18px',
+            borderRadius: '12px',
+            background: subCardBg,
+            border: '1px solid rgba(52, 211, 153, 0.35)',
+          }}
+        >
+          <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', color: mutedColor }}>
+            Est. Agency Fees Saved (8.33%)
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '6px' }}>
+            <span
+              style={{
+                fontSize: '28px',
+                fontWeight: 800,
+                fontVariantNumeric: 'tabular-nums',
+                color: '#34d399',
+              }}
+            >
+              {formatInrShort(summary.sumAgencySaved)}
+            </span>
+          </div>
+          <div style={{ fontSize: '12px', color: mutedColor, marginTop: '6px' }}>
+            Saved by closing <strong>{fmt(summary.internalJoined)}</strong> roles via Internal &amp; Campus channels
+          </div>
+        </div>
+      </div>
+
+      {/* Visual 1: MoM Team ROI vs Cost Per Hire Interactive Dual-Trend Visual */}
+      <div
+        style={{
+          borderRadius: '12px',
+          background: subCardBg,
+          border: `1px solid ${borderColor}`,
+          padding: '18px',
+          marginBottom: '20px',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            marginBottom: '14px',
+          }}
+        >
+          <div>
+            <h3 style={{ margin: 0, fontSize: '15.5px', fontWeight: 700 }}>
+              MoM Team ROI (x) vs. Cost Per Hire (₹)
+            </h3>
+            <span style={{ fontSize: '12px', color: mutedColor }}>
+              Bars show monthly Cost Per Hire · Green line tracks Team ROI against the {roiTarget}x target benchmark
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '12px', fontWeight: 600 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8' }}>
+              <span
+                style={{
+                  width: '10px',
+                  height: '10px',
+                  borderRadius: '3px',
+                  background: 'rgba(56, 189, 248, 0.45)',
+                  border: '1px solid #38bdf8',
+                }}
+              />
+              Cost Per Hire (₹)
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#10b981' }}>
+              <span style={{ width: '10px', height: '3px', background: '#10b981', display: 'inline-block' }} />
+              Team ROI (x)
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#eab308' }}>
+              <span
+                style={{
+                  width: '10px',
+                  height: '2px',
+                  borderTop: '2px dashed #eab308',
+                  display: 'inline-block',
+                }}
+              />
+              {roiTarget}x Target
+            </span>
+          </div>
+        </div>
+
+        <div style={{ width: '100%', overflowX: 'auto' }}>
+          <svg
+            viewBox={`0 0 ${Math.max(680, chartData.length * 88)} 230`}
+            style={{ width: '100%', minWidth: '640px', height: '230px', display: 'block' }}
+          >
+            {(() => {
+              const svgWidth = Math.max(680, chartData.length * 88);
+              const topPad = 28;
+              const botPad = 38;
+              const plotH = 230 - topPad - botPad;
+              const targetY = topPad + plotH - (roiTarget / maxRoi) * plotH;
+              return (
+                <g>
+                  <line
+                    x1={30}
+                    y1={targetY}
+                    x2={svgWidth - 20}
+                    y2={targetY}
+                    stroke="#eab308"
+                    strokeWidth="1.5"
+                    strokeDasharray="5 4"
+                    opacity="0.7"
+                  />
+                  <text
+                    x={svgWidth - 24}
+                    y={targetY - 6}
+                    textAnchor="end"
+                    fill="#eab308"
+                    fontSize="10.5"
+                    fontWeight="700"
+                  >
+                    {roiTarget}x ROI Target
+                  </text>
+                </g>
+              );
+            })()}
+
+            {chartData.map((d, idx) => {
+              const svgWidth = Math.max(680, chartData.length * 88);
+              const colW = (svgWidth - 60) / Math.max(1, chartData.length);
+              const cx = 30 + idx * colW + colW / 2;
+              const topPad = 28;
+              const botPad = 38;
+              const plotH = 230 - topPad - botPad;
+              const barH = maxCph > 0 ? (d.activeCph / maxCph) * plotH : 0;
+              const barY = topPad + plotH - barH;
+              const barW = Math.min(38, colW * 0.48);
+
+              return (
+                <g key={d.month}>
+                  <rect
+                    x={cx - barW / 2}
+                    y={barY}
+                    width={barW}
+                    height={Math.max(2, barH)}
+                    rx="5"
+                    fill="rgba(56, 189, 248, 0.25)"
+                    stroke="#38bdf8"
+                    strokeWidth="1"
+                  />
+                  {d.activeCph > 0 && (
+                    <text
+                      x={cx}
+                      y={Math.max(14, barY - 6)}
+                      textAnchor="middle"
+                      fill="#38bdf8"
+                      fontSize="10"
+                      fontWeight="600"
+                    >
+                      {formatInrShort(d.activeCph)}
+                    </text>
+                  )}
+                  <text
+                    x={cx}
+                    y={230 - 14}
+                    textAnchor="middle"
+                    fill={mutedColor}
+                    fontSize="11"
+                    fontWeight="600"
+                  >
+                    {d.label}
+                  </text>
+                </g>
+              );
+            })}
+
+            {(() => {
+              const svgWidth = Math.max(680, chartData.length * 88);
+              const colW = (svgWidth - 60) / Math.max(1, chartData.length);
+              const topPad = 28;
+              const botPad = 38;
+              const plotH = 230 - topPad - botPad;
+
+              const pts = chartData.map((d, idx) => {
+                const cx = 30 + idx * colW + colW / 2;
+                const cy = topPad + plotH - (Math.min(d.teamRoi, maxRoi) / maxRoi) * plotH;
+                return { cx, cy, roi: d.teamRoi, month: d.month };
+              });
+
+              const pathD = pts
+                .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.cx.toFixed(1)} ${p.cy.toFixed(1)}`)
+                .join(' ');
+
+              return (
+                <g>
+                  {pts.length > 1 && (
+                    <path d={pathD} fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" />
+                  )}
+                  {pts.map((p) => (
+                    <g key={`pt-${p.month}`}>
+                      <circle
+                        cx={p.cx}
+                        cy={p.cy}
+                        r="4.5"
+                        fill={p.roi >= roiTarget ? '#10b981' : '#eab308'}
+                        stroke="#0f172a"
+                        strokeWidth="1.5"
+                      />
+                      {p.roi > 0 && (
+                        <text
+                          x={p.cx}
+                          y={Math.max(14, p.cy - 9)}
+                          textAnchor="middle"
+                          fill={p.roi >= roiTarget ? '#10b981' : '#eab308'}
+                          fontSize="11"
+                          fontWeight="800"
+                        >
+                          {p.roi.toFixed(1)}x
+                        </text>
+                      )}
+                    </g>
+                  ))}
+                </g>
+              );
+            })()}
+          </svg>
+        </div>
+      </div>
+
+      {/* Visual 2: Sleek Borderless Monthly Cost & ROI Breakdown Table */}
+      <div
+        style={{
+          borderRadius: '12px',
+          background: subCardBg,
+          border: `1px solid ${borderColor}`,
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            padding: '14px 18px',
+            borderBottom: `1px solid ${borderColor}`,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            background: theme === 'light' ? '#ffffff' : 'rgba(255,255,255,0.02)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h3 style={{ margin: 0, fontSize: '15.5px', fontWeight: 700 }}>
+              Monthly Cost Breakdown, Team ROI &amp; CPH Matrix
+            </h3>
+            <span style={{ fontSize: '12px', color: mutedColor, fontWeight: 500 }}>
+              · Fixed Payroll &amp; Tools + Col R (`Hiring Cost_ER_External`)
+            </span>
+          </div>
+        </div>
+
+        <div className="table-scroll" style={{ width: '100%', overflowX: 'auto' }}>
+          <table
+            style={{
+              width: '100%',
+              minWidth: `${260 + displayedMonths.length * 86}px`,
+              borderCollapse: 'collapse',
+              fontSize: '12.5px',
+            }}
+          >
+            <thead>
+              <tr style={{ background: headerBg }}>
+                <th
+                  style={{
+                    textAlign: 'left',
+                    padding: '11px 16px',
+                    position: 'sticky',
+                    left: 0,
+                    zIndex: 3,
+                    background: theme === 'light' ? '#f1f5f9' : '#162033',
+                    minWidth: '225px',
+                    fontSize: '11px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: mutedColor,
+                    borderBottom: `1px solid ${borderColor}`,
+                  }}
+                >
+                  Cost &amp; ROI Metric
+                </th>
+                {monthSeries.map((m) => (
+                  <th
+                    key={m.month}
+                    style={{
+                      textAlign: 'right',
+                      padding: '11px 12px',
+                      fontSize: '11px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      color: mutedColor,
+                      borderBottom: `1px solid ${borderColor}`,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {m.label}
+                  </th>
+                ))}
+                <th
+                  style={{
+                    textAlign: 'right',
+                    padding: '11px 18px',
+                    minWidth: '115px',
+                    fontSize: '11px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: '#38bdf8',
+                    borderBottom: `1px solid ${borderColor}`,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {ytdLabel}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                {
+                  key: 'joined',
+                  label: 'Total Joinings (FT + Intern)',
+                  accent: '#38bdf8',
+                  format: (v) => (v === 0 ? '—' : fmt(v)),
+                  ytdVal: summary.totalJoined,
+                },
+                {
+                  key: 'teamPayrollCost',
+                  label: 'TA Team Payroll (Allocated)',
+                  accent: '#64748b',
+                  format: (v) => (v === 0 ? '—' : formatInrShort(v)),
+                  ytdVal: summary.sumPayroll,
+                },
+                {
+                  key: 'toolsCost',
+                  label: 'TA Tools Subscription (Monthly)',
+                  accent: '#a78bfa',
+                  format: (v) => (v === 0 ? '—' : formatInrShort(v)),
+                  ytdVal: summary.sumTools,
+                },
+                {
+                  key: 'empReferralCost',
+                  label: 'Employee Referral Payouts (Col R)',
+                  accent: '#eab308',
+                  format: (v) => (v === 0 ? '—' : formatInrShort(v)),
+                  ytdVal: summary.sumEmpRefCost,
+                },
+                {
+                  key: 'externalAgencyCost',
+                  label: 'External Agency Fees (8.33% Col R)',
+                  accent: '#f87171',
+                  format: (v) => (v === 0 ? '—' : formatInrShort(v)),
+                  ytdVal: summary.sumExtAgencyCost,
+                },
+                {
+                  key: 'activeTotalCost',
+                  label: cphMode === 'blended' ? 'Total Blended TA Cost' : 'Total Direct Hiring Cost',
+                  accent: '#38bdf8',
+                  isBold: true,
+                  format: (v) => (v === 0 ? '—' : formatInrShort(v)),
+                  ytdVal: summary.sumActiveCost,
+                },
+                {
+                  key: 'activeCph',
+                  label: cphMode === 'blended' ? 'Cost Per Hire (Blended ₹)' : 'Cost Per Hire (Direct ₹)',
+                  accent: '#38bdf8',
+                  isBadge: true,
+                  format: (v) => (v === 0 ? '—' : formatInrShort(v)),
+                  ytdVal: summary.ytdCph,
+                },
+                {
+                  key: 'teamRoi',
+                  label: 'Monthly Team ROI (x)',
+                  accent: '#10b981',
+                  isBadge: true,
+                  format: (v) => (v === 0 ? '—' : `${v.toFixed(1)}x`),
+                  ytdVal: summary.avgTeamRoi,
+                },
+                {
+                  key: 'agencyCostSaved',
+                  label: 'Est. Agency Fee Saved (Internal)',
+                  accent: '#34d399',
+                  format: (v) => (v === 0 ? '—' : formatInrShort(v)),
+                  ytdVal: summary.sumAgencySaved,
+                },
+              ].map((row) => (
+                <tr key={row.key}>
+                  <td
+                    style={{
+                      position: 'sticky',
+                      left: 0,
+                      zIndex: 1,
+                      background: stickyBg,
+                      padding: '9px 14px 9px 18px',
+                      fontWeight: row.isBold || row.isBadge ? 700 : 500,
+                      color: row.isBold || row.isBadge ? textColor : mutedColor,
+                      borderBottom: rowBorder,
+                      boxShadow: `inset 3px 0 0 ${row.accent}`,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {row.label}
+                  </td>
+                  {monthSeries.map((m) => {
+                    const rawVal = m[row.key] || 0;
+                    return (
+                      <td
+                        key={m.month}
+                        style={{
+                          textAlign: 'right',
+                          padding: '9px 12px',
+                          borderBottom: rowBorder,
+                          fontVariantNumeric: 'tabular-nums',
+                          fontWeight: row.isBold || row.isBadge ? 700 : 500,
+                          color: rawVal === 0 ? mutedColor : row.isBadge ? row.accent : textColor,
+                          opacity: rawVal === 0 ? 0.35 : 1,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {row.format(rawVal)}
+                      </td>
+                    );
+                  })}
+                  <td
+                    style={{
+                      textAlign: 'right',
+                      padding: '9px 18px',
+                      borderBottom: rowBorder,
+                      fontVariantNumeric: 'tabular-nums',
+                      fontWeight: 800,
+                      color: row.accent,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {row.format(row.ytdVal)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ---------- Channel Analysis Section ---------- */
 
 function ChannelAnalysisSection({ 
@@ -3352,7 +4309,7 @@ function JobHealthBadge({ health }) {
   );
 }
 
-/* ---------- Expandable Business Unit Jobs Table (Job Health Column Removed) ---------- */
+/* ---------- Expandable Business Unit Jobs Table ---------- */
 
 function BuJobsRow({ buLabel, allJobs, onOpenJobModal, theme }) {
   const buJobs = useMemo(() => {
@@ -3782,6 +4739,18 @@ export default function Dashboard({ unitKey = 'overall' }) {
       ],
       momSeries: mergeMomSeries(mu.momSeries, tetr.momSeries),
       funnelAnalytics: mergeFunnelAnalytics(mu.funnelAnalytics, tetr.funnelAnalytics),
+      costAnalytics: {
+        ...(mu.costAnalyticsOverall || mu.costAnalytics || {}),
+        byMonth:
+          (mu.costAnalyticsOverall && mu.costAnalyticsOverall.byMonth) ||
+          (mu.costAnalytics && mu.costAnalytics.byMonth) ||
+          {},
+        byBu: {
+          ...((mu.costAnalytics && mu.costAnalytics.byBu) || {}),
+          ...((tetr.costAnalytics && tetr.costAnalytics.byBu) || {}),
+        },
+      },
+      costAnalyticsOverall: mu.costAnalyticsOverall || tetr.costAnalyticsOverall,
       channelBreakdown: mergeChannelBreakdown(mu.channelBreakdown, tetr.channelBreakdown),
       channelBreakdownByBu: mergeChannelBreakdownByBu(mu.channelBreakdownByBu, tetr.channelBreakdownByBu),
       currentChannelBreakdown: mergeChannelBreakdown(mu.currentChannelBreakdown, tetr.currentChannelBreakdown),
@@ -4343,9 +5312,20 @@ export default function Dashboard({ unitKey = 'overall' }) {
                   onSelectPoint={openMomModal}
                 />
 
-                {/* NEW: Stage-Wise Recruitment Funnel & Joining Bifurcation right after MoM Offered vs Joined */}
                 <RecruitmentFunnelAndBifurcationSection
                   funnelAnalytics={data.funnelAnalytics}
+                  selectedBu={bu}
+                  theme={theme}
+                />
+
+                <CostAndRoiAnalyticsSection
+                  costAnalytics={data.costAnalytics}
+                  costAnalyticsOverall={
+                    data.costAnalyticsOverall ||
+                    datasets.mu?.costAnalyticsOverall ||
+                    datasets.tetr?.costAnalyticsOverall
+                  }
+                  unitKey={activeUnit}
                   selectedBu={bu}
                   theme={theme}
                 />
