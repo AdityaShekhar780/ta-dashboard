@@ -1177,7 +1177,7 @@ function CandidateModal({ modalData, onClose }) {
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--modal-bg, #0f172a)', color: 'var(--text-color, #f8fafc)', border: '1px solid rgba(255, 255, 255, 0.18)', borderRadius: '12px', width: '100%', maxWidth: '1280px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--modal-bg, #0f172a)', color: 'var(--text-color, #f8fafc)', border: '1px solid rgba(255, 255, 255, 0.18)', borderRadius: '12px', width: '100%', maxWidth: '1360px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)' }}>
         <div style={{ padding: '18px 22px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
           <div>
             <div style={{ fontSize: '12px', fontWeight: 600, color: '#eab308', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -1215,6 +1215,7 @@ function CandidateModal({ modalData, onClose }) {
                     <th>Department</th>
                     <th>CTC Details (Prev → Offered)</th>
                     <th>% Increment</th>
+                    <th>Reporting Manager</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1236,10 +1237,9 @@ function CandidateModal({ modalData, onClose }) {
                     const channelVal = detail.channel || c.channel || '';
                     const sourceVal = detail.source || c.source || '';
                     const channelSourceText =
-                      [channelVal, sourceVal].filter((x) => x && x !== '—').join(' · ') ||
-                      detail.manager ||
-                      c.manager ||
-                      '—';
+                      [channelVal, sourceVal].filter((x) => x && x !== '—').join(' · ') || '—';
+
+                    const reportingManager = detail.manager || c.manager || '—';
 
                     return (
                       <tr key={`${c.jobId || 'j'}-${c.email || c.name || 'cand'}-${idx}`}>
@@ -1269,6 +1269,7 @@ function CandidateModal({ modalData, onClose }) {
                         >
                           {incrementStr}
                         </td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{reportingManager}</td>
                       </tr>
                     );
                   })}
@@ -1281,7 +1282,6 @@ function CandidateModal({ modalData, onClose }) {
     </div>
   );
 }
-
 /* ---------- Month-on-Month Line Chart ---------- */
 
 function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
