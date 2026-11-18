@@ -4656,6 +4656,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const [showPositionsSplitModal, setShowPositionsSplitModal] = useState(false);
   const [showPendingHealthModal, setShowPendingHealthModal] = useState(false);
   const [showCvLess5Modal, setShowCvLess5Modal] = useState(false);
+  const [mainSectionTab, setMainSectionTab] = useState('reports');
   
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -5367,54 +5368,148 @@ export default function Dashboard({ unitKey = 'overall' }) {
                   </div>
                 </section>
 
-                <MomLineChart
-                  series={data.momSeries || []}
-                  selectedBu={bu}
-                  theme={theme}
-                  onSelectPoint={openMomModal}
-                />
+{/* Reports vs Compliance Switcher */}
+                <div
+                  role="tablist"
+                  aria-label="Dashboard View Switcher"
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginTop: '28px',
+                    marginBottom: '6px',
+                    padding: '6px',
+                    borderRadius: '12px',
+                    background: theme === 'light' ? '#e2e8f0' : 'rgba(255, 255, 255, 0.04)',
+                    border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.12)',
+                    width: 'fit-content',
+                  }}
+                >
+                  {[
+                    { key: 'reports', label: 'Reports', badge: '5 Views' },
+                    { key: 'compliance', label: 'Compliance', badge: 'SLA & Audit' },
+                  ].map((tab) => {
+                    const isActive = mainSectionTab === tab.key;
+                    return (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        role="tab"
+                        aria-selected={isActive}
+                        onClick={() => setMainSectionTab(tab.key)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '10px 20px',
+                          borderRadius: '9px',
+                          border: isActive ? '1.5px solid #eab308' : '1.5px solid transparent',
+                          background: isActive ? '#059669' : 'transparent',
+                          color: isActive ? '#ffffff' : theme === 'light' ? '#334155' : '#cbd5e1',
+                          fontWeight: 700,
+                          fontSize: '14.5px',
+                          cursor: 'pointer',
+                          boxShadow: isActive ? '0 4px 12px rgba(5, 150, 105, 0.35)' : 'none',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <span>{tab.label}</span>
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '999px',
+                            background: isActive
+                              ? 'rgba(0, 0, 0, 0.25)'
+                              : theme === 'light'
+                              ? '#cbd5e1'
+                              : 'rgba(255, 255, 255, 0.08)',
+                            color: isActive ? '#fde047' : theme === 'light' ? '#1e293b' : '#94a3b8',
+                          }}
+                        >
+                          {tab.badge}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-                <RecruitmentFunnelAndBifurcationSection
-                  funnelAnalytics={data.funnelAnalytics}
-                  selectedBu={bu}
-                  theme={theme}
-                />
+                {mainSectionTab === 'reports' ? (
+                  <>
+                    <MomLineChart
+                      series={data.momSeries || []}
+                      selectedBu={bu}
+                      theme={theme}
+                      onSelectPoint={openMomModal}
+                    />
 
-                <CostAndRoiAnalyticsSection
-                  costAnalytics={data.costAnalytics}
-                  costAnalyticsOverall={
-                    data.costAnalyticsOverall ||
-                    datasets.mu?.costAnalyticsOverall ||
-                    datasets.tetr?.costAnalyticsOverall
-                  }
-                  unitKey={activeUnit}
-                  selectedBu={bu}
-                  theme={theme}
-                />
+                    <RecruitmentFunnelAndBifurcationSection
+                      funnelAnalytics={data.funnelAnalytics}
+                      selectedBu={bu}
+                      theme={theme}
+                    />
 
-                <ChannelAnalysisSection
-                  channelBreakdown={data.channelBreakdown || {}}
-                  channelBreakdownByBu={data.channelBreakdownByBu || {}}
-                  currentChannelBreakdown={data.currentChannelBreakdown || {}}
-                  currentChannelBreakdownByBu={data.currentChannelBreakdownByBu || {}}
-                  channelEfficiencyOverall={data.channelEfficiencyOverall || {}}
-                  channelEfficiencyOverallByBu={data.channelEfficiencyOverallByBu || {}}
-                  channelEfficiencyMonthly={data.channelEfficiencyMonthly || {}}
-                  channelEfficiencyMonthlyByBu={data.channelEfficiencyMonthlyByBu || {}}
-                  channelMomSeries={data.channelMomSeries || []}
-                  channelMomByBu={data.channelMomByBu || {}}
-                  selectedBu={bu}
-                  theme={theme}
-                />
+                    <CostAndRoiAnalyticsSection
+                      costAnalytics={data.costAnalytics}
+                      costAnalyticsOverall={
+                        data.costAnalyticsOverall ||
+                        datasets.mu?.costAnalyticsOverall ||
+                        datasets.tetr?.costAnalyticsOverall
+                      }
+                      unitKey={activeUnit}
+                      selectedBu={bu}
+                      theme={theme}
+                    />
 
-                <RecruiterPerformanceSection
-                  recruiterPerformance={data.recruiterPerformance}
-                  recruiterPerformanceByBu={data.recruiterPerformanceByBu}
-                  momSeries={data.momSeries || []}
-                  selectedBu={bu}
-                  theme={theme}
-                  onOpenCandidateModal={setModalData}
-                />
+                    <ChannelAnalysisSection
+                      channelBreakdown={data.channelBreakdown || {}}
+                      channelBreakdownByBu={data.channelBreakdownByBu || {}}
+                      currentChannelBreakdown={data.currentChannelBreakdown || {}}
+                      currentChannelBreakdownByBu={data.currentChannelBreakdownByBu || {}}
+                      channelEfficiencyOverall={data.channelEfficiencyOverall || {}}
+                      channelEfficiencyOverallByBu={data.channelEfficiencyOverallByBu || {}}
+                      channelEfficiencyMonthly={data.channelEfficiencyMonthly || {}}
+                      channelEfficiencyMonthlyByBu={data.channelEfficiencyMonthlyByBu || {}}
+                      channelMomSeries={data.channelMomSeries || []}
+                      channelMomByBu={data.channelMomByBu || {}}
+                      selectedBu={bu}
+                      theme={theme}
+                    />
+
+                    <RecruiterPerformanceSection
+                      recruiterPerformance={data.recruiterPerformance}
+                      recruiterPerformanceByBu={data.recruiterPerformanceByBu}
+                      momSeries={data.momSeries || []}
+                      selectedBu={bu}
+                      theme={theme}
+                      onOpenCandidateModal={setModalData}
+                    />
+                  </>
+                ) : (
+                  <section
+                    className="panel"
+                    style={{
+                      marginTop: '20px',
+                      padding: '32px 24px',
+                      borderRadius: '14px',
+                      background: theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)',
+                      border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.12)',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <p className="kicker" style={{ marginBottom: '4px' }}>
+                      TA Governance &amp; Process Hygiene
+                    </p>
+                    <h2 style={{ margin: '0 0 8px', fontSize: '21px' }}>
+                      Compliance Dashboard ({bu === 'all' ? 'All Business Units' : bu})
+                    </h2>
+                    <p className="muted" style={{ maxWidth: '540px', margin: '0 auto', fontSize: '13.5px' }}>
+                      Compliance metrics and SLA checks will appear here once configured.
+                    </p>
+                  </section>
+                )}
 
                 {checks.length > 0 && (
                   <details className="checks">
