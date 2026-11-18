@@ -1152,7 +1152,7 @@ function CvLess5Modal({ open, onClose, jobs = [], selectedBu, unitTitle, theme }
   );
 }
 
-/* ---------- Candidate Details Modal ---------- */
+/* ---------- Candidate Details Modal (Updated with Department, CTC Details & % Increment) ---------- */
 
 function CandidateModal({ modalData, onClose }) {
   const [showAllCandidates, setShowAllCandidates] = useState(false);
@@ -1167,9 +1167,17 @@ function CandidateModal({ modalData, onClose }) {
   const filteredCandidates = candidates.filter((c) => matchesMetric(c, metricType));
   const listToShow = showAllCandidates ? candidates : filteredCandidates;
 
+  const calculateIncrement = (prev, offered) => {
+    const p = parseFloat(String(prev ?? '').replace(/,/g, '').replace(/[^\d.-]/g, '')) || 0;
+    const o = parseFloat(String(offered ?? '').replace(/,/g, '').replace(/[^\d.-]/g, '')) || 0;
+    if (p <= 0 || o <= 0) return '—';
+    const inc = ((o - p) / p) * 100;
+    return `${inc >= 0 ? '+' : ''}${inc.toFixed(1)}%`;
+  };
+
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--modal-bg, #0f172a)', color: 'var(--text-color, #f8fafc)', border: '1px solid rgba(255, 255, 255, 0.18)', borderRadius: '12px', width: '100%', maxWidth: '1120px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--modal-bg, #0f172a)', color: 'var(--text-color, #f8fafc)', border: '1px solid rgba(255, 255, 255, 0.18)', borderRadius: '12px', width: '100%', maxWidth: '1280px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)' }}>
         <div style={{ padding: '18px 22px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
           <div>
             <div style={{ fontSize: '12px', fontWeight: 600, color: '#eab308', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -1205,23 +1213,65 @@ function CandidateModal({ modalData, onClose }) {
                     <th>Joining Date</th>
                     <th>Channel / Source</th>
                     <th>Department</th>
+                    <th>CTC Details (Prev → Offered)</th>
+                    <th>% Increment</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {listToShow.map((c, idx) => (
-                    <tr key={`${c.jobId || 'j'}-${c.email || c.name || 'cand'}-${idx}`}>
-                      <td className="mono">{c.jobId || c.role || '—'}</td>
-                      <td style={{ fontWeight: 600 }}>{c.name || '—'}</td>
-                      <td className="mono">{c.phone || '—'}</td>
-                      <td>{c.email || '—'}</td>
-                      <td><StatusBadge status={c.finalStatus || c.status} /></td>
-                      <td>{c.recruiter || '—'}</td>
-                      <td>{c.offerDate || '—'}</td>
-                      <td>{c.joiningDate || '—'}</td>
-                      <td>{[c.channel, c.source].filter((x) => x && x !== '—').join(' · ') || c.manager || '—'}</td>
-                      <td>{c.department || c.businessUnit || '—'}</td>
-                    </tr>
-                  ))}
+                  {listToShow.map((c, idx) => {
+                    const detail = c._detail || {};
+                    const deptRaw = detail.department || c.department || '';
+                    const department = deptRaw && deptRaw !== '—' ? deptRaw : (c.jobDepartment || c.businessUnit || '—');
+                    const prevCtc = detail.previousCtc || c.previousCtc || '';
+                    const offeredCtc = detail.offeredCtc || c.offeredCtc || '';
+                    const rawIncrementPct = detail.incrementPct !== undefined && detail.incrementPct !== null
+                      ? detail.incrementPct
+                      : c.incrementPct;
+
+                    const incrementStr =
+                      rawIncrementPct !== null && rawIncrementPct !== undefined
+                        ? `${Number(rawIncrementPct) > 0 ? '+' : ''}${rawIncrementPct}%`
+                        : calculateIncrement(prevCtc, offeredCtc);
+
+                    const channelVal = detail.channel || c.channel || '';
+                    const sourceVal = detail.source || c.source || '';
+                    const channelSourceText =
+                      [channelVal, sourceVal].filter((x) => x && x !== '—').join(' · ') ||
+                      detail.manager ||
+                      c.manager ||
+                      '—';
+
+                    return (
+                      <tr key={`${c.jobId || 'j'}-${c.email || c.name || 'cand'}-${idx}`}>
+                        <td className="mono">{c.jobId || c.role || '—'}</td>
+                        <td style={{ fontWeight: 600 }}>{detail.name || c.name || '—'}</td>
+                        <td className="mono">{detail.phone || c.phone || '—'}</td>
+                        <td>{detail.email || c.email || '—'}</td>
+                        <td><StatusBadge status={detail.finalStatus || detail.status || c.finalStatus || c.status} /></td>
+                        <td>{detail.recruiter || c.recruiter || '—'}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{detail.offerDate || c.offerDate || '—'}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{detail.joiningDate || c.joiningDate || '—'}</td>
+                        <td>{channelSourceText}</td>
+                        <td>{department}</td>
+                        <td className="mono" style={{ whiteSpace: 'nowrap' }}>
+                          {prevCtc || offeredCtc ? `${prevCtc || '—'} → ${offeredCtc || '—'}` : '—'}
+                        </td>
+                        <td
+                          style={{
+                            color: incrementStr.startsWith('+')
+                              ? '#4ade80'
+                              : incrementStr.startsWith('-')
+                              ? '#f87171'
+                              : 'inherit',
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {incrementStr}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -4631,7 +4681,13 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const lastStamp = useRef('');
 
   const openJobModal = useCallback((job, metricType) => {
-    const candidates = (job.candidates || []).map((c) => ({ ...c, jobId: job.jobId, role: job.role }));
+    const candidates = (job.candidates || []).map((c) => ({
+      ...c,
+      jobId: job.jobId,
+      role: job.role,
+      jobDepartment: job.department,
+      businessUnit: job.businessUnit,
+    }));
     setModalData({
       title: `${job.jobId} — ${job.role || 'Role'} (${job.department || 'Department'})`,
       subtitle: job.businessUnit,
@@ -4643,7 +4699,13 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const openBuModal = useCallback((buLabel, unitJobs, metricType) => {
     const buJobs = (unitJobs || []).filter((j) => j.businessUnit === buLabel);
     const candidates = buJobs.flatMap((j) =>
-      (j.candidates || []).map((c) => ({ ...c, jobId: j.jobId, role: j.role }))
+      (j.candidates || []).map((c) => ({
+        ...c,
+        jobId: j.jobId,
+        role: j.role,
+        jobDepartment: j.department,
+        businessUnit: j.businessUnit,
+      }))
     );
     setModalData({
       title: `${buLabel} — All ${METRIC_LABELS[metricType]} Candidates`,
