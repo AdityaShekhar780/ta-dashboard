@@ -4302,6 +4302,414 @@ function RecruiterPerformanceSection({
   );
 }
 
+/* ---------- TA Governance & Process Compliance Section ---------- */
+
+const DEFAULT_COMPLIANCE_ITEMS = [
+  { processArea: 'Position Master', frequency: 'Daily', complianceStatus: 'On Track', lastUpdated: '19 Nov 2026', remarks: 'Updated daily by 9 PM', link: '' },
+  { processArea: 'Job Posting', frequency: 'Weekly', complianceStatus: 'On Track', lastUpdated: '18 Nov 2026', remarks: 'Audit done every Wednesday and report shared', link: '' },
+  { processArea: 'Recruitment Pitch', frequency: 'Ongoing', complianceStatus: 'On Track', lastUpdated: '15 Nov 2026', remarks: 'Updated', link: '' },
+  { processArea: 'Recruiter Branding', frequency: 'Ongoing', complianceStatus: 'On Track', lastUpdated: '15 Nov 2026', remarks: 'Updated (LinkedIn Update for all)', link: '' },
+  { processArea: 'Explore and pilot AI tools for sourcing, screening and high-volume rec', frequency: 'Monthly', complianceStatus: 'Partial', lastUpdated: '10 Nov 2026', remarks: 'Dassh AI has been selected and pilot for 1 month has been started', link: '' },
+  { processArea: 'Darwin Compliance', frequency: 'Ongoing', complianceStatus: 'Partial', lastUpdated: '18 Nov 2026', remarks: 'Recruiter is 100% compliant with Darwin Box. Profile sharing and feedback sharing by stakeholder is ~80%. End to end recruitment is managed through Darwin box where recruiter completes task on behalf of hiring manager in case they are unable to', link: '' },
+  { processArea: 'Interview Process/Hiring Manager SLA', frequency: 'Ongoing', complianceStatus: 'On Track', lastUpdated: '18 Nov 2026', remarks: 'Process adhered; operating as per defined governance. On Track.', link: '' },
+  { processArea: 'Offer Governance', frequency: 'Ongoing', complianceStatus: 'On Track', lastUpdated: '18 Nov 2026', remarks: 'Updated and all offers are approved by respective designated approval authority', link: '' },
+  { processArea: 'Source Attribution', frequency: 'Ongoing', complianceStatus: 'On Track', lastUpdated: '18 Nov 2026', remarks: 'Process adhered; operating as per defined governance.', link: '' },
+  { processArea: 'Recruiter Productivity', frequency: 'Weekly', complianceStatus: 'On Track', lastUpdated: '16 Nov 2026', remarks: 'Operating as per defined governance and weekly reports have been shared', link: '' },
+  { processArea: 'Recruitment Funnel', frequency: 'Ongoing', complianceStatus: 'On Track', lastUpdated: '18 Nov 2026', remarks: 'Process adhered; operating as per defined governance.', link: '' },
+  { processArea: 'Daily Position Governance', frequency: 'Daily', complianceStatus: 'On Track', lastUpdated: '19 Nov 2026', remarks: 'Daily position governance has been updated daily before 9 PM daily including end to end recruitment cycle', link: '' },
+  { processArea: 'BU TA Reporting', frequency: 'Weekly', complianceStatus: 'On Track', lastUpdated: '16 Nov 2026', remarks: 'On Track — Weekly reports have been shared with respective BU Heads and regular catch ups have been done to discuss priorities and challenges', link: '' },
+  { processArea: 'Candidate Engagement', frequency: 'Ongoing', complianceStatus: 'Pending', lastUpdated: '12 Nov 2026', remarks: 'Pending', link: '' },
+  { processArea: 'Internal TA Governance', frequency: 'Weekly', complianceStatus: 'On Track', lastUpdated: '16 Nov 2026', remarks: 'Regular meetings have been done with team including 1 on 1 wherever required and MoM has been shared', link: '' },
+  { processArea: 'JD & Hiring Brief Governance', frequency: 'Ongoing', complianceStatus: 'Partial', lastUpdated: '14 Nov 2026', remarks: 'All jobs have been updated on the career page.\n\nPDF and Playbook are partially updated. JDs for recent roles are pending.', link: '' },
+];
+
+function getComplianceBadgeMeta(rawStatus) {
+  const st = norm(rawStatus);
+  if (st.includes('pend')) {
+    return {
+      key: 'pending',
+      label: 'Pending',
+      color: '#f87171',
+      bg: 'rgba(239, 68, 68, 0.14)',
+      border: 'rgba(239, 68, 68, 0.45)',
+    };
+  }
+  if (st.includes('part') || st.includes('progress') || st.includes('pilot')) {
+    return {
+      key: 'partial',
+      label: 'Partial / In Progress',
+      color: '#eab308',
+      bg: 'rgba(234, 179, 8, 0.14)',
+      border: 'rgba(234, 179, 8, 0.45)',
+    };
+  }
+  return {
+    key: 'compliant',
+    label: 'On Track',
+    color: '#10b981',
+    bg: 'rgba(16, 185, 129, 0.14)',
+    border: 'rgba(16, 185, 129, 0.45)',
+  };
+}
+
+function ComplianceSection({ compliance = [], theme }) {
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'compliant' | 'partial' | 'pending'
+  const [freqFilter, setFreqFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const items = useMemo(() => {
+    const sourceList = Array.isArray(compliance) && compliance.length > 0 ? compliance : DEFAULT_COMPLIANCE_ITEMS;
+    return sourceList.map((item, idx) => ({
+      ...item,
+      id: idx + 1,
+      frequency: item.frequency || 'Ongoing',
+      lastUpdated: item.lastUpdated || '—',
+      remarks: item.remarks || item.status || '—',
+      meta: getComplianceBadgeMeta(item.complianceStatus || item.status),
+    }));
+  }, [compliance]);
+
+  const frequencies = useMemo(() => {
+    return Array.from(new Set(items.map((it) => it.frequency).filter(Boolean)));
+  }, [items]);
+
+  const counts = useMemo(() => {
+    let compliant = 0;
+    let partial = 0;
+    let pending = 0;
+    items.forEach((it) => {
+      if (it.meta.key === 'compliant') compliant++;
+      else if (it.meta.key === 'partial') partial++;
+      else pending++;
+    });
+    const total = items.length;
+    const scorePct = total > 0 ? Math.round(((compliant + partial * 0.5) / total) * 100) : 0;
+    return { total, compliant, partial, pending, scorePct };
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    const q = norm(searchQuery);
+    return items.filter((it) => {
+      if (statusFilter !== 'all' && it.meta.key !== statusFilter) return false;
+      if (freqFilter !== 'all' && norm(it.frequency) !== norm(freqFilter)) return false;
+      if (!q) return true;
+      return (
+        norm(it.processArea).includes(q) ||
+        norm(it.remarks).includes(q) ||
+        norm(it.frequency).includes(q) ||
+        norm(it.lastUpdated).includes(q)
+      );
+    });
+  }, [items, statusFilter, freqFilter, searchQuery]);
+
+  const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
+  const subCardBg = theme === 'light' ? '#f8fafc' : 'rgba(15, 23, 42, 0.55)';
+  const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.1)';
+  const rowBorder = theme === 'light' ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.06)';
+  const textColor = theme === 'light' ? '#0f172a' : '#f1f5f9';
+  const mutedColor = theme === 'light' ? '#64748b' : '#94a3b8';
+  const headerBg = theme === 'light' ? '#f1f5f9' : 'rgba(30, 41, 59, 0.75)';
+
+  return (
+    <section
+      className="panel"
+      style={{
+        marginTop: '20px',
+        padding: '22px',
+        borderRadius: '14px',
+        background: cardBg,
+        border: `1px solid ${borderColor}`,
+        color: textColor,
+        boxSizing: 'border-box',
+        width: '100%',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '16px',
+          marginBottom: '20px',
+        }}
+      >
+        <div>
+          <p className="kicker" style={{ marginBottom: '3px' }}>
+            TA Governance, Cadence &amp; Process Hygiene
+          </p>
+          <h2 style={{ margin: 0, fontSize: '21px', letterSpacing: '-0.02em' }}>
+            TA Process Compliance Tracker
+          </h2>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
+            Synced with the <b>Compliance</b> sheet tab · Click any KPI card to filter workflows
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
+          <select
+            value={freqFilter}
+            onChange={(e) => setFreqFilter(e.target.value)}
+            aria-label="Filter by Frequency"
+            style={{
+              height: '38px',
+              padding: '0 12px',
+              borderRadius: '8px',
+              border: '1px solid rgba(56, 189, 248, 0.45)',
+              background: theme === 'light' ? '#f8fafc' : 'rgba(255, 255, 255, 0.06)',
+              color: 'inherit',
+              fontSize: '12.5px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <option value="all" style={{ background: '#0f172a', color: '#fff' }}>
+              Frequency: All Cadences
+            </option>
+            {frequencies.map((f) => (
+              <option key={f} value={f} style={{ background: '#0f172a', color: '#fff' }}>
+                Frequency: {f}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="search"
+            placeholder="Search process or remarks…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              height: '38px',
+              minWidth: '230px',
+              padding: '0 13px',
+              borderRadius: '8px',
+              border: `1px solid ${borderColor}`,
+              background: theme === 'light' ? '#f8fafc' : 'rgba(0, 0, 0, 0.28)',
+              color: 'inherit',
+              fontSize: '13px',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Top 4 KPI Summary Cards */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+          gap: '14px',
+          marginBottom: '18px',
+        }}
+      >
+        <div
+          onClick={() => setStatusFilter('all')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && setStatusFilter('all')}
+          style={{
+            padding: '15px 18px',
+            borderRadius: '12px',
+            background: subCardBg,
+            border: statusFilter === 'all' ? '1.5px solid #38bdf8' : `1px solid ${borderColor}`,
+            cursor: 'pointer',
+          }}
+        >
+          <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', color: mutedColor }}>
+            Total Processes Tracked
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '6px' }}>
+            <strong style={{ fontSize: '28px', color: '#38bdf8' }}>{counts.total}</strong>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: '#10b981' }}>
+              {counts.scorePct}% Health Score
+            </span>
+          </div>
+        </div>
+
+        <div
+          onClick={() => setStatusFilter(statusFilter === 'compliant' ? 'all' : 'compliant')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && setStatusFilter(statusFilter === 'compliant' ? 'all' : 'compliant')}
+          style={{
+            padding: '15px 18px',
+            borderRadius: '12px',
+            background: subCardBg,
+            border: statusFilter === 'compliant' ? '1.5px solid #10b981' : '1px solid rgba(16, 185, 129, 0.35)',
+            cursor: 'pointer',
+          }}
+        >
+          <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', color: '#10b981' }}>
+            On Track
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '6px' }}>
+            <strong style={{ fontSize: '28px', color: '#10b981' }}>{counts.compliant}</strong>
+            <span style={{ fontSize: '12px', color: mutedColor }}>
+              {counts.total > 0 ? Math.round((counts.compliant / counts.total) * 100) : 0}% of total
+            </span>
+          </div>
+        </div>
+
+        <div
+          onClick={() => setStatusFilter(statusFilter === 'partial' ? 'all' : 'partial')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && setStatusFilter(statusFilter === 'partial' ? 'all' : 'partial')}
+          style={{
+            padding: '15px 18px',
+            borderRadius: '12px',
+            background: subCardBg,
+            border: statusFilter === 'partial' ? '1.5px solid #eab308' : '1px solid rgba(234, 179, 8, 0.35)',
+            cursor: 'pointer',
+          }}
+        >
+          <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', color: '#eab308' }}>
+            Partial / In Progress
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '6px' }}>
+            <strong style={{ fontSize: '28px', color: '#eab308' }}>{counts.partial}</strong>
+            <span style={{ fontSize: '12px', color: mutedColor }}>Active pilots &amp; partial</span>
+          </div>
+        </div>
+
+        <div
+          onClick={() => setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending')}
+          style={{
+            padding: '15px 18px',
+            borderRadius: '12px',
+            background: subCardBg,
+            border: statusFilter === 'pending' ? '1.5px solid #f87171' : '1px solid rgba(239, 68, 68, 0.35)',
+            cursor: 'pointer',
+          }}
+        >
+          <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', color: '#f87171' }}>
+            Pending
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '6px' }}>
+            <strong style={{ fontSize: '28px', color: '#f87171' }}>{counts.pending}</strong>
+            <span style={{ fontSize: '12px', color: mutedColor }}>Requires closure</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Compliance Table */}
+      <div
+        style={{
+          borderRadius: '12px',
+          background: subCardBg,
+          border: `1px solid ${borderColor}`,
+          overflow: 'hidden',
+        }}
+      >
+        <div className="table-scroll" style={{ width: '100%', overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: '860px', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <thead>
+              <tr style={{ background: headerBg }}>
+                <th style={{ width: '44px', textAlign: 'center', padding: '11px 10px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                  #
+                </th>
+                <th style={{ width: '25%', textAlign: 'left', padding: '11px 14px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                  Process Area
+                </th>
+                <th style={{ width: '11%', textAlign: 'left', padding: '11px 14px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                  Frequency
+                </th>
+                <th style={{ width: '14%', textAlign: 'left', padding: '11px 14px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                  Compliance Status
+                </th>
+                <th style={{ width: '12%', textAlign: 'left', padding: '11px 14px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                  Last Updated
+                </th>
+                <th style={{ textAlign: 'left', padding: '11px 16px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                  Remarks / Update
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredItems.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '26px', color: mutedColor }}>
+                    No compliance items match your current filter.
+                  </td>
+                </tr>
+              ) : (
+                filteredItems.map((it) => (
+                  <tr key={`${it.id}-${it.processArea}`}>
+                    <td style={{ textAlign: 'center', padding: '11px 10px', borderBottom: rowBorder, color: mutedColor, fontWeight: 600 }}>
+                      {it.id}
+                    </td>
+                    <td
+                      style={{
+                        padding: '11px 14px',
+                        borderBottom: rowBorder,
+                        fontWeight: 700,
+                        boxShadow: `inset 3px 0 0 ${it.meta.color}`,
+                      }}
+                    >
+                      {it.link ? (
+                        <a
+                          href={it.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: '#38bdf8', textDecoration: 'underline', textUnderlineOffset: '3px' }}
+                        >
+                          {it.processArea} ↗
+                        </a>
+                      ) : (
+                        it.processArea
+                      )}
+                    </td>
+                    <td style={{ padding: '11px 14px', borderBottom: rowBorder, whiteSpace: 'nowrap' }}>
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          padding: '2px 9px',
+                          borderRadius: '6px',
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                          background: 'rgba(56, 189, 248, 0.12)',
+                          border: '1px solid rgba(56, 189, 248, 0.35)',
+                          color: '#38bdf8',
+                        }}
+                      >
+                        {it.frequency}
+                      </span>
+                    </td>
+                    <td style={{ padding: '11px 14px', borderBottom: rowBorder, whiteSpace: 'nowrap' }}>
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          padding: '3px 10px',
+                          borderRadius: '999px',
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          background: it.meta.bg,
+                          border: `1px solid ${it.meta.border}`,
+                          color: it.meta.color,
+                        }}
+                      >
+                        {it.meta.label}
+                      </span>
+                    </td>
+                    <td className="mono" style={{ padding: '11px 14px', borderBottom: rowBorder, whiteSpace: 'nowrap', fontSize: '12px', color: mutedColor }}>
+                      {it.lastUpdated}
+                    </td>
+                    <td style={{ padding: '11px 16px', borderBottom: rowBorder, lineHeight: 1.45, whiteSpace: 'pre-line' }}>
+                      {it.remarks}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ---------- small chart pieces & expandable rows ---------- */
 
 function MetricCellButton({ value, onClick }) {
@@ -4833,6 +5241,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
         ...(mu.checks || []),
         ...(tetr.checks || []),
       ],
+compliance: (mu.compliance && mu.compliance.length > 0) ? mu.compliance : (tetr.compliance || []), // <-- PASTE THIS LINE HERE
     };
   }, [datasets, activeUnit]);
 
@@ -5478,7 +5887,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
                       theme={theme}
                     />
 
-                    <RecruiterPerformanceSection
+                     <RecruiterPerformanceSection
                       recruiterPerformance={data.recruiterPerformance}
                       recruiterPerformanceByBu={data.recruiterPerformanceByBu}
                       momSeries={data.momSeries || []}
@@ -5488,32 +5897,16 @@ export default function Dashboard({ unitKey = 'overall' }) {
                     />
                   </>
                 ) : (
-                  <section
-                    className="panel"
-                    style={{
-                      marginTop: '20px',
-                      padding: '32px 24px',
-                      borderRadius: '14px',
-                      background: theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)',
-                      border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.12)',
-                      textAlign: 'center',
-                    }}
-                  >
-                    <p className="kicker" style={{ marginBottom: '4px' }}>
-                      TA Governance &amp; Process Hygiene
-                    </p>
-                    <h2 style={{ margin: '0 0 8px', fontSize: '21px' }}>
-                      Compliance Dashboard ({bu === 'all' ? 'All Business Units' : bu})
-                    </h2>
-                    <p className="muted" style={{ maxWidth: '540px', margin: '0 auto', fontSize: '13.5px' }}>
-                      Compliance metrics and SLA checks will appear here once configured.
-                    </p>
-                  </section>
+                <ComplianceSection
+                    compliance={data.compliance || []}
+                    theme={theme}
+                  />
                 )}
 
                 {checks.length > 0 && (
                   <details className="checks">
                     <summary>{checks.length} {checks.length === 1 ? 'row needs' : 'rows need'} a look in the sheet</summary>
+
                     <ul>
                       {checks.map((c, i) => (
                         <li key={`${c.jobId}-${i}`}><span className="mono">{c.jobId}</span> · {c.businessUnit} · {c.issue}</li>
