@@ -4710,6 +4710,559 @@ function ComplianceSection({ compliance = [], theme }) {
   );
 }
 
+/* ---------- Daily Recruitment Snapshot Section ---------- */
+
+const MONTH_SHORT_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function formatMonthLabel(ym) {
+  if (!ym || ym.length < 7) return ym || '';
+  const [yr, mo] = ym.split('-');
+  const mIdx = Math.max(0, Math.min(11, Number(mo) - 1));
+  return `${MONTH_SHORT_NAMES[mIdx]}-${yr.slice(-2)}`;
+}
+
+function getPreviousIsoDate(isoDate) {
+  if (!isoDate || isoDate.length < 10) return '';
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() - 1);
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+function getDailyTargetStatus(actual, target) {
+  const ratio = target > 0 ? actual / target : 0;
+  if (ratio >= 0.95) {
+    return {
+      label: 'On track',
+      color: '#10b981',
+      bg: 'rgba(16, 185, 129, 0.14)',
+      border: 'rgba(16, 185, 129, 0.45)',
+    };
+  }
+  if (ratio >= 0.8) {
+    return {
+      label: 'Slightly Behind',
+      color: '#eab308',
+      bg: 'rgba(234, 179, 8, 0.14)',
+      border: 'rgba(234, 179, 8, 0.45)',
+    };
+  }
+  return {
+    label: 'Behind target',
+    color: '#f87171',
+    bg: 'rgba(239, 68, 68, 0.14)',
+    border: 'rgba(239, 68, 68, 0.45)',
+  };
+}
+
+function DailyReportSection({ dailyReport, theme }) {
+  const [subView, setSubView] = useState('snapshot'); // 'snapshot' | 'offers'
+
+  const allDates = useMemo(() => {
+    const list = Array.isArray(dailyReport?.availableDates) ? dailyReport.availableDates : [];
+    if (list.length > 0) return list;
+    const now = new Date();
+    const fallback = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return [fallback];
+  }, [dailyReport]);
+
+  const defaultDate = dailyReport?.today && allDates.includes(dailyReport.today) ? dailyReport.today : allDates[0];
+  const [selectedMonth, setSelectedMonth] = useState(() => (defaultDate ? defaultDate.slice(0, 7) : ''));
+  const [selectedDate, setSelectedDate] = useState(() => defaultDate || '');
+
+  const availableMonths = useMemo(() => {
+    const set = new Set(allDates.map((d) => d.slice(0, 7)));
+    return Array.from(set).sort().reverse();
+  }, [allDates]);
+
+  const activeMonth = availableMonths.includes(selectedMonth) ? selectedMonth : availableMonths[0] || '';
+
+  const datesInActiveMonth = useMemo(() => {
+    const matching = allDates.filter((d) => d.startsWith(activeMonth));
+    if (matching.length > 0) return matching;
+    // Generate all days of activeMonth if only partial dates exist
+    if (!activeMonth) return allDates;
+    const [y, m] = activeMonth.split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const full = [];
+    for (let day = daysInMonth; day >= 1; day--) {
+      full.push(`${activeMonth}-${String(day).padStart(2, '0')}`);
+    }
+    return full;
+  }, [allDates, activeMonth]);
+
+  const activeDate = datesInActiveMonth.includes(selectedDate) ? selectedDate : datesInActiveMonth[0] || '';
+  const yesterdayDate = useMemo(() => getPreviousIsoDate(activeDate), [activeDate]);
+
+  const todayStats = dailyReport?.byDate?.[activeDate] || {};
+  const yesterdayStats = dailyReport?.byDate?.[yesterdayDate] || {};
+  const monthStats = dailyReport?.byMonth?.[activeMonth] || {};
+
+  // Table 1: Daily Target vs. Actual Summary
+  const targetRows = useMemo(() => {
+    const defs = [
+      { metric: 'Resumes Received', target: 120, actual: Number(todayStats.resumesReceived || 0) },
+      { metric: 'Interviews Conducted', target: 40, actual: Number(todayStats.interviewsConducted || 0) },
+      { metric: 'Closures', target: 5, actual: Number(todayStats.closures || 0) },
+    ];
+    return defs.map((d) => ({
+      ...d,
+      statusMeta: getDailyTargetStatus(d.actual, d.target),
+    }));
+  }, [todayStats]);
+
+  // Table 2: Stage Pipeline & Movement vs Yesterday
+  const stageRows = useMemo(() => {
+    const stages = [
+      { stage: 'In Process', today: Number(todayStats.inProcess || 0), yesterday: Number(yesterdayStats.inProcess || 0) },
+      { stage: 'Interview Round 1', today: Number(todayStats.round1 || 0), yesterday: Number(yesterdayStats.round1 || 0) },
+      { stage: 'Interview Round 2', today: Number(todayStats.round2 || 0), yesterday: Number(yesterdayStats.round2 || 0) },
+      { stage: 'Offers Released', today: Number(todayStats.offersReleased || 0), yesterday: Number(yesterdayStats.offersReleased || 0) },
+      { stage: 'Joined', today: Number(todayStats.joined || 0), yesterday: Number(yesterdayStats.joined || 0) },
+    ];
+    return stages.map((s) => {
+      const diff = s.today - s.yesterday;
+      return {
+        ...s,
+        delta: diff > 0 ? diff : 0,
+        movementLabel: diff > 0 ? `+${diff}` : 'No Changes',
+      };
+    });
+  }, [todayStats, yesterdayStats]);
+
+  // Table 3: Recruiter Activity & MTD Closures
+  const recruiterTable = useMemo(() => {
+    const baseRecruiters = Array.isArray(dailyReport?.recruiters) ? dailyReport.recruiters : [];
+    const cvsMap = todayStats.recruiterCvsShared || {};
+    const intMap = todayStats.recruiterInterviewsScheduled || {};
+    const mtdMap = monthStats.recruiterClosuresMtd || {};
+
+    const rows = baseRecruiters.map((r) => {
+      const k = r.key || norm(r.name).replace(/\s*\([^)]*\)\s*$/g, '').replace(/\./g, ' ').replace(/\s+/g, ' ').trim();
+      return {
+        name: r.name,
+        positionsAssigned: Number(r.positionsAssigned || 0),
+        cvsShared: Number(cvsMap[k] || 0),
+        interviewsScheduled: Number(intMap[k] || 0),
+        closuresMtd: Number(mtdMap[k] || 0),
+      };
+    });
+
+    const totals = rows.reduce(
+      (acc, r) => ({
+        positionsAssigned: acc.positionsAssigned + r.positionsAssigned,
+        cvsShared: acc.cvsShared + r.cvsShared,
+        interviewsScheduled: acc.interviewsScheduled + r.interviewsScheduled,
+        closuresMtd: acc.closuresMtd + r.closuresMtd,
+      }),
+      { positionsAssigned: 0, cvsShared: 0, interviewsScheduled: 0, closuresMtd: 0 }
+    );
+
+    return { rows, totals };
+  }, [dailyReport, todayStats, monthStats]);
+
+  const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
+  const subCardBg = theme === 'light' ? '#f8fafc' : 'rgba(15, 23, 42, 0.55)';
+  const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.1)';
+  const rowBorder = theme === 'light' ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.06)';
+  const textColor = theme === 'light' ? '#0f172a' : '#f1f5f9';
+  const mutedColor = theme === 'light' ? '#64748b' : '#94a3b8';
+  const headerBg = theme === 'light' ? '#f1f5f9' : 'rgba(30, 41, 59, 0.78)';
+
+  return (
+    <section
+      className="panel"
+      style={{
+        marginTop: '20px',
+        padding: '22px',
+        borderRadius: '14px',
+        background: cardBg,
+        border: `1px solid ${borderColor}`,
+        color: textColor,
+        boxSizing: 'border-box',
+        width: '100%',
+      }}
+    >
+      {/* Top Header & Month/Date Controls */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '16px',
+          marginBottom: '18px',
+        }}
+      >
+        <div>
+          <p className="kicker" style={{ marginBottom: '3px' }}>
+            Daily TA Operations &amp; Recruiter Pulse
+          </p>
+          <h2 style={{ margin: 0, fontSize: '21px', letterSpacing: '-0.02em' }}>
+            Daily Recruitment Snapshot
+          </h2>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
+            Snapshot Date: <b>{activeDate || '—'}</b> · Comparing movement against <b>{yesterdayDate || '—'}</b> · MTD Window: <b>{formatMonthLabel(activeMonth)}</b>
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
+          {/* Month Dropdown */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: mutedColor }}>
+            Month
+            <select
+              value={activeMonth}
+              onChange={(e) => {
+                const nextMonth = e.target.value;
+                setSelectedMonth(nextMonth);
+                const firstInMonth = allDates.find((d) => d.startsWith(nextMonth));
+                if (firstInMonth) setSelectedDate(firstInMonth);
+              }}
+              style={{
+                height: '38px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(56, 189, 248, 0.45)',
+                background: theme === 'light' ? '#f8fafc' : 'rgba(255, 255, 255, 0.06)',
+                color: 'inherit',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              {availableMonths.map((m) => (
+                <option key={m} value={m} style={{ background: '#0f172a', color: '#fff' }}>
+                  {formatMonthLabel(m)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/* Date Dropdown */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: mutedColor }}>
+            Date
+            <select
+              value={activeDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              style={{
+                height: '38px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(56, 189, 248, 0.45)',
+                background: theme === 'light' ? '#f8fafc' : 'rgba(255, 255, 255, 0.06)',
+                color: 'inherit',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              {datesInActiveMonth.map((d) => (
+                <option key={d} value={d} style={{ background: '#0f172a', color: '#fff' }}>
+                  {Number(d.slice(-2))} ({d})
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
+
+      {/* Sub-view Switcher (View 1 Active; View 2 Ready for Next Step) */}
+      <div
+        style={{
+          display: 'inline-flex',
+          gap: '4px',
+          padding: '4px',
+          borderRadius: '10px',
+          background: subCardBg,
+          border: `1px solid ${borderColor}`,
+          marginBottom: '20px',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setSubView('snapshot')}
+          style={{
+            padding: '7px 14px',
+            borderRadius: '7px',
+            border: 'none',
+            background: subView === 'snapshot' ? '#38bdf8' : 'transparent',
+            color: subView === 'snapshot' ? '#0f172a' : mutedColor,
+            fontWeight: 700,
+            fontSize: '12.5px',
+            cursor: 'pointer',
+          }}
+        >
+          1. Daily Recruitment Snapshot
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubView('offers')}
+          style={{
+            padding: '7px 14px',
+            borderRadius: '7px',
+            border: 'none',
+            background: subView === 'offers' ? '#38bdf8' : 'transparent',
+            color: subView === 'offers' ? '#0f172a' : mutedColor,
+            fontWeight: 700,
+            fontSize: '12.5px',
+            cursor: 'pointer',
+          }}
+        >
+          2. Offer Released Today (Next)
+        </button>
+      </div>
+
+      {subView === 'offers' ? (
+        <div
+          style={{
+            padding: '32px 20px',
+            borderRadius: '12px',
+            background: subCardBg,
+            border: `1px dashed ${borderColor}`,
+            textAlign: 'center',
+            color: mutedColor,
+          }}
+        >
+          <strong style={{ display: 'block', fontSize: '15px', color: textColor, marginBottom: '6px' }}>
+            Offer Released Today — Coming Next
+          </strong>
+          Share the column mappings for the 13 offer columns whenever you are ready to wire up View 2.
+        </div>
+      ) : (
+        <>
+          {/* Top 2-Column Grid: Table 1 (Target vs Actual) + Table 2 (Stage Pipeline & Movement) */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+              gap: '18px',
+              marginBottom: '20px',
+            }}
+          >
+            {/* Table 1: Daily Target vs. Actual */}
+            <div
+              style={{
+                borderRadius: '12px',
+                background: subCardBg,
+                border: `1px solid ${borderColor}`,
+                overflow: 'hidden',
+              }}
+            >
+              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${borderColor}`, fontWeight: 700, fontSize: '13.5px' }}>
+                1. Daily Target vs. Actual Summary
+              </div>
+              <div className="table-scroll" style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ background: headerBg }}>
+                      <th style={{ textAlign: 'left', padding: '10px 14px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                        Metric
+                      </th>
+                      <th style={{ textAlign: 'center', padding: '10px 12px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                        Target
+                      </th>
+                      <th style={{ textAlign: 'center', padding: '10px 12px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                        Actual
+                      </th>
+                      <th style={{ textAlign: 'center', padding: '10px 14px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {targetRows.map((row) => (
+                      <tr key={row.metric}>
+                        <td style={{ padding: '11px 14px', borderBottom: rowBorder, fontWeight: 600 }}>
+                          {row.metric}
+                        </td>
+                        <td className="mono" style={{ textAlign: 'center', padding: '11px 12px', borderBottom: rowBorder, color: mutedColor, fontWeight: 600 }}>
+                          {row.target}
+                        </td>
+                        <td className="mono" style={{ textAlign: 'center', padding: '11px 12px', borderBottom: rowBorder, fontWeight: 800, fontSize: '14px' }}>
+                          {row.actual}
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '11px 14px', borderBottom: rowBorder }}>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '3px 10px',
+                              borderRadius: '999px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              background: row.statusMeta.bg,
+                              border: `1px solid ${row.statusMeta.border}`,
+                              color: row.statusMeta.color,
+                            }}
+                          >
+                            {row.statusMeta.label}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Table 2: Stage Pipeline & Movement vs Yesterday */}
+            <div
+              style={{
+                borderRadius: '12px',
+                background: subCardBg,
+                border: `1px solid ${borderColor}`,
+                overflow: 'hidden',
+              }}
+            >
+              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${borderColor}`, fontWeight: 700, fontSize: '13.5px' }}>
+                2. Stage Pipeline &amp; Movement vs. Yesterday
+              </div>
+              <div className="table-scroll" style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ background: headerBg }}>
+                      <th style={{ textAlign: 'left', padding: '10px 14px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                        Stage
+                      </th>
+                      <th style={{ textAlign: 'center', padding: '10px 12px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                        No. of Candidates
+                      </th>
+                      <th style={{ textAlign: 'center', padding: '10px 14px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                        Movement vs Yesterday
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stageRows.map((row) => (
+                      <tr key={row.stage}>
+                        <td style={{ padding: '10px 14px', borderBottom: rowBorder, fontWeight: 600 }}>
+                          {row.stage}
+                        </td>
+                        <td className="mono" style={{ textAlign: 'center', padding: '10px 12px', borderBottom: rowBorder, fontWeight: 800, fontSize: '14px' }}>
+                          {row.today}
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '10px 14px', borderBottom: rowBorder }}>
+                          {row.delta > 0 ? (
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                padding: '2px 10px',
+                                borderRadius: '999px',
+                                fontSize: '11.5px',
+                                fontWeight: 700,
+                                background: 'rgba(16, 185, 129, 0.14)',
+                                border: '1px solid rgba(16, 185, 129, 0.45)',
+                                color: '#10b981',
+                              }}
+                            >
+                              {row.movementLabel}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '12px', color: mutedColor }}>
+                              No Changes
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Table 3: Recruiter Activity & MTD Closures */}
+          <div
+            style={{
+              borderRadius: '12px',
+              background: subCardBg,
+              border: `1px solid ${borderColor}`,
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ padding: '12px 16px', borderBottom: `1px solid ${borderColor}`, fontWeight: 700, fontSize: '13.5px' }}>
+              3. Recruiter Activity &amp; Closures ({formatMonthLabel(activeMonth)} MTD)
+            </div>
+            <div className="table-scroll" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: '720px', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ background: headerBg }}>
+                    <th style={{ textAlign: 'left', padding: '11px 16px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                      Recruiter
+                    </th>
+                    <th style={{ textAlign: 'center', padding: '11px 12px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                      Positions Assigned
+                    </th>
+                    <th style={{ textAlign: 'center', padding: '11px 12px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                      CVs Shared (TA Shortlist)
+                    </th>
+                    <th style={{ textAlign: 'center', padding: '11px 12px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                      Interviews Scheduled
+                    </th>
+                    <th style={{ textAlign: 'center', padding: '11px 16px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                      Closures (MTD)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Total Row at Top (Matching Excel Snapshot) */}
+                  <tr style={{ background: theme === 'light' ? '#e2e8f0' : 'rgba(56, 189, 248, 0.12)', fontWeight: 800 }}>
+                    <td style={{ padding: '11px 16px', borderBottom: `1px solid ${borderColor}` }}>
+                      Total
+                    </td>
+                    <td className="mono" style={{ textAlign: 'center', padding: '11px 12px', borderBottom: `1px solid ${borderColor}` }}>
+                      {recruiterTable.totals.positionsAssigned}
+                    </td>
+                    <td className="mono" style={{ textAlign: 'center', padding: '11px 12px', borderBottom: `1px solid ${borderColor}` }}>
+                      {recruiterTable.totals.cvsShared}
+                    </td>
+                    <td className="mono" style={{ textAlign: 'center', padding: '11px 12px', borderBottom: `1px solid ${borderColor}` }}>
+                      {recruiterTable.totals.interviewsScheduled}
+                    </td>
+                    <td className="mono" style={{ textAlign: 'center', padding: '11px 16px', borderBottom: `1px solid ${borderColor}`, color: '#10b981' }}>
+                      {recruiterTable.totals.closuresMtd}
+                    </td>
+                  </tr>
+
+                  {recruiterTable.rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: 'center', padding: '22px', color: mutedColor }}>
+                        No recruiter rows found. Run <b>TA Dashboard &gt; Publish now</b> in Google Sheets to sync.
+                      </td>
+                    </tr>
+                  ) : (
+                    recruiterTable.rows.map((r) => (
+                      <tr key={r.name}>
+                        <td style={{ padding: '10px 16px', borderBottom: rowBorder, fontWeight: 600 }}>
+                          {r.name}
+                        </td>
+                        <td className="mono" style={{ textAlign: 'center', padding: '10px 12px', borderBottom: rowBorder }}>
+                          {r.positionsAssigned}
+                        </td>
+                        <td className="mono" style={{ textAlign: 'center', padding: '10px 12px', borderBottom: rowBorder }}>
+                          {r.cvsShared}
+                        </td>
+                        <td className="mono" style={{ textAlign: 'center', padding: '10px 12px', borderBottom: rowBorder }}>
+                          {r.interviewsScheduled}
+                        </td>
+                        <td className="mono" style={{ textAlign: 'center', padding: '10px 16px', borderBottom: rowBorder, fontWeight: 700 }}>
+                          {r.closuresMtd}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 /* ---------- small chart pieces & expandable rows ---------- */
 
 function MetricCellButton({ value, onClick }) {
@@ -5241,7 +5794,8 @@ export default function Dashboard({ unitKey = 'overall' }) {
         ...(mu.checks || []),
         ...(tetr.checks || []),
       ],
-compliance: (mu.compliance && mu.compliance.length > 0) ? mu.compliance : (tetr.compliance || []), // <-- PASTE THIS LINE HERE
+compliance: (mu.compliance && mu.compliance.length > 0) ? mu.compliance : (tetr.compliance || []), 
+dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE HERE
     };
   }, [datasets, activeUnit]);
 
@@ -5798,6 +6352,7 @@ compliance: (mu.compliance && mu.compliance.length > 0) ? mu.compliance : (tetr.
                   {[
                     { key: 'reports', label: 'Reports', badge: '5 Views' },
                     { key: 'compliance', label: 'Compliance', badge: 'SLA & Audit' },
+                    { key: 'daily', label: 'Daily Report', badge: 'Snapshot' },
                   ].map((tab) => {
                     const isActive = mainSectionTab === tab.key;
                     return (
@@ -5896,9 +6451,14 @@ compliance: (mu.compliance && mu.compliance.length > 0) ? mu.compliance : (tetr.
                       onOpenCandidateModal={setModalData}
                     />
                   </>
-                ) : (
-                <ComplianceSection
+                ) : mainSectionTab === 'compliance' ? (
+                  <ComplianceSection
                     compliance={data.compliance || []}
+                    theme={theme}
+                  />
+                ) : (
+                  <DailyReportSection
+                    dailyReport={data.dailyReport}
                     theme={theme}
                   />
                 )}
