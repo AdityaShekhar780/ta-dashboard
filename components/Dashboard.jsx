@@ -4834,6 +4834,7 @@ function DailyReportSection({ dailyReport, theme }) {
   }, [todayStats, yesterdayStats]);
 
   // Table 3: Recruiter Activity & MTD Closures
+  // Table 3: Recruiter Activity & MTD Closures
   const recruiterTable = useMemo(() => {
     const baseRecruiters = Array.isArray(dailyReport?.recruiters) ? dailyReport.recruiters : [];
     const cvsMap = todayStats.recruiterCvsShared || {};
@@ -4851,18 +4852,29 @@ function DailyReportSection({ dailyReport, theme }) {
       };
     });
 
+    // Count all joinings across the selected month from Master Offered (not row-by-row sum)
+    const byDateMap = dailyReport?.byDate || {};
+    const wholeMonthJoinings = activeMonth
+      ? Object.keys(byDateMap).reduce((sum, dateKey) => {
+          if (dateKey.startsWith(activeMonth)) {
+            return sum + Number(byDateMap[dateKey]?.joined || 0);
+          }
+          return sum;
+        }, 0)
+      : 0;
+
     const totals = rows.reduce(
       (acc, r) => ({
         positionsAssigned: acc.positionsAssigned + r.positionsAssigned,
         cvsShared: acc.cvsShared + r.cvsShared,
         interviewsScheduled: acc.interviewsScheduled + r.interviewsScheduled,
-        closuresMtd: acc.closuresMtd + r.closuresMtd,
+        closuresMtd: wholeMonthJoinings,
       }),
-      { positionsAssigned: 0, cvsShared: 0, interviewsScheduled: 0, closuresMtd: 0 }
+      { positionsAssigned: 0, cvsShared: 0, interviewsScheduled: 0, closuresMtd: wholeMonthJoinings }
     );
 
     return { rows, totals };
-  }, [dailyReport, todayStats, monthStats]);
+  }, [dailyReport, todayStats, monthStats, activeMonth]);
 
   const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
   const subCardBg = theme === 'light' ? '#f8fafc' : 'rgba(15, 23, 42, 0.55)';
