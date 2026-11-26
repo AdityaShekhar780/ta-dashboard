@@ -1204,6 +1204,7 @@ function CandidateModal({ modalData, onClose }) {
                 <thead>
                   <tr>
                     <th>Role / Job</th>
+                    <th>Job Name</th>
                     <th>Candidate Name</th>
                     <th>Contact Number</th>
                     <th>Email ID</th>
@@ -1244,6 +1245,7 @@ function CandidateModal({ modalData, onClose }) {
                     return (
                       <tr key={`${c.jobId || 'j'}-${c.email || c.name || 'cand'}-${idx}`}>
                         <td className="mono">{c.jobId || c.role || '—'}</td>
+                        <td>{detail.jobName || c.jobName || '—'}</td>
                         <td style={{ fontWeight: 600 }}>{detail.name || c.name || '—'}</td>
                         <td className="mono">{detail.phone || c.phone || '—'}</td>
                         <td>{detail.email || c.email || '—'}</td>
