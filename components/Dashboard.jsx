@@ -5351,7 +5351,7 @@ function DailyReportSection({ dailyReport, theme }) {
       >
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '10px' }}>
           <h2 style={{ margin: 0, fontSize: screenshotMode ? '17px' : '19px', letterSpacing: '-0.02em' }}>
-            {subView === 'offers' ? 'Offer Approved Today' : 'Daily Recruitment Snapshot'}
+            {subView === 'offers' ? 'Offer Released Today' : 'Daily Recruitment Snapshot'}
           </h2>
           <span className="muted" style={{ fontSize: '12px' }}>
             {subView === 'offers' ? (
