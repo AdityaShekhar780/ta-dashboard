@@ -414,7 +414,7 @@ function AccessGate({ children }) {
 
 /* ---------- Total Positions Breakdown Modal (Ad-Hoc, Monthly Approved, Last Month C/F) ---------- */
 
-function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedBu, unitTitle, theme }) {
+function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedBu, unitTitle }) {
   if (!open) return null;
 
   const totalPos = kpi.total || 0;
@@ -471,8 +471,8 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: theme === 'light' ? '#ffffff' : '#0f172a',
-          color: theme === 'light' ? '#0f172a' : '#f8fafc',
+          background: '#0f172a',
+          color: '#f8fafc',
           border: '1px solid rgba(255, 255, 255, 0.18)',
           borderRadius: '14px',
           width: '100%',
@@ -582,8 +582,8 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
                 <tr
                   style={{
                     fontWeight: 800,
-                    background: theme === 'light' ? '#f1f5f9' : '#1e293b',
-                    color: theme === 'light' ? '#0f172a' : '#f8fafc',
+                    background: '#1e293b',
+                    color: '#f8fafc',
                     borderTop: '2px solid rgba(56, 189, 248, 0.45)',
                   }}
                 >
@@ -604,7 +604,7 @@ function TotalPositionsModal({ open, onClose, scopeBUs = [], kpi = {}, selectedB
 
 /* ---------- Pending Positions Breakdown Modal (Clickable Cards & Table Cells -> Job List & Full Details) ---------- */
 
-function PendingPositionsModal({ open, onClose, scopeBUs = [], allJobs = [], kpi = {}, selectedBu, unitTitle, theme }) {
+function PendingPositionsModal({ open, onClose, scopeBUs = [], allJobs = [], kpi = {}, selectedBu, unitTitle }) {
   const [drillFilter, setDrillFilter] = useState(null);
 
   useEffect(() => {
@@ -723,8 +723,8 @@ function PendingPositionsModal({ open, onClose, scopeBUs = [], allJobs = [], kpi
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: theme === 'light' ? '#ffffff' : '#0f172a',
-          color: theme === 'light' ? '#0f172a' : '#f8fafc',
+          background: '#0f172a',
+          color: '#f8fafc',
           border: '1px solid rgba(255, 255, 255, 0.18)',
           borderRadius: '14px',
           width: '100%',
@@ -937,8 +937,8 @@ function PendingPositionsModal({ open, onClose, scopeBUs = [], allJobs = [], kpi
                     <tr
                       style={{
                         fontWeight: 800,
-                        background: theme === 'light' ? '#f1f5f9' : '#1e293b',
-                        color: theme === 'light' ? '#0f172a' : '#f8fafc',
+                        background: '#1e293b',
+                        color: '#f8fafc',
                         borderTop: '2px solid rgba(234, 179, 8, 0.45)',
                       }}
                     >
@@ -1039,10 +1039,9 @@ function PendingPositionsModal({ open, onClose, scopeBUs = [], allJobs = [], kpi
     </div>
   );
 }
-
 /* ---------- Jobs With < 5 CVs Modal ---------- */
 
-function CvLess5Modal({ open, onClose, jobs = [], selectedBu, unitTitle, theme }) {
+function CvLess5Modal({ open, onClose, jobs = [], selectedBu, unitTitle }) {
   if (!open) return null;
 
   return (
@@ -1062,8 +1061,8 @@ function CvLess5Modal({ open, onClose, jobs = [], selectedBu, unitTitle, theme }
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: theme === 'light' ? '#ffffff' : '#0f172a',
-          color: theme === 'light' ? '#0f172a' : '#f8fafc',
+          background: '#0f172a',
+          color: '#f8fafc',
           border: '1px solid rgba(255, 255, 255, 0.18)',
           borderRadius: '14px',
           width: '100%',
@@ -1284,9 +1283,10 @@ function CandidateModal({ modalData, onClose }) {
     </div>
   );
 }
+
 /* ---------- Month-on-Month Line Chart ---------- */
 
-function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
+function MomLineChart({ series, selectedBu, onSelectPoint }) {
   const [hoverIdx, setHoverIdx] = useState(null);
 
   const chartData = useMemo(() => {
@@ -1327,7 +1327,7 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
 
   if (!chartData.length) {
     return (
-      <section className="panel" style={{ marginTop: '24px', padding: '20px', borderRadius: '12px', background: theme === 'light' ? '#fff' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(128,128,128,0.2)' }}>
+      <section className="panel" style={{ marginTop: '24px', padding: '20px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(128,128,128,0.2)' }}>
         <h2 style={{ marginTop: 0 }}>Month-on-Month Offered vs. Joined</h2>
         <p className="muted">No historical/live MoM data found yet.</p>
       </section>
@@ -1354,8 +1354,8 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
   const offeredPoints = chartData.map((d, i) => `${getX(i)},${getY(d.offered)}`).join(' ');
   const joinedPoints = chartData.map((d, i) => `${getX(i)},${getY(d.joined)}`).join(' ');
 
-  const gridColor = theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.09)';
-  const axisTextColor = theme === 'light' ? '#475569' : '#94a3b8';
+  const gridColor = 'rgba(255,255,255,0.09)';
+  const axisTextColor = '#94a3b8';
 
   return (
     <section
@@ -1364,8 +1364,8 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
         marginTop: '24px',
         padding: '22px',
         borderRadius: '12px',
-        background: theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)',
-        border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.12)',
+        background: 'rgba(255, 255, 255, 0.03)',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
         maxWidth: '100%',
         overflow: 'hidden',
       }}
@@ -1433,12 +1433,12 @@ function MomLineChart({ series, selectedBu, theme, onSelectPoint }) {
                 {isHovered && <line x1={x} y1={padT} x2={x} y2={padT + plotH} stroke="rgba(234, 179, 8, 0.5)" strokeWidth="1.5" strokeDasharray="3 3" />}
                 <text x={x} y={height - 14} textAnchor="middle" fill={isHovered ? '#eab308' : axisTextColor} fontSize="11" fontWeight={isHovered ? '700' : '500'}>{d.label}</text>
 
-                <circle cx={x} cy={yOff} r={isHovered ? 6 : 4.5} fill="#38bdf8" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="2" onClick={() => d.offered > 0 && onSelectPoint(d.label, d.offeredCandidates, 'momOffered')} />
+                <circle cx={x} cy={yOff} r={isHovered ? 6 : 4.5} fill="#38bdf8" stroke="#0f172a" strokeWidth="2" onClick={() => d.offered > 0 && onSelectPoint(d.label, d.offeredCandidates, 'momOffered')} />
                 {d.offered > 0 && (
                   <text x={x} y={yOff - 10} textAnchor="middle" fill="#38bdf8" fontSize="11" fontWeight="700" onClick={() => d.offered > 0 && onSelectPoint(d.label, d.offeredCandidates, 'momOffered')}>{d.offered}</text>
                 )}
 
-                <circle cx={x} cy={yJoin} r={isHovered ? 6 : 4.5} fill="#10b981" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="2" onClick={() => d.joined > 0 && onSelectPoint(d.label, d.joinedCandidates, 'momJoined')} />
+                <circle cx={x} cy={yJoin} r={isHovered ? 6 : 4.5} fill="#10b981" stroke="#0f172a" strokeWidth="2" onClick={() => d.joined > 0 && onSelectPoint(d.label, d.joinedCandidates, 'momJoined')} />
                 {d.joined > 0 && (
                   <text x={x} y={yJoin + 18} textAnchor="middle" fill="#10b981" fontSize="11" fontWeight="700" onClick={() => d.joined > 0 && onSelectPoint(d.label, d.joinedCandidates, 'momJoined')}>{d.joined}</text>
                 )}
@@ -1469,7 +1469,6 @@ const STAGE_ACCENTS = {
 function RecruitmentFunnelAndBifurcationSection({
   funnelAnalytics,
   selectedBu,
-  theme,
 }) {
   const [selectedRecruiter, setSelectedRecruiter] = useState('all');
   const [periodMode, setPeriodMode] = useState('fy26_27'); // 'fy26_27' | 'fy25_26' | 'all_from_jun25'
@@ -1539,14 +1538,14 @@ function RecruitmentFunnelAndBifurcationSection({
     [displayedMonths, getCellVal]
   );
 
-  const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
-  const subCardBg = theme === 'light' ? '#f8fafc' : 'rgba(15, 23, 42, 0.55)';
-  const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.1)';
-  const rowBorder = theme === 'light' ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.055)';
-  const textColor = theme === 'light' ? '#0f172a' : '#f1f5f9';
-  const mutedColor = theme === 'light' ? '#64748b' : '#64748b';
-  const stickyBg = theme === 'light' ? '#f8fafc' : '#0d1526';
-  const headerBg = theme === 'light' ? '#f1f5f9' : 'rgba(30, 41, 59, 0.75)';
+  const cardBg = 'rgba(255, 255, 255, 0.03)';
+  const subCardBg = 'rgba(15, 23, 42, 0.55)';
+  const borderColor = 'rgba(255, 255, 255, 0.1)';
+  const rowBorder = '1px solid rgba(255, 255, 255, 0.055)';
+  const textColor = '#f1f5f9';
+  const mutedColor = '#64748b';
+  const stickyBg = '#0d1526';
+  const headerBg = 'rgba(30, 41, 59, 0.75)';
 
   const renderModernTable = (groups, title, subtitle) => (
     <div
@@ -1567,7 +1566,7 @@ function RecruitmentFunnelAndBifurcationSection({
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '8px',
-          background: theme === 'light' ? '#ffffff' : 'rgba(255,255,255,0.02)',
+          background: 'rgba(255,255,255,0.02)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1589,7 +1588,7 @@ function RecruitmentFunnelAndBifurcationSection({
                   position: 'sticky',
                   left: 0,
                   zIndex: 3,
-                  background: theme === 'light' ? '#f1f5f9' : '#162033',
+                  background: '#162033',
                   minWidth: '215px',
                 }}
               >
@@ -1668,7 +1667,7 @@ function RecruitmentFunnelAndBifurcationSection({
                             background: stickyBg,
                             paddingLeft: '28px',
                             fontWeight: isPrimaryRow ? 600 : 500,
-                            color: isPrimaryRow ? textColor : (theme === 'light' ? '#334155' : '#cbd5e1'),
+                            color: isPrimaryRow ? textColor : '#cbd5e1',
                             boxShadow: `inset 3px 0 0 ${accent.color}`,
                           }}
                         >
@@ -1721,7 +1720,7 @@ function RecruitmentFunnelAndBifurcationSection({
                           position: 'sticky',
                           left: 0,
                           zIndex: 1,
-                          background: theme === 'light' ? '#fffbeb' : '#181926',
+                          background: '#181926',
                           paddingLeft: '28px',
                           fontWeight: 700,
                           fontSize: '11.5px',
@@ -1752,7 +1751,7 @@ function RecruitmentFunnelAndBifurcationSection({
                               fontWeight: 700,
                               color: totJoin > 0 ? '#eab308' : mutedColor,
                               opacity: totJoin > 0 ? 1 : 0.35,
-                              background: theme === 'light' ? 'rgba(254, 243, 199, 0.45)' : 'rgba(234, 179, 8, 0.06)',
+                              background: 'rgba(234, 179, 8, 0.06)',
                             }}
                           >
                             {pctVal}
@@ -1767,7 +1766,7 @@ function RecruitmentFunnelAndBifurcationSection({
                           fontSize: '12px',
                           fontWeight: 800,
                           color: '#eab308',
-                          background: theme === 'light' ? 'rgba(254, 243, 199, 0.45)' : 'rgba(234, 179, 8, 0.06)',
+                          background: 'rgba(234, 179, 8, 0.06)',
                         }}
                       >
                         {(() => {
@@ -1820,7 +1819,7 @@ function RecruitmentFunnelAndBifurcationSection({
         }
         .sleek-funnel-table thead th {
           background: ${headerBg};
-          color: ${theme === 'light' ? '#475569' : '#94a3b8'};
+          color: #94a3b8;
           font-weight: 700;
           font-size: 11px;
           text-transform: uppercase;
@@ -1836,7 +1835,7 @@ function RecruitmentFunnelAndBifurcationSection({
           transition: background 0.12s ease;
         }
         .sleek-metric-row:hover td {
-          background: ${theme === 'light' ? '#f1f5f9' : 'rgba(56, 189, 248, 0.06)'} !important;
+          background: rgba(56, 189, 248, 0.06) !important;
         }
       `}</style>
 
@@ -1867,7 +1866,7 @@ function RecruitmentFunnelAndBifurcationSection({
               display: 'inline-flex',
               padding: '3px',
               borderRadius: '8px',
-              background: theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.06)',
+              background: 'rgba(255,255,255,0.06)',
               border: `1px solid ${borderColor}`,
             }}
           >
@@ -1905,7 +1904,7 @@ function RecruitmentFunnelAndBifurcationSection({
               height: '38px',
               padding: '0 12px',
               borderRadius: '8px',
-              background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.06)',
+              background: 'rgba(255,255,255,0.06)',
               color: 'inherit',
               border: '1px solid rgba(56, 189, 248, 0.45)',
               fontWeight: 600,
@@ -1931,7 +1930,7 @@ function RecruitmentFunnelAndBifurcationSection({
               height: '38px',
               padding: '0 12px',
               borderRadius: '8px',
-              background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.06)',
+              background: 'rgba(255,255,255,0.06)',
               color: 'inherit',
               border: '1px solid rgba(234, 179, 8, 0.55)',
               fontWeight: 600,
@@ -1975,7 +1974,6 @@ function CostAndRoiAnalyticsSection({
   costAnalyticsOverall,
   unitKey,
   selectedBu,
-  theme,
 }) {
   const [periodMode, setPeriodMode] = useState('fy26_27'); // 'fy26_27' | 'fy25_26' | 'all_from_jun25'
   const [cphMode, setCphMode] = useState('blended'); // 'blended' | 'direct'
@@ -2162,14 +2160,14 @@ function CostAndRoiAnalyticsSection({
   const toolsList = activeCostStore?.tools || costAnalyticsOverall?.tools || [];
   const roiTarget = Number(activeCostStore?.roiTarget || 15);
 
-  const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
-  const subCardBg = theme === 'light' ? '#f8fafc' : 'rgba(15, 23, 42, 0.55)';
-  const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.1)';
-  const rowBorder = theme === 'light' ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.055)';
-  const textColor = theme === 'light' ? '#0f172a' : '#f1f5f9';
-  const mutedColor = theme === 'light' ? '#64748b' : '#94a3b8';
-  const stickyBg = theme === 'light' ? '#f8fafc' : '#0d1526';
-  const headerBg = theme === 'light' ? '#f1f5f9' : 'rgba(30, 41, 59, 0.75)';
+  const cardBg = 'rgba(255, 255, 255, 0.03)';
+  const subCardBg = 'rgba(15, 23, 42, 0.55)';
+  const borderColor = 'rgba(255, 255, 255, 0.1)';
+  const rowBorder = '1px solid rgba(255, 255, 255, 0.055)';
+  const textColor = '#f1f5f9';
+  const mutedColor = '#94a3b8';
+  const stickyBg = '#0d1526';
+  const headerBg = 'rgba(30, 41, 59, 0.75)';
 
   const activeChartMonths = monthSeries.filter((m) => m.joined > 0 || m.activeTotalCost > 0);
   const chartData = activeChartMonths.length > 0 ? activeChartMonths : monthSeries.slice(0, 8);
@@ -2222,7 +2220,7 @@ function CostAndRoiAnalyticsSection({
               display: 'inline-flex',
               padding: '3px',
               borderRadius: '8px',
-              background: theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.06)',
+              background: 'rgba(255,255,255,0.06)',
               border: `1px solid ${borderColor}`,
             }}
           >
@@ -2260,8 +2258,6 @@ function CostAndRoiAnalyticsSection({
               borderRadius: '8px',
               background: showToolsModal
                 ? 'rgba(167, 139, 250, 0.2)'
-                : theme === 'light'
-                ? '#f8fafc'
                 : 'rgba(255,255,255,0.06)',
               color: '#a78bfa',
               border: '1px solid rgba(167, 139, 250, 0.45)',
@@ -2281,7 +2277,7 @@ function CostAndRoiAnalyticsSection({
               height: '38px',
               padding: '0 12px',
               borderRadius: '8px',
-              background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.06)',
+              background: 'rgba(255,255,255,0.06)',
               color: 'inherit',
               border: '1px solid rgba(234, 179, 8, 0.55)',
               fontWeight: 600,
@@ -2308,7 +2304,7 @@ function CostAndRoiAnalyticsSection({
             marginBottom: '20px',
             padding: '16px 18px',
             borderRadius: '12px',
-            background: theme === 'light' ? '#f5f3ff' : 'rgba(139, 92, 246, 0.08)',
+            background: 'rgba(139, 92, 246, 0.08)',
             border: '1px solid rgba(167, 139, 250, 0.35)',
           }}
         >
@@ -2712,7 +2708,7 @@ function CostAndRoiAnalyticsSection({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            background: theme === 'light' ? '#ffffff' : 'rgba(255,255,255,0.02)',
+            background: 'rgba(255,255,255,0.02)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -2743,7 +2739,7 @@ function CostAndRoiAnalyticsSection({
                     position: 'sticky',
                     left: 0,
                     zIndex: 3,
-                    background: theme === 'light' ? '#f1f5f9' : '#162033',
+                    background: '#162033',
                     minWidth: '225px',
                     fontSize: '11px',
                     textTransform: 'uppercase',
@@ -2925,7 +2921,7 @@ function ChannelAnalysisSection({
   channelEfficiencyOverall = {}, channelEfficiencyOverallByBu = {},
   channelEfficiencyMonthly = {}, channelEfficiencyMonthlyByBu = {},
   channelMomSeries = [], channelMomByBu = {}, 
-  selectedBu, theme 
+  selectedBu 
 }) {
   
   const [effMode, setEffMode] = useState('overall');
@@ -3031,11 +3027,11 @@ function ChannelAnalysisSection({
   const getX = (i) => (activeMomSeries.length <= 1 ? padL + plotW / 2 : padL + (i / (activeMomSeries.length - 1)) * plotW);
   const getY = (val) => padT + plotH - (val / yMax) * plotH;
 
-  const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
-  const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.12)';
-  const textColor = theme === 'light' ? '#0f172a' : '#f8fafc';
-  const axisTextColor = theme === 'light' ? '#475569' : '#94a3b8';
-  const gridColor = theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.08)';
+  const cardBg = 'rgba(255, 255, 255, 0.03)';
+  const borderColor = 'rgba(255, 255, 255, 0.12)';
+  const textColor = '#f8fafc';
+  const axisTextColor = '#94a3b8';
+  const gridColor = 'rgba(255,255,255,0.08)';
 
   return (
     <section
@@ -3106,7 +3102,7 @@ function ChannelAnalysisSection({
             minWidth: 0,
             padding: '18px',
             borderRadius: '10px',
-            background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.22)',
+            background: 'rgba(0,0,0,0.22)',
             border: `1px solid ${borderColor}`,
             display: 'flex',
             flexDirection: 'column',
@@ -3130,7 +3126,7 @@ function ChannelAnalysisSection({
                         <b>{fmt(item.count)}</b> <span style={{ color: axisTextColor, fontSize: '11px' }}>({item.pct}%)</span>
                       </span>
                     </div>
-                    <div style={{ width: '100%', height: '6px', background: theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
                       <div style={{ width: `${item.pct}%`, height: '100%', background: barColor, borderRadius: '3px' }} />
                     </div>
                   </div>
@@ -3145,7 +3141,7 @@ function ChannelAnalysisSection({
             minWidth: 0,
             padding: '18px',
             borderRadius: '10px',
-            background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.22)',
+            background: 'rgba(0,0,0,0.22)',
             border: `1px solid ${borderColor}`,
             display: 'flex',
             flexDirection: 'column',
@@ -3169,7 +3165,7 @@ function ChannelAnalysisSection({
                         <b>{fmt(item.count)}</b> <span style={{ color: axisTextColor, fontSize: '11px' }}>({item.pct}%)</span>
                       </span>
                     </div>
-                    <div style={{ width: '100%', height: '6px', background: theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
                       <div style={{ width: `${item.pct}%`, height: '100%', background: barColor, borderRadius: '3px' }} />
                     </div>
                   </div>
@@ -3185,7 +3181,7 @@ function ChannelAnalysisSection({
             minWidth: 0,
             padding: '18px',
             borderRadius: '10px',
-            background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.22)',
+            background: 'rgba(0,0,0,0.22)',
             border: `1px solid ${borderColor}`,
             display: 'flex',
             flexDirection: 'column',
@@ -3201,7 +3197,7 @@ function ChannelAnalysisSection({
                 <select 
                   value={effMode} 
                   onChange={(e) => setEffMode(e.target.value)}
-                  style={{ padding: '4px 8px', borderRadius: '6px', background: theme === 'light' ? '#fff' : 'rgba(255,255,255,0.1)', color: 'inherit', border: `1px solid ${borderColor}`, fontSize: '11px', cursor: 'pointer' }}
+                  style={{ padding: '4px 8px', borderRadius: '6px', background: 'rgba(255,255,255,0.1)', color: 'inherit', border: `1px solid ${borderColor}`, fontSize: '11px', cursor: 'pointer' }}
                 >
                   <option value="overall" style={{ background: '#0f172a', color: '#fff' }}>Overall</option>
                   <option value="monthly" style={{ background: '#0f172a', color: '#fff' }}>Monthly</option>
@@ -3211,7 +3207,7 @@ function ChannelAnalysisSection({
                   <select 
                     value={selectedMonth} 
                     onChange={(e) => setSelectedMonth(e.target.value)}
-                    style={{ padding: '4px 8px', borderRadius: '6px', background: theme === 'light' ? '#fff' : 'rgba(255,255,255,0.1)', color: 'inherit', border: `1px solid ${borderColor}`, fontSize: '11px', cursor: 'pointer' }}
+                    style={{ padding: '4px 8px', borderRadius: '6px', background: 'rgba(255,255,255,0.1)', color: 'inherit', border: `1px solid ${borderColor}`, fontSize: '11px', cursor: 'pointer' }}
                   >
                     {availableMonths.map((ym) => (
                       <option key={ym} value={ym} style={{ background: '#0f172a', color: '#fff' }}>
@@ -3237,7 +3233,7 @@ function ChannelAnalysisSection({
                         <b>{fmt(item.joined)}</b> joined / {fmt(item.applied)} apps (<strong style={{ color: '#38bdf8' }}>{item.rate}%</strong>)
                       </span>
                     </div>
-                    <div style={{ width: '100%', height: '5px', background: theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
                       <div style={{ width: `${Math.min(100, item.rate * 2)}%`, height: '100%', background: barColor, borderRadius: '3px' }} />
                     </div>
                   </div>
@@ -3254,7 +3250,7 @@ function ChannelAnalysisSection({
             overflow: 'hidden',
             padding: '18px',
             borderRadius: '10px',
-            background: theme === 'light' ? '#f8fafc' : 'rgba(0,0,0,0.22)',
+            background: 'rgba(0,0,0,0.22)',
             border: `1px solid ${borderColor}`,
             boxSizing: 'border-box',
             display: 'flex',
@@ -3325,21 +3321,21 @@ function ChannelAnalysisSection({
                         {formatYearMonth(d.month)}
                       </text>
 
-                      <circle cx={x} cy={yInt} r={4} fill="#38bdf8" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
+                      <circle cx={x} cy={yInt} r={4} fill="#38bdf8" stroke="#0f172a" strokeWidth="1.5" />
                       {d.internalGroup > 0 && (
                         <text x={x} y={yInt - 9} textAnchor="middle" fill="#38bdf8" fontSize="10" fontWeight="700">
                           {d.internalGroup}
                         </text>
                       )}
 
-                      <circle cx={x} cy={yBus} r={4} fill="#34d399" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
+                      <circle cx={x} cy={yBus} r={4} fill="#34d399" stroke="#0f172a" strokeWidth="1.5" />
                       {d.businessReference > 0 && (
                         <text x={x} y={yBus - 9} textAnchor="middle" fill="#34d399" fontSize="10" fontWeight="700">
                           {d.businessReference}
                         </text>
                       )}
 
-                      <circle cx={x} cy={yExt} r={4} fill="#fb923c" stroke={theme === 'light' ? '#fff' : '#0f172a'} strokeWidth="1.5" />
+                      <circle cx={x} cy={yExt} r={4} fill="#fb923c" stroke="#0f172a" strokeWidth="1.5" />
                       {d.external > 0 && (
                         <text x={x} y={yExt + 16} textAnchor="middle" fill="#fb923c" fontSize="10" fontWeight="700">
                           {d.external}
@@ -3357,7 +3353,6 @@ function ChannelAnalysisSection({
     </section>
   );
 }
-
 /* ---------- Compact Clickable Number Pill for Recruiter Table ---------- */
 
 function RecClickPill({ value, color, onClick, title }) {
@@ -3397,7 +3392,6 @@ function RecruiterPerformanceSection({
   recruiterPerformanceByBu = {},
   momSeries = [],
   selectedBu,
-  theme,
   onOpenCandidateModal
 }) {
   const [viewScope, setViewScope] = useState('qtd');
@@ -3573,10 +3567,10 @@ function RecruiterPerformanceSection({
     });
   }, [onOpenCandidateModal, momByMonthMap, selectedBu, channelScope, selectedChannelLabel, allListedRecruiterNames]);
 
-  const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
-  const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.12)';
-  const textColor = theme === 'light' ? '#0f172a' : '#f8fafc';
-  const mutedColor = theme === 'light' ? '#475569' : '#94a3b8';
+  const cardBg = 'rgba(255, 255, 255, 0.03)';
+  const borderColor = 'rgba(255, 255, 255, 0.12)';
+  const textColor = '#f8fafc';
+  const mutedColor = '#94a3b8';
 
   const renderRoiBadge = (roiVal, targetBench) => {
     const val = Number(roiVal) || 0;
@@ -3741,7 +3735,7 @@ function RecruiterPerformanceSection({
               maxWidth: '100%',
               padding: '0 12px',
               borderRadius: '8px',
-              background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.06)',
+              background: 'rgba(255,255,255,0.06)',
               color: 'inherit',
               border: '1px solid rgba(56, 189, 248, 0.55)',
               fontWeight: 600,
@@ -3766,7 +3760,7 @@ function RecruiterPerformanceSection({
               maxWidth: '100%',
               padding: '0 12px',
               borderRadius: '8px',
-              background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.06)',
+              background: 'rgba(255,255,255,0.06)',
               color: 'inherit',
               border: '1px solid rgba(234, 179, 8, 0.65)',
               fontWeight: 600,
@@ -3790,7 +3784,7 @@ function RecruiterPerformanceSection({
           padding: '7px 12px',
           marginBottom: '12px',
           borderRadius: '8px',
-          background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.025)',
+          background: 'rgba(255,255,255,0.025)',
           border: `1px solid ${borderColor}`,
           fontSize: '11.5px',
           color: mutedColor,
@@ -3814,7 +3808,7 @@ function RecruiterPerformanceSection({
           <table className="jobs rec-compact-table" style={{ margin: 0, width: '100%', minWidth: `${Math.max(900, 530 + displayedMonths.length * 125)}px` }}>
             <thead>
               <tr>
-                <th style={{ position: 'sticky', left: 0, zIndex: 2, background: theme === 'light' ? '#e2e8f0' : '#1e293b' }}>Recruiter Name</th>
+                <th style={{ position: 'sticky', left: 0, zIndex: 2, background: '#1e293b' }}>Recruiter Name</th>
                 <th className="n">
                   {viewScope === 'qtd' ? 'Qtr Target (×3)' : 'Target (Joinings)'}
                 </th>
@@ -3844,7 +3838,7 @@ function RecruiterPerformanceSection({
                   <Fragment key={group.key}>
                     <tr
                       style={{
-                        background: theme === 'light' ? '#f1f5f9' : 'rgba(56, 189, 248, 0.08)',
+                        background: 'rgba(56, 189, 248, 0.08)',
                       }}
                     >
                       <td
@@ -3852,7 +3846,7 @@ function RecruiterPerformanceSection({
                           position: 'sticky',
                           left: 0,
                           zIndex: 1,
-                          background: theme === 'light' ? '#f1f5f9' : '#132338',
+                          background: '#132338',
                           fontWeight: 700,
                           fontSize: '11.5px',
                           textTransform: 'uppercase',
@@ -3890,7 +3884,7 @@ function RecruiterPerformanceSection({
                               position: 'sticky',
                               left: 0,
                               zIndex: 1,
-                              background: theme === 'light' ? '#ffffff' : '#0f172a',
+                              background: '#0f172a',
                               whiteSpace: 'nowrap',
                             }}
                           >
@@ -4032,13 +4026,13 @@ function RecruiterPerformanceSection({
                       );
                     })}
 
-                    <tr style={{ fontWeight: 700, background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.025)' }}>
+                    <tr style={{ fontWeight: 700, background: 'rgba(255,255,255,0.025)' }}>
                       <td
                         style={{
                           position: 'sticky',
                           left: 0,
                           zIndex: 1,
-                          background: theme === 'light' ? '#f8fafc' : '#162032',
+                          background: '#162032',
                         }}
                       >
                         Subtotal · {group.key}
@@ -4129,13 +4123,13 @@ function RecruiterPerformanceSection({
               })}
 
               {(summaryKpis.unlistedOffered > 0 || summaryKpis.unlistedJoined > 0) && (
-                <tr style={{ fontStyle: 'italic', color: mutedColor, background: theme === 'light' ? '#fffbeb' : 'rgba(234, 179, 8, 0.05)' }}>
+                <tr style={{ fontStyle: 'italic', color: mutedColor, background: 'rgba(234, 179, 8, 0.05)' }}>
                   <td
                     style={{
                       position: 'sticky',
                       left: 0,
                       zIndex: 1,
-                      background: theme === 'light' ? '#fffbeb' : '#171c28',
+                      background: '#171c28',
                       fontWeight: 600,
                     }}
                   >
@@ -4217,13 +4211,13 @@ function RecruiterPerformanceSection({
             </tbody>
 
             <tfoot>
-              <tr style={{ fontWeight: 800, background: theme === 'light' ? '#e2e8f0' : 'rgba(16, 185, 129, 0.12)' }}>
+              <tr style={{ fontWeight: 800, background: 'rgba(16, 185, 129, 0.12)' }}>
                 <td
                   style={{
                     position: 'sticky',
                     left: 0,
                     zIndex: 1,
-                    background: theme === 'light' ? '#e2e8f0' : '#0f292a',
+                    background: '#0f292a',
                   }}
                 >
                   Total (Direct from Master Offered)
@@ -4410,25 +4404,25 @@ function normComplianceFreq(raw) {
   return 'ongoing';
 }
 
-function getComplianceStatusStyle(status, theme) {
+function getComplianceStatusStyle(status) {
   const s = String(status || '').trim().toLowerCase();
   if (s.includes('track') || s.includes('done') || s.includes('complete')) {
     return {
-      color: theme === 'light' ? '#047857' : '#34d399',
-      bg: theme === 'light' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.16)',
+      color: '#34d399',
+      bg: 'rgba(16, 185, 129, 0.16)',
       border: 'rgba(16, 185, 129, 0.4)',
     };
   }
   if (s.includes('partial') || s.includes('progress')) {
     return {
-      color: theme === 'light' ? '#b45309' : '#fbbf24',
-      bg: theme === 'light' ? 'rgba(245, 158, 11, 0.14)' : 'rgba(245, 158, 11, 0.16)',
+      color: '#fbbf24',
+      bg: 'rgba(245, 158, 11, 0.16)',
       border: 'rgba(245, 158, 11, 0.42)',
     };
   }
   return {
-    color: theme === 'light' ? '#b91c1c' : '#f87171',
-    bg: theme === 'light' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.16)',
+    color: '#f87171',
+    bg: 'rgba(239, 68, 68, 0.16)',
     border: 'rgba(239, 68, 68, 0.42)',
   };
 }
@@ -4479,7 +4473,7 @@ function evaluatePeriodLogs(logs, mode, activeDate, activeWeekStart, activeMonth
   };
 }
 
-function ComplianceSection({ compliance = [], theme }) {
+function ComplianceSection({ compliance = [] }) {
   const [freqTab, setFreqTab] = useState('all'); // 'all' | 'daily' | 'weekly' | 'monthly' | 'ongoing'
 
   const todayIso = useMemo(() => {
@@ -4570,21 +4564,21 @@ function ComplianceSection({ compliance = [], theme }) {
     return { done, total: filteredItems.length };
   }, [filteredItems, freqTab, activeDate, activeWeek, activeMonth]);
 
-  const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
-  const subBg = theme === 'light' ? '#f8fafc' : 'rgba(15, 23, 42, 0.55)';
-  const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.1)';
-  const rowBorder = theme === 'light' ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.06)';
-  const textColor = theme === 'light' ? '#0f172a' : '#f1f5f9';
-  const mutedColor = theme === 'light' ? '#64748b' : '#94a3b8';
-  const headerBg = theme === 'light' ? '#f1f5f9' : 'rgba(30, 41, 59, 0.78)';
-  const optionStyle = theme === 'light' ? { background: '#ffffff', color: '#0f172a' } : { background: '#0f172a', color: '#f8fafc' };
+  const cardBg = 'rgba(255, 255, 255, 0.03)';
+  const subBg = 'rgba(15, 23, 42, 0.55)';
+  const borderColor = 'rgba(255, 255, 255, 0.1)';
+  const rowBorder = '1px solid rgba(255, 255, 255, 0.06)';
+  const textColor = '#f1f5f9';
+  const mutedColor = '#94a3b8';
+  const headerBg = 'rgba(30, 41, 59, 0.78)';
+  const optionStyle = { background: '#0f172a', color: '#f8fafc' };
 
   const selectStyle = {
     height: '36px',
     padding: '0 10px',
     borderRadius: '8px',
     border: '1px solid rgba(56, 189, 248, 0.45)',
-    background: theme === 'light' ? '#f8fafc' : 'rgba(255, 255, 255, 0.06)',
+    background: 'rgba(255, 255, 255, 0.06)',
     color: textColor,
     fontSize: '12.5px',
     fontWeight: 700,
@@ -4603,13 +4597,13 @@ function ComplianceSection({ compliance = [], theme }) {
           fontSize: '11.5px',
           fontWeight: 700,
           background: checked
-            ? (theme === 'light' ? 'rgba(16, 185, 129, 0.14)' : 'rgba(16, 185, 129, 0.18)')
-            : (theme === 'light' ? '#f1f5f9' : 'rgba(148, 163, 184, 0.12)'),
+            ? 'rgba(16, 185, 129, 0.18)'
+            : 'rgba(148, 163, 184, 0.12)',
           border: checked
             ? '1px solid rgba(16, 185, 129, 0.5)'
             : `1px solid ${borderColor}`,
           color: checked
-            ? (theme === 'light' ? '#047857' : '#34d399')
+            ? '#34d399'
             : mutedColor,
           whiteSpace: 'nowrap',
         }}
@@ -4770,7 +4764,7 @@ function ComplianceSection({ compliance = [], theme }) {
                     fontSize: '11px',
                     padding: '1px 6px',
                     borderRadius: '999px',
-                    background: isActive ? 'rgba(255,255,255,0.22)' : (theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.08)'),
+                    background: isActive ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.08)',
                     color: isActive ? '#ffffff' : textColor,
                   }}
                 >
@@ -4788,21 +4782,21 @@ function ComplianceSection({ compliance = [], theme }) {
               style={{
                 padding: '4px 10px',
                 borderRadius: '999px',
-                background: theme === 'light' ? 'rgba(14, 165, 233, 0.12)' : 'rgba(56, 189, 248, 0.16)',
+                background: 'rgba(56, 189, 248, 0.16)',
                 border: '1px solid rgba(56, 189, 248, 0.45)',
-                color: theme === 'light' ? '#0369a1' : '#38bdf8',
+                color: '#38bdf8',
               }}
             >
               Ticked: {tickSummary.done}/{tickSummary.total}
             </span>
           )}
-          <span style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.12)', color: theme === 'light' ? '#047857' : '#34d399' }}>
+          <span style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.12)', color: '#34d399' }}>
             On Track: {statusCounts.onTrack}
           </span>
-          <span style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(245, 158, 11, 0.14)', color: theme === 'light' ? '#b45309' : '#fbbf24' }}>
+          <span style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(245, 158, 11, 0.14)', color: '#fbbf24' }}>
             Partial: {statusCounts.partial}
           </span>
-          <span style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(239, 68, 68, 0.12)', color: theme === 'light' ? '#b91c1c' : '#f87171' }}>
+          <span style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(239, 68, 68, 0.12)', color: '#f87171' }}>
             Pending: {statusCounts.pending}
           </span>
         </div>
@@ -4863,7 +4857,7 @@ function ComplianceSection({ compliance = [], theme }) {
               ) : (
                 filteredItems.map((item, idx) => {
                   const fKey = normComplianceFreq(item.frequency);
-                  const stStyle = getComplianceStatusStyle(item.complianceStatus, theme);
+                  const stStyle = getComplianceStatusStyle(item.complianceStatus);
                   const evalMode = freqTab === 'all' ? fKey : freqTab;
                   const periodResult = evalMode !== 'ongoing'
                     ? evaluatePeriodLogs(item.logs, evalMode, activeDate, activeWeek, activeMonth)
@@ -4890,7 +4884,7 @@ function ComplianceSection({ compliance = [], theme }) {
                             href={item.link}
                             target="_blank"
                             rel="noreferrer"
-                            style={{ color: theme === 'light' ? '#0284c7' : '#38bdf8', textDecoration: 'underline' }}
+                            style={{ color: '#38bdf8', textDecoration: 'underline' }}
                           >
                             {item.processArea}
                           </a>
@@ -4909,7 +4903,7 @@ function ComplianceSection({ compliance = [], theme }) {
                               borderRadius: '6px',
                               fontSize: '11.5px',
                               fontWeight: 700,
-                              background: theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.08)',
+                              background: 'rgba(255,255,255,0.08)',
                               color: textColor,
                             }}
                           >
@@ -4974,10 +4968,10 @@ function ComplianceSection({ compliance = [], theme }) {
                                       ? '1px solid rgba(16, 185, 129, 0.45)'
                                       : `1px solid ${borderColor}`,
                                     background: isTicked
-                                      ? (theme === 'light' ? 'rgba(16, 185, 129, 0.14)' : 'rgba(16, 185, 129, 0.18)')
+                                      ? 'rgba(16, 185, 129, 0.18)'
                                       : 'transparent',
                                     color: isTicked
-                                      ? (theme === 'light' ? '#047857' : '#34d399')
+                                      ? '#34d399'
                                       : mutedColor,
                                   }}
                                 >
@@ -5060,30 +5054,30 @@ function getDailyTargetStatus(actual, target) {
   };
 }
 
-function getOfferApprovalPillStyle(status, isLight) {
+function getOfferApprovalPillStyle(status) {
   const s = String(status || '').trim().toLowerCase();
   if (s.includes('approv')) {
     return {
-      color: isLight ? '#047857' : '#34d399',
-      bg: isLight ? 'rgba(16, 185, 129, 0.14)' : 'rgba(16, 185, 129, 0.18)',
+      color: '#34d399',
+      bg: 'rgba(16, 185, 129, 0.18)',
       border: 'rgba(16, 185, 129, 0.45)',
     };
   }
   if (s.includes('reject') || s.includes('hold') || s.includes('decline') || s.includes('drop')) {
     return {
-      color: isLight ? '#b91c1c' : '#f87171',
-      bg: isLight ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.16)',
+      color: '#f87171',
+      bg: 'rgba(239, 68, 68, 0.16)',
       border: 'rgba(239, 68, 68, 0.42)',
     };
   }
   return {
-    color: isLight ? '#b45309' : '#fbbf24',
-    bg: isLight ? 'rgba(245, 158, 11, 0.14)' : 'rgba(245, 158, 11, 0.18)',
+    color: '#fbbf24',
+    bg: 'rgba(245, 158, 11, 0.18)',
     border: 'rgba(245, 158, 11, 0.45)',
   };
 }
 
-function DailyReportSection({ dailyReport, theme }) {
+function DailyReportSection({ dailyReport }) {
   const [subView, setSubView] = useState('snapshot'); // 'snapshot' | 'offers'
   const [offerScope, setOfferScope] = useState('day'); // 'day' | 'month'
   const [offerSearch, setOfferSearch] = useState('');
@@ -5268,15 +5262,14 @@ function DailyReportSection({ dailyReport, theme }) {
     );
   }, [mtdModal, mtdSearch]);
 
-  const isLight = theme === 'light';
-  const cardBg = isLight ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
-  const subCardBg = isLight ? '#f8fafc' : 'rgba(15, 23, 42, 0.55)';
-  const borderColor = isLight ? '#cbd5e1' : 'rgba(255, 255, 255, 0.1)';
-  const rowBorder = isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.06)';
-  const textColor = isLight ? '#0f172a' : '#f1f5f9';
-  const mutedColor = isLight ? '#64748b' : '#94a3b8';
-  const headerBg = isLight ? '#f1f5f9' : 'rgba(30, 41, 59, 0.78)';
-  const optionStyle = isLight ? { background: '#ffffff', color: '#0f172a' } : { background: '#0f172a', color: '#f8fafc' };
+  const cardBg = 'rgba(255, 255, 255, 0.03)';
+  const subCardBg = 'rgba(15, 23, 42, 0.55)';
+  const borderColor = 'rgba(255, 255, 255, 0.1)';
+  const rowBorder = '1px solid rgba(255, 255, 255, 0.06)';
+  const textColor = '#f1f5f9';
+  const mutedColor = '#94a3b8';
+  const headerBg = 'rgba(30, 41, 59, 0.78)';
+  const optionStyle = { background: '#0f172a', color: '#f8fafc' };
 
   const cellPad = screenshotMode ? '4px 8px' : '6px 11px';
   const thPad = screenshotMode ? '6px 8px' : '8px 11px';
@@ -5301,14 +5294,14 @@ function DailyReportSection({ dailyReport, theme }) {
           fontWeight: 800,
           cursor: 'pointer',
           background: isTotal
-            ? (isLight ? 'rgba(16, 185, 129, 0.18)' : 'rgba(16, 185, 129, 0.22)')
-            : (isLight ? 'rgba(14, 165, 233, 0.12)' : 'rgba(56, 189, 248, 0.16)'),
+            ? 'rgba(16, 185, 129, 0.22)'
+            : 'rgba(56, 189, 248, 0.16)',
           border: isTotal
             ? '1px solid rgba(16, 185, 129, 0.55)'
             : '1px solid rgba(56, 189, 248, 0.45)',
           color: isTotal
-            ? (isLight ? '#047857' : '#34d399')
-            : (isLight ? '#0369a1' : '#38bdf8'),
+            ? '#34d399'
+            : '#38bdf8',
           lineHeight: 1.3,
         }}
       >
@@ -5452,7 +5445,7 @@ function DailyReportSection({ dailyReport, theme }) {
               padding: '0 8px',
               borderRadius: '7px',
               border: '1px solid rgba(56, 189, 248, 0.45)',
-              background: isLight ? '#f8fafc' : 'rgba(255, 255, 255, 0.06)',
+              background: 'rgba(255, 255, 255, 0.06)',
               color: 'inherit',
               fontSize: '12px',
               fontWeight: 700,
@@ -5476,7 +5469,7 @@ function DailyReportSection({ dailyReport, theme }) {
               padding: '0 8px',
               borderRadius: '7px',
               border: '1px solid rgba(56, 189, 248, 0.45)',
-              background: isLight ? '#f8fafc' : 'rgba(255, 255, 255, 0.06)',
+              background: 'rgba(255, 255, 255, 0.06)',
               color: 'inherit',
               fontSize: '12px',
               fontWeight: 700,
@@ -5500,9 +5493,9 @@ function DailyReportSection({ dailyReport, theme }) {
               borderRadius: '7px',
               border: screenshotMode ? '1px solid #10b981' : `1px solid ${borderColor}`,
               background: screenshotMode
-                ? (isLight ? 'rgba(16, 185, 129, 0.14)' : 'rgba(16, 185, 129, 0.2)')
+                ? 'rgba(16, 185, 129, 0.2)'
                 : subCardBg,
-              color: screenshotMode ? (isLight ? '#047857' : '#34d399') : textColor,
+              color: screenshotMode ? '#34d399' : textColor,
               fontSize: '12px',
               fontWeight: 700,
               cursor: 'pointer',
@@ -5587,7 +5580,7 @@ function DailyReportSection({ dailyReport, theme }) {
                     fontSize: '11px',
                     fontWeight: 700,
                     background: 'rgba(16, 185, 129, 0.14)',
-                    color: isLight ? '#047857' : '#34d399',
+                    color: '#34d399',
                   }}
                 >
                   Approved: {offerSummary.approved}
@@ -5600,7 +5593,7 @@ function DailyReportSection({ dailyReport, theme }) {
                       fontSize: '11px',
                       fontWeight: 700,
                       background: 'rgba(245, 158, 11, 0.14)',
-                      color: isLight ? '#b45309' : '#fbbf24',
+                      color: '#fbbf24',
                     }}
                   >
                     Pending / Other: {offerSummary.pending}
@@ -5619,7 +5612,7 @@ function DailyReportSection({ dailyReport, theme }) {
                   padding: '0 10px',
                   borderRadius: '7px',
                   border: `1px solid ${borderColor}`,
-                  background: isLight ? '#ffffff' : 'rgba(15, 23, 42, 0.85)',
+                  background: 'rgba(15, 23, 42, 0.85)',
                   color: textColor,
                   fontSize: '12px',
                 }}
@@ -5653,7 +5646,7 @@ function DailyReportSection({ dailyReport, theme }) {
                   </tr>
                 ) : (
                   approvedOfferRows.map((row, idx) => {
-                    const pill = getOfferApprovalPillStyle(row.approvalStatus, isLight);
+                    const pill = getOfferApprovalPillStyle(row.approvalStatus);
                     return (
                       <tr key={`${row.candidateName}-${row.offerSharedDate}-${idx}`}>
                         <td style={{ padding: cellPad, borderBottom: rowBorder }}>{row.businessUnit}</td>
@@ -5711,7 +5704,7 @@ function DailyReportSection({ dailyReport, theme }) {
               }}
             >
               <div style={{ padding: screenshotMode ? '7px 10px' : '9px 13px', borderBottom: `1px solid ${borderColor}`, fontWeight: 700, fontSize: '12.5px' }}>
-                1. Daily Target vs. Actual Summary
+1. Daily Target vs. Actual Summary
               </div>
               <div className="table-scroll" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: tableFont }}>
@@ -5777,7 +5770,7 @@ function DailyReportSection({ dailyReport, theme }) {
               }}
             >
               <div style={{ padding: screenshotMode ? '7px 10px' : '9px 13px', borderBottom: `1px solid ${borderColor}`, fontWeight: 700, fontSize: '12.5px' }}>
-                2. Stage Pipeline &amp; Movement vs. Yesterday
+2. Stage Pipeline &amp; Movement vs. Yesterday
               </div>
               <div className="table-scroll" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: tableFont }}>
@@ -5854,7 +5847,7 @@ function DailyReportSection({ dailyReport, theme }) {
               }}
             >
               <span style={{ fontWeight: 700, fontSize: '12.5px' }}>
-                3. Recruiter Activity &amp; Closures ({formatMonthLabel(activeMonth)} MTD)
+3. Recruiter Activity &amp; Closures ({formatMonthLabel(activeMonth)} MTD)
               </span>
 
               {useTwoColRecruiters && (
@@ -5901,7 +5894,7 @@ function DailyReportSection({ dailyReport, theme }) {
                     </thead>
                     <tbody>
                       {!useTwoColRecruiters && (
-                        <tr style={{ background: isLight ? '#e2e8f0' : 'rgba(56, 189, 248, 0.12)', fontWeight: 800 }}>
+                        <tr style={{ background: 'rgba(56, 189, 248, 0.12)', fontWeight: 800 }}>
                           <td style={{ padding: cellPad, borderBottom: `1px solid ${borderColor}` }}>
                             Total
                           </td>
@@ -5981,7 +5974,7 @@ function DailyReportSection({ dailyReport, theme }) {
               display: 'flex',
               flexDirection: 'column',
               borderRadius: '14px',
-              background: isLight ? '#ffffff' : '#0f172a',
+              background: '#0f172a',
               border: `1px solid ${borderColor}`,
               color: textColor,
               overflow: 'hidden',
@@ -6018,7 +6011,7 @@ function DailyReportSection({ dailyReport, theme }) {
                     padding: '0 10px',
                     borderRadius: '7px',
                     border: `1px solid ${borderColor}`,
-                    background: isLight ? '#ffffff' : 'rgba(15, 23, 42, 0.85)',
+                    background: 'rgba(15, 23, 42, 0.85)',
                     color: textColor,
                     fontSize: '12px',
                   }}
@@ -6154,7 +6147,7 @@ function JobHealthBadge({ health }) {
 
 /* ---------- Expandable Business Unit Jobs Table ---------- */
 
-function BuJobsRow({ buLabel, allJobs, onOpenJobModal, theme }) {
+function BuJobsRow({ buLabel, allJobs, onOpenJobModal }) {
   const buJobs = useMemo(() => {
     return (allJobs || []).filter((j) => j.businessUnit === buLabel).sort((a, b) => norm(a.department).localeCompare(norm(b.department)));
   }, [buLabel, allJobs]);
@@ -6208,7 +6201,7 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal, theme }) {
 
                 const repRowStyle = isReplacementRole
                   ? {
-                      background: theme === 'light' ? 'rgba(254, 243, 199, 0.85)' : 'rgba(245, 158, 11, 0.16)',
+                      background: 'rgba(245, 158, 11, 0.16)',
                       boxShadow: 'inset 4px 0 0 #f59e0b',
                     }
                   : undefined;
@@ -6231,7 +6224,7 @@ function BuJobsRow({ buLabel, allJobs, onOpenJobModal, theme }) {
                             fontWeight: 700,
                             background: 'rgba(245, 158, 11, 0.25)',
                             border: '1px solid rgba(245, 158, 11, 0.6)',
-                            color: theme === 'light' ? '#b45309' : '#fde68a',
+                            color: '#fde68a',
                             verticalAlign: 'middle',
                           }}
                         >
@@ -6450,28 +6443,6 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const [showPendingHealthModal, setShowPendingHealthModal] = useState(false);
   const [showCvLess5Modal, setShowCvLess5Modal] = useState(false);
   const [mainSectionTab, setMainSectionTab] = useState('reports');
-  
-  const [theme, setTheme] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('ta_dashboard_theme') || 'dark';
-    }
-    return 'dark';
-  });
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('ta_dashboard_theme', theme);
-      if (theme === 'light') {
-        document.documentElement.classList.add('light-theme');
-      } else {
-        document.documentElement.classList.remove('light-theme');
-      }
-    }
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
-  };
   const lastStamp = useRef('');
 
   const openJobModal = useCallback((job, metricType) => {
@@ -6626,8 +6597,8 @@ export default function Dashboard({ unitKey = 'overall' }) {
         ...(mu.checks || []),
         ...(tetr.checks || []),
       ],
-compliance: (mu.compliance && mu.compliance.length > 0) ? mu.compliance : (tetr.compliance || []), 
-dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE HERE
+      compliance: (mu.compliance && mu.compliance.length > 0) ? mu.compliance : (tetr.compliance || []),
+      dailyReport: mu.dailyReport || tetr.dailyReport || null,
     };
   }, [datasets, activeUnit]);
 
@@ -6677,7 +6648,7 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
   return (
     <AccessGate>
       {({ currentUser, onSignOut }) => (
-        <div className={`page ${theme === 'light' ? 'light-mode-forced' : ''}`} style={theme === 'light' ? { background: '#f8fafc', color: '#0f172a' } : {}}>
+        <div className="page">
           <style jsx global>{`
             .wrap, .top-inner {
               max-width: 1460px !important;
@@ -6710,48 +6681,6 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
             .table-scroll::-webkit-scrollbar-thumb:hover {
               background: rgba(148, 163, 184, 0.7);
             }
-            .page.light-mode-forced {
-              background-color: #f1f5f9 !important;
-              color: #0f172a !important;
-            }
-            .page.light-mode-forced .top {
-              background: #ffffff !important;
-              border-bottom: 1px solid #cbd5e1 !important;
-            }
-            .page.light-mode-forced h1, .page.light-mode-forced h2, .page.light-mode-forced h3 {
-              color: #0f172a !important;
-            }
-            .page.light-mode-forced .kpis > div, 
-            .page.light-mode-forced .panel, 
-            .page.light-mode-forced .figs > div {
-              background: #ffffff !important;
-              border: 1px solid #cbd5e1 !important;
-              color: #1e293b !important;
-            }
-            .page.light-mode-forced table.bu-table, 
-            .page.light-mode-forced table.jobs {
-              background: #ffffff !important;
-              color: #1e293b !important;
-            }
-            .page.light-mode-forced table.bu-table th, 
-            .page.light-mode-forced table.jobs th {
-              background: #e2e8f0 !important;
-              color: #0f172a !important;
-            }
-            .page.light-mode-forced table.bu-table td, 
-            .page.light-mode-forced table.jobs td {
-              border-bottom: 1px solid #e2e8f0 !important;
-              color: #334155 !important;
-            }
-            .page.light-mode-forced .chip {
-              background: #ffffff !important;
-              border: 1px solid #cbd5e1 !important;
-              color: #334155 !important;
-            }
-            .page.light-mode-forced .chip.on {
-              background: #059669 !important;
-              color: #ffffff !important;
-            }
           `}</style>
 
           <header className="top">
@@ -6762,27 +6691,6 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
               </div>
               <div className="actions" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 {data && <span className="stamp">Data as of {updated} IST</span>}
-                
-                <button
-                  type="button"
-                  onClick={toggleTheme}
-                  title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    background: theme === 'dark' ? 'rgba(255,255,255,0.08)' : '#e2e8f0',
-                    color: theme === 'dark' ? '#fde047' : '#0f172a',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                  }}
-                >
-                  {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
-                </button>
 
                 <button type="button" className="refresh" onClick={() => load(true)} disabled={refreshing}>
                   <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" className={refreshing ? 'spin' : ''}>
@@ -6849,8 +6757,8 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
                           padding: '14px 18px',
                           borderRadius: '10px',
                           border: isSelected ? '2px solid #eab308' : '1px solid rgba(255, 255, 255, 0.14)',
-                          background: isSelected ? '#059669' : (theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.05)'),
-                          color: isSelected ? '#ffffff' : (theme === 'light' ? '#0f172a' : '#e2e8f0'),
+                          background: isSelected ? '#059669' : 'rgba(255, 255, 255, 0.05)',
+                          color: isSelected ? '#ffffff' : '#e2e8f0',
                           fontWeight: 600,
                           fontSize: '15px',
                           cursor: 'pointer',
@@ -6865,8 +6773,8 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
                             fontWeight: 600,
                             padding: '3px 10px',
                             borderRadius: '999px',
-                            background: isSelected ? 'rgba(0, 0, 0, 0.25)' : (theme === 'light' ? '#e2e8f0' : 'rgba(255, 255, 255, 0.1)'),
-                            color: isSelected ? '#ffffff' : (theme === 'light' ? '#334155' : '#cbd5e1'),
+                            background: isSelected ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.1)',
+                            color: isSelected ? '#ffffff' : '#cbd5e1',
                           }}
                         >
                           {fmt(slicerCounts[u.key])} open roles
@@ -7056,7 +6964,7 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
                                   <td className="n">{fmt(b.manpower.pending)}</td>
                                 </tr>
                                 {bu === b.label && (
-                                  <BuJobsRow buLabel={b.label} allJobs={datasets.mu.jobs} onOpenJobModal={openJobModal} theme={theme} />
+                                  <BuJobsRow buLabel={b.label} allJobs={datasets.mu.jobs} onOpenJobModal={openJobModal} />
                                 )}
                               </Fragment>
                             ))}
@@ -7065,21 +6973,21 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
                                 className="bu-subtotal-row mu-subtotal"
                                 style={{
                                   fontWeight: 700,
-                                  background: theme === 'light' ? 'rgba(16, 185, 129, 0.14)' : 'rgba(16, 185, 129, 0.18)',
+                                  background: 'rgba(16, 185, 129, 0.18)',
                                   boxShadow: 'inset 4px 0 0 #10b981',
                                   borderTop: '1px solid rgba(16, 185, 129, 0.4)',
                                   borderBottom: '2px solid rgba(16, 185, 129, 0.45)',
                                 }}
                               >
-                                <td style={{ color: theme === 'light' ? '#047857' : '#34d399', fontWeight: 800, letterSpacing: '0.02em' }}>
+                                <td style={{ color: '#34d399', fontWeight: 800, letterSpacing: '0.02em' }}>
                                   Subtotal · Masters’ Union
                                 </td>
-                                <td className="n" style={{ color: theme === 'light' ? '#065f46' : '#ecfdf5', fontWeight: 800 }}>{fmt(muTotals.openRoles)}</td>
-                                <td className="n" style={{ color: theme === 'light' ? '#065f46' : '#ecfdf5', fontWeight: 800 }}>{fmt(muTotals.total)}</td>
-                                <td className="n" style={{ color: theme === 'light' ? '#065f46' : '#ecfdf5', fontWeight: 800 }}>{fmt(muTotals.yetToOffer)}</td>
-                                <td className="n" style={{ color: theme === 'light' ? '#065f46' : '#ecfdf5', fontWeight: 800 }}>{fmt(muTotals.offered)}</td>
-                                <td className="n" style={{ color: theme === 'light' ? '#065f46' : '#ecfdf5', fontWeight: 800 }}>{fmt(muTotals.joined)}</td>
-                                <td className="n" style={{ color: theme === 'light' ? '#047857' : '#34d399', fontWeight: 800 }}>{fmt(muTotals.pending)}</td>
+                                <td className="n" style={{ color: '#ecfdf5', fontWeight: 800 }}>{fmt(muTotals.openRoles)}</td>
+                                <td className="n" style={{ color: '#ecfdf5', fontWeight: 800 }}>{fmt(muTotals.total)}</td>
+                                <td className="n" style={{ color: '#ecfdf5', fontWeight: 800 }}>{fmt(muTotals.yetToOffer)}</td>
+                                <td className="n" style={{ color: '#ecfdf5', fontWeight: 800 }}>{fmt(muTotals.offered)}</td>
+                                <td className="n" style={{ color: '#ecfdf5', fontWeight: 800 }}>{fmt(muTotals.joined)}</td>
+                                <td className="n" style={{ color: '#34d399', fontWeight: 800 }}>{fmt(muTotals.pending)}</td>
                               </tr>
                             )}
                             {datasets.tetr.businessUnits.map((b) => (
@@ -7098,7 +7006,7 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
                                   <td className="n">{fmt(b.manpower.pending)}</td>
                                 </tr>
                                 {bu === b.label && (
-                                  <BuJobsRow buLabel={b.label} allJobs={datasets.tetr.jobs} onOpenJobModal={openJobModal} theme={theme} />
+                                  <BuJobsRow buLabel={b.label} allJobs={datasets.tetr.jobs} onOpenJobModal={openJobModal} />
                                 )}
                               </Fragment>
                             ))}
@@ -7107,21 +7015,21 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
                                 className="bu-subtotal-row tetr-subtotal"
                                 style={{
                                   fontWeight: 700,
-                                  background: theme === 'light' ? 'rgba(56, 189, 248, 0.14)' : 'rgba(56, 189, 248, 0.18)',
+                                  background: 'rgba(56, 189, 248, 0.18)',
                                   boxShadow: 'inset 4px 0 0 #38bdf8',
                                   borderTop: '1px solid rgba(56, 189, 248, 0.4)',
                                   borderBottom: '2px solid rgba(56, 189, 248, 0.45)',
                                 }}
                               >
-                                <td style={{ color: theme === 'light' ? '#0369a1' : '#38bdf8', fontWeight: 800, letterSpacing: '0.02em' }}>
+                                <td style={{ color: '#38bdf8', fontWeight: 800, letterSpacing: '0.02em' }}>
                                   Subtotal · TETR
                                 </td>
-                                <td className="n" style={{ color: theme === 'light' ? '#0c4a6e' : '#f0f9ff', fontWeight: 800 }}>{fmt(tetrTotals.openRoles)}</td>
-                                <td className="n" style={{ color: theme === 'light' ? '#0c4a6e' : '#f0f9ff', fontWeight: 800 }}>{fmt(tetrTotals.total)}</td>
-                                <td className="n" style={{ color: theme === 'light' ? '#0c4a6e' : '#f0f9ff', fontWeight: 800 }}>{fmt(tetrTotals.yetToOffer)}</td>
-                                <td className="n" style={{ color: theme === 'light' ? '#0c4a6e' : '#f0f9ff', fontWeight: 800 }}>{fmt(tetrTotals.offered)}</td>
-                                <td className="n" style={{ color: theme === 'light' ? '#0c4a6e' : '#f0f9ff', fontWeight: 800 }}>{fmt(tetrTotals.joined)}</td>
-                                <td className="n" style={{ color: theme === 'light' ? '#0369a1' : '#38bdf8', fontWeight: 800 }}>{fmt(tetrTotals.pending)}</td>
+                                <td className="n" style={{ color: '#f0f9ff', fontWeight: 800 }}>{fmt(tetrTotals.openRoles)}</td>
+                                <td className="n" style={{ color: '#f0f9ff', fontWeight: 800 }}>{fmt(tetrTotals.total)}</td>
+                                <td className="n" style={{ color: '#f0f9ff', fontWeight: 800 }}>{fmt(tetrTotals.yetToOffer)}</td>
+                                <td className="n" style={{ color: '#f0f9ff', fontWeight: 800 }}>{fmt(tetrTotals.offered)}</td>
+                                <td className="n" style={{ color: '#f0f9ff', fontWeight: 800 }}>{fmt(tetrTotals.joined)}</td>
+                                <td className="n" style={{ color: '#38bdf8', fontWeight: 800 }}>{fmt(tetrTotals.pending)}</td>
                               </tr>
                             )}
                           </>
@@ -7142,7 +7050,7 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
                                 <td className="n">{fmt(b.manpower.pending)}</td>
                               </tr>
                               {bu === b.label && (
-                                <BuJobsRow buLabel={b.label} allJobs={data.jobs} onOpenJobModal={openJobModal} theme={theme} />
+                                <BuJobsRow buLabel={b.label} allJobs={data.jobs} onOpenJobModal={openJobModal} />
                               )}
                             </Fragment>
                           ))
@@ -7163,7 +7071,7 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
                   </div>
                 </section>
 
-{/* Reports vs Compliance Switcher */}
+                {/* Reports vs Compliance Switcher */}
                 <div
                   role="tablist"
                   aria-label="Dashboard View Switcher"
@@ -7176,8 +7084,8 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
                     marginBottom: '6px',
                     padding: '6px',
                     borderRadius: '12px',
-                    background: theme === 'light' ? '#e2e8f0' : 'rgba(255, 255, 255, 0.04)',
-                    border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.12)',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
                     width: 'fit-content',
                   }}
                 >
@@ -7202,7 +7110,7 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
                           borderRadius: '9px',
                           border: isActive ? '1.5px solid #eab308' : '1.5px solid transparent',
                           background: isActive ? '#059669' : 'transparent',
-                          color: isActive ? '#ffffff' : theme === 'light' ? '#334155' : '#cbd5e1',
+                          color: isActive ? '#ffffff' : '#cbd5e1',
                           fontWeight: 700,
                           fontSize: '14.5px',
                           cursor: 'pointer',
@@ -7219,10 +7127,8 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
                             borderRadius: '999px',
                             background: isActive
                               ? 'rgba(0, 0, 0, 0.25)'
-                              : theme === 'light'
-                              ? '#cbd5e1'
                               : 'rgba(255, 255, 255, 0.08)',
-                            color: isActive ? '#fde047' : theme === 'light' ? '#1e293b' : '#94a3b8',
+                            color: isActive ? '#fde047' : '#94a3b8',
                           }}
                         >
                           {tab.badge}
@@ -7237,14 +7143,12 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
                     <MomLineChart
                       series={data.momSeries || []}
                       selectedBu={bu}
-                      theme={theme}
                       onSelectPoint={openMomModal}
                     />
 
                     <RecruitmentFunnelAndBifurcationSection
                       funnelAnalytics={data.funnelAnalytics}
                       selectedBu={bu}
-                      theme={theme}
                     />
 
                     <CostAndRoiAnalyticsSection
@@ -7256,7 +7160,6 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
                       }
                       unitKey={activeUnit}
                       selectedBu={bu}
-                      theme={theme}
                     />
 
                     <ChannelAnalysisSection
@@ -7271,27 +7174,23 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
                       channelMomSeries={data.channelMomSeries || []}
                       channelMomByBu={data.channelMomByBu || {}}
                       selectedBu={bu}
-                      theme={theme}
                     />
 
-                     <RecruiterPerformanceSection
+                    <RecruiterPerformanceSection
                       recruiterPerformance={data.recruiterPerformance}
                       recruiterPerformanceByBu={data.recruiterPerformanceByBu}
                       momSeries={data.momSeries || []}
                       selectedBu={bu}
-                      theme={theme}
                       onOpenCandidateModal={setModalData}
                     />
                   </>
                 ) : mainSectionTab === 'compliance' ? (
                   <ComplianceSection
                     compliance={data.compliance || []}
-                    theme={theme}
                   />
                 ) : (
                   <DailyReportSection
                     dailyReport={data.dailyReport}
-                    theme={theme}
                   />
                 )}
 
@@ -7317,7 +7216,6 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
             kpi={kpi}
             selectedBu={bu}
             unitTitle={currentMeta.title}
-            theme={theme}
           />
 
           <PendingPositionsModal
@@ -7328,7 +7226,6 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
             kpi={kpi}
             selectedBu={bu}
             unitTitle={currentMeta.title}
-            theme={theme}
           />
 
           <CvLess5Modal
@@ -7337,7 +7234,6 @@ dailyReport: mu.dailyReport || tetr.dailyReport || null, // <-- PASTE THIS LINE 
             jobs={cvLess5Jobs}
             selectedBu={bu}
             unitTitle={currentMeta.title}
-            theme={theme}
           />
 
           {modalData && (
