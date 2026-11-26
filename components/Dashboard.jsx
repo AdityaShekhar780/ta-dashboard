@@ -4352,63 +4352,273 @@ function getComplianceBadgeMeta(rawStatus) {
   };
 }
 
-function ComplianceSection({ compliance = [], theme }) {
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'compliant' | 'partial' | 'pending'
-  const [freqFilter, setFreqFilter] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
+/* ---------- Compliance & SLA Tracker Section ---------- */
 
-  const items = useMemo(() => {
-    const sourceList = Array.isArray(compliance) && compliance.length > 0 ? compliance : DEFAULT_COMPLIANCE_ITEMS;
-    return sourceList.map((item, idx) => ({
-      ...item,
-      id: idx + 1,
-      frequency: item.frequency || 'Ongoing',
-      lastUpdated: item.lastUpdated || '—',
-      remarks: item.remarks || item.status || '—',
-      meta: getComplianceBadgeMeta(item.complianceStatus || item.status),
-    }));
+const COMP_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const COMP_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function formatCompDateWithDay(isoDate) {
+  if (!isoDate || isoDate.length < 10) return isoDate || '—';
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return `${String(d).padStart(2, '0')} ${COMP_MONTHS[m - 1]}, ${COMP_DAYS[dt.getUTCDay()]}`;
+}
+
+function formatCompDateShort(isoDate) {
+  if (!isoDate || isoDate.length < 10) return isoDate || '—';
+  const [, m, d] = isoDate.split('-').map(Number);
+  return `${String(d).padStart(2, '0')} ${COMP_MONTHS[m - 1]}`;
+}
+
+function formatCompMonthLabel(ym) {
+  if (!ym || ym.length < 7) return ym || '—';
+  const [yr, mo] = ym.split('-');
+  return `${COMP_MONTHS[Math.max(0, Math.min(11, Number(mo) - 1))]}-${yr.slice(-2)}`;
+}
+
+function getCompWeekStart(isoDate) {
+  if (!isoDate || isoDate.length < 10) return '';
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  const day = dt.getUTCDay();
+  const diffToMon = day === 0 ? -6 : 1 - day;
+  dt.setUTCDate(dt.getUTCDate() + diffToMon);
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+}
+
+function getCompWeekEnd(weekStartIso) {
+  if (!weekStartIso || weekStartIso.length < 10) return '';
+  const [y, m, d] = weekStartIso.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + 6);
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+}
+
+function formatCompWeekLabel(weekStartIso) {
+  if (!weekStartIso) return '—';
+  const weekEndIso = getCompWeekEnd(weekStartIso);
+  return `${formatCompDateShort(weekStartIso)} – ${formatCompDateShort(weekEndIso)}`;
+}
+
+function normComplianceFreq(raw) {
+  const f = String(raw || '').trim().toLowerCase();
+  if (f === 'daily') return 'daily';
+  if (f === 'weekly') return 'weekly';
+  if (f === 'monthly') return 'monthly';
+  return 'ongoing';
+}
+
+function getComplianceStatusStyle(status, theme) {
+  const s = String(status || '').trim().toLowerCase();
+  if (s.includes('track') || s.includes('done') || s.includes('complete')) {
+    return {
+      color: theme === 'light' ? '#047857' : '#34d399',
+      bg: theme === 'light' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.16)',
+      border: 'rgba(16, 185, 129, 0.4)',
+    };
+  }
+  if (s.includes('partial') || s.includes('progress')) {
+    return {
+      color: theme === 'light' ? '#b45309' : '#fbbf24',
+      bg: theme === 'light' ? 'rgba(245, 158, 11, 0.14)' : 'rgba(245, 158, 11, 0.16)',
+      border: 'rgba(245, 158, 11, 0.42)',
+    };
+  }
+  return {
+    color: theme === 'light' ? '#b91c1c' : '#f87171',
+    bg: theme === 'light' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.16)',
+    border: 'rgba(239, 68, 68, 0.42)',
+  };
+}
+
+function evaluatePeriodLogs(logs, mode, activeDate, activeWeekStart, activeMonth) {
+  const safeLogs = logs && typeof logs === 'object' ? logs : {};
+  const allKeys = Object.keys(safeLogs).sort();
+
+  if (mode === 'daily') {
+    const entry = safeLogs[activeDate];
+    const checked = Boolean(entry?.checked);
+    const remark = entry?.remark || '';
+    return {
+      checked,
+      doneDates: checked ? [formatCompDateShort(activeDate)] : [],
+      scheduledDates: entry ? [formatCompDateShort(activeDate)] : [],
+      remark: remark || '—',
+    };
+  }
+
+  let matchedKeys = [];
+  if (mode === 'weekly' && activeWeekStart) {
+    const weekEnd = getCompWeekEnd(activeWeekStart);
+    matchedKeys = allKeys.filter((k) => k >= activeWeekStart && k <= weekEnd);
+  } else if (mode === 'monthly' && activeMonth) {
+    matchedKeys = allKeys.filter((k) => k.startsWith(activeMonth));
+  }
+
+  const checkedKeys = matchedKeys.filter((k) => Boolean(safeLogs[k]?.checked));
+  const remarkEntries = matchedKeys
+    .filter((k) => Boolean(safeLogs[k]?.remark))
+    .map((k) => ({ date: k, remark: safeLogs[k].remark }));
+
+  let remarkText = '—';
+  if (remarkEntries.length === 1) {
+    remarkText = remarkEntries[0].remark;
+  } else if (remarkEntries.length > 1) {
+    remarkText = remarkEntries
+      .map((r) => `${formatCompDateShort(r.date)}: ${r.remark}`)
+      .join(' | ');
+  }
+
+  return {
+    checked: checkedKeys.length > 0,
+    doneDates: checkedKeys.map(formatCompDateShort),
+    scheduledDates: matchedKeys.map(formatCompDateShort),
+    remark: remarkText,
+  };
+}
+
+function ComplianceSection({ compliance = [], theme }) {
+  const [freqTab, setFreqTab] = useState('all'); // 'all' | 'daily' | 'weekly' | 'monthly' | 'ongoing'
+
+  const todayIso = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }, []);
+
+  // Collect every unique date key from the compliance grid
+  const availableDatesAsc = useMemo(() => {
+    const set = new Set();
+    (compliance || []).forEach((item) => {
+      Object.keys(item.logs || {}).forEach((k) => set.add(k));
+    });
+    return Array.from(set).sort();
   }, [compliance]);
 
-  const frequencies = useMemo(() => {
-    return Array.from(new Set(items.map((it) => it.frequency).filter(Boolean)));
-  }, [items]);
+  const availableDatesDesc = useMemo(() => [...availableDatesAsc].reverse(), [availableDatesAsc]);
 
-  const counts = useMemo(() => {
-    let compliant = 0;
-    let partial = 0;
-    let pending = 0;
-    items.forEach((it) => {
-      if (it.meta.key === 'compliant') compliant++;
-      else if (it.meta.key === 'partial') partial++;
-      else pending++;
+  // Default to today if present, else latest date <= today, else first available
+  const defaultDate = useMemo(() => {
+    if (availableDatesAsc.length === 0) return todayIso;
+    if (availableDatesAsc.includes(todayIso)) return todayIso;
+    const pastOrToday = availableDatesAsc.filter((d) => d <= todayIso);
+    return pastOrToday.length > 0 ? pastOrToday[pastOrToday.length - 1] : availableDatesAsc[0];
+  }, [availableDatesAsc, todayIso]);
+
+  const availableWeeks = useMemo(() => {
+    const set = new Set(availableDatesAsc.map(getCompWeekStart).filter(Boolean));
+    return Array.from(set).sort().reverse();
+  }, [availableDatesAsc]);
+
+  const availableMonths = useMemo(() => {
+    const set = new Set(availableDatesAsc.map((d) => d.slice(0, 7)).filter(Boolean));
+    return Array.from(set).sort().reverse();
+  }, [availableDatesAsc]);
+
+  const [selectedDate, setSelectedDate] = useState(defaultDate);
+  const [selectedWeek, setSelectedWeek] = useState(() => getCompWeekStart(defaultDate));
+  const [selectedMonth, setSelectedMonth] = useState(() => (defaultDate ? defaultDate.slice(0, 7) : ''));
+
+  const activeDate = availableDatesDesc.includes(selectedDate) ? selectedDate : defaultDate;
+  const activeWeek = availableWeeks.includes(selectedWeek) ? selectedWeek : (availableWeeks[0] || getCompWeekStart(defaultDate));
+  const activeMonth = availableMonths.includes(selectedMonth) ? selectedMonth : (availableMonths[0] || defaultDate.slice(0, 7));
+
+  // Recent dates for the Daily tick strip (up to 7 dates centered/ending near activeDate)
+  const dailyStripDates = useMemo(() => {
+    if (availableDatesAsc.length <= 7) return availableDatesAsc;
+    const idx = availableDatesAsc.indexOf(activeDate);
+    const end = idx === -1 ? availableDatesAsc.length : Math.min(availableDatesAsc.length, Math.max(7, idx + 2));
+    return availableDatesAsc.slice(Math.max(0, end - 7), end);
+  }, [availableDatesAsc, activeDate]);
+
+  const countsByFreq = useMemo(() => {
+    const counts = { all: compliance.length, daily: 0, weekly: 0, monthly: 0, ongoing: 0 };
+    compliance.forEach((c) => {
+      counts[normComplianceFreq(c.frequency)]++;
     });
-    const total = items.length;
-    const scorePct = total > 0 ? Math.round(((compliant + partial * 0.5) / total) * 100) : 0;
-    return { total, compliant, partial, pending, scorePct };
-  }, [items]);
+    return counts;
+  }, [compliance]);
 
   const filteredItems = useMemo(() => {
-    const q = norm(searchQuery);
-    return items.filter((it) => {
-      if (statusFilter !== 'all' && it.meta.key !== statusFilter) return false;
-      if (freqFilter !== 'all' && norm(it.frequency) !== norm(freqFilter)) return false;
-      if (!q) return true;
-      return (
-        norm(it.processArea).includes(q) ||
-        norm(it.remarks).includes(q) ||
-        norm(it.frequency).includes(q) ||
-        norm(it.lastUpdated).includes(q)
-      );
+    if (freqTab === 'all') return compliance;
+    return compliance.filter((c) => normComplianceFreq(c.frequency) === freqTab);
+  }, [compliance, freqTab]);
+
+  // Compliance Status summary (Col C only — independent of checkboxes)
+  const statusCounts = useMemo(() => {
+    let onTrack = 0;
+    let partial = 0;
+    let pending = 0;
+    filteredItems.forEach((item) => {
+      const s = String(item.complianceStatus || '').toLowerCase();
+      if (s.includes('track')) onTrack++;
+      else if (s.includes('partial')) partial++;
+      else pending++;
     });
-  }, [items, statusFilter, freqFilter, searchQuery]);
+    return { total: filteredItems.length, onTrack, partial, pending };
+  }, [filteredItems]);
+
+  // Checkbox completion count for Daily / Weekly / Monthly sub-tabs
+  const tickSummary = useMemo(() => {
+    if (freqTab !== 'daily' && freqTab !== 'weekly' && freqTab !== 'monthly') return null;
+    let done = 0;
+    filteredItems.forEach((item) => {
+      const res = evaluatePeriodLogs(item.logs, freqTab, activeDate, activeWeek, activeMonth);
+      if (res.checked) done++;
+    });
+    return { done, total: filteredItems.length };
+  }, [filteredItems, freqTab, activeDate, activeWeek, activeMonth]);
 
   const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
-  const subCardBg = theme === 'light' ? '#f8fafc' : 'rgba(15, 23, 42, 0.55)';
+  const subBg = theme === 'light' ? '#f8fafc' : 'rgba(15, 23, 42, 0.55)';
   const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.1)';
   const rowBorder = theme === 'light' ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.06)';
   const textColor = theme === 'light' ? '#0f172a' : '#f1f5f9';
   const mutedColor = theme === 'light' ? '#64748b' : '#94a3b8';
-  const headerBg = theme === 'light' ? '#f1f5f9' : 'rgba(30, 41, 59, 0.75)';
+  const headerBg = theme === 'light' ? '#f1f5f9' : 'rgba(30, 41, 59, 0.78)';
+  const optionStyle = theme === 'light' ? { background: '#ffffff', color: '#0f172a' } : { background: '#0f172a', color: '#f8fafc' };
+
+  const selectStyle = {
+    height: '36px',
+    padding: '0 10px',
+    borderRadius: '8px',
+    border: '1px solid rgba(56, 189, 248, 0.45)',
+    background: theme === 'light' ? '#f8fafc' : 'rgba(255, 255, 255, 0.06)',
+    color: textColor,
+    fontSize: '12.5px',
+    fontWeight: 700,
+    cursor: 'pointer',
+  };
+
+  const renderCheckPill = (checked, subText) => (
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '5px',
+          padding: '3px 10px',
+          borderRadius: '999px',
+          fontSize: '11.5px',
+          fontWeight: 700,
+          background: checked
+            ? (theme === 'light' ? 'rgba(16, 185, 129, 0.14)' : 'rgba(16, 185, 129, 0.18)')
+            : (theme === 'light' ? '#f1f5f9' : 'rgba(148, 163, 184, 0.12)'),
+          border: checked
+            ? '1px solid rgba(16, 185, 129, 0.5)'
+            : `1px solid ${borderColor}`,
+          color: checked
+            ? (theme === 'light' ? '#047857' : '#34d399')
+            : mutedColor,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {checked ? '✓ Done' : '☐ Pending'}
+      </span>
+      {subText ? (
+        <span style={{ fontSize: '11px', color: mutedColor, whiteSpace: 'nowrap' }}>{subText}</span>
+      ) : null}
+    </div>
+  );
 
   return (
     <section
@@ -4424,283 +4634,366 @@ function ComplianceSection({ compliance = [], theme }) {
         width: '100%',
       }}
     >
+      {/* Header & Period Selectors */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: '16px',
+          marginBottom: '16px',
+        }}
+      >
+        <div>
+          <p className="kicker" style={{ marginBottom: '3px' }}>
+            TA Governance &amp; Cadence Tracker
+          </p>
+          <h2 style={{ margin: 0, fontSize: '21px', letterSpacing: '-0.02em' }}>
+            Process Compliance &amp; SLA Tracker
+          </h2>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
+            Compliance Status (Col C) is tracked independently from Daily / Weekly / Monthly tick check-ins.
+          </p>
+        </div>
+
+        {/* Dynamic Period Controls */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
+          {(freqTab === 'daily' || freqTab === 'all') && availableDatesDesc.length > 0 && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: mutedColor }}>
+              Daily Date
+              <select
+                value={activeDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                style={selectStyle}
+              >
+                {availableDatesDesc.map((d) => (
+                  <option key={d} value={d} style={optionStyle}>
+                    {formatCompDateWithDay(d)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {(freqTab === 'weekly' || freqTab === 'all') && availableWeeks.length > 0 && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: mutedColor }}>
+              Week
+              <select
+                value={activeWeek}
+                onChange={(e) => setSelectedWeek(e.target.value)}
+                style={selectStyle}
+              >
+                {availableWeeks.map((w) => (
+                  <option key={w} value={w} style={optionStyle}>
+                    {formatCompWeekLabel(w)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {(freqTab === 'monthly' || freqTab === 'all') && availableMonths.length > 0 && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: mutedColor }}>
+              Month
+              <select
+                value={activeMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                style={selectStyle}
+              >
+                {availableMonths.map((m) => (
+                  <option key={m} value={m} style={optionStyle}>
+                    {formatCompMonthLabel(m)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+      </div>
+
+      {/* Frequency Sub-Tabs + Status Pills */}
       <div
         style={{
           display: 'flex',
           flexWrap: 'wrap',
           justifyContent: 'space-between',
           alignItems: 'center',
-          gap: '16px',
-          marginBottom: '20px',
-        }}
-      >
-        <div>
-          <p className="kicker" style={{ marginBottom: '3px' }}>
-            TA Governance, Cadence &amp; Process Hygiene
-          </p>
-          <h2 style={{ margin: 0, fontSize: '21px', letterSpacing: '-0.02em' }}>
-            TA Process Compliance Tracker
-          </h2>
-          <p className="muted" style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
-            Synced with the <b>Compliance</b> sheet tab · Click any KPI card to filter workflows
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
-          <select
-            value={freqFilter}
-            onChange={(e) => setFreqFilter(e.target.value)}
-            aria-label="Filter by Frequency"
-            style={{
-              height: '38px',
-              padding: '0 12px',
-              borderRadius: '8px',
-              border: '1px solid rgba(56, 189, 248, 0.45)',
-              background: theme === 'light' ? '#f8fafc' : 'rgba(255, 255, 255, 0.06)',
-              color: 'inherit',
-              fontSize: '12.5px',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            <option value="all" style={{ background: '#0f172a', color: '#fff' }}>
-              Frequency: All Cadences
-            </option>
-            {frequencies.map((f) => (
-              <option key={f} value={f} style={{ background: '#0f172a', color: '#fff' }}>
-                Frequency: {f}
-              </option>
-            ))}
-          </select>
-
-          <input
-            type="search"
-            placeholder="Search process or remarks…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              height: '38px',
-              minWidth: '230px',
-              padding: '0 13px',
-              borderRadius: '8px',
-              border: `1px solid ${borderColor}`,
-              background: theme === 'light' ? '#f8fafc' : 'rgba(0, 0, 0, 0.28)',
-              color: 'inherit',
-              fontSize: '13px',
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Top 4 KPI Summary Cards */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-          gap: '14px',
+          gap: '12px',
           marginBottom: '18px',
         }}
       >
         <div
-          onClick={() => setStatusFilter('all')}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && setStatusFilter('all')}
           style={{
-            padding: '15px 18px',
-            borderRadius: '12px',
-            background: subCardBg,
-            border: statusFilter === 'all' ? '1.5px solid #38bdf8' : `1px solid ${borderColor}`,
-            cursor: 'pointer',
+            display: 'inline-flex',
+            flexWrap: 'wrap',
+            gap: '4px',
+            padding: '4px',
+            borderRadius: '10px',
+            background: subBg,
+            border: `1px solid ${borderColor}`,
           }}
         >
-          <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', color: mutedColor }}>
-            Total Processes Tracked
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '6px' }}>
-            <strong style={{ fontSize: '28px', color: '#38bdf8' }}>{counts.total}</strong>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: '#10b981' }}>
-              {counts.scorePct}% Health Score
+          {[
+            { key: 'all', label: 'All' },
+            { key: 'daily', label: 'Daily' },
+            { key: 'weekly', label: 'Weekly' },
+            { key: 'monthly', label: 'Monthly' },
+            { key: 'ongoing', label: 'Ongoing' },
+          ].map((tab) => {
+            const isActive = freqTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setFreqTab(tab.key)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '7px 13px',
+                  borderRadius: '7px',
+                  border: 'none',
+                  background: isActive ? '#059669' : 'transparent',
+                  color: isActive ? '#ffffff' : mutedColor,
+                  fontWeight: 700,
+                  fontSize: '12.5px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span>{tab.label}</span>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    padding: '1px 6px',
+                    borderRadius: '999px',
+                    background: isActive ? 'rgba(255,255,255,0.22)' : (theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.08)'),
+                    color: isActive ? '#ffffff' : textColor,
+                  }}
+                >
+                  {countsByFreq[tab.key]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Summary Badges */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 700 }}>
+          {tickSummary && (
+            <span
+              style={{
+                padding: '4px 10px',
+                borderRadius: '999px',
+                background: theme === 'light' ? 'rgba(14, 165, 233, 0.12)' : 'rgba(56, 189, 248, 0.16)',
+                border: '1px solid rgba(56, 189, 248, 0.45)',
+                color: theme === 'light' ? '#0369a1' : '#38bdf8',
+              }}
+            >
+              Ticked: {tickSummary.done}/{tickSummary.total}
             </span>
-          </div>
-        </div>
-
-        <div
-          onClick={() => setStatusFilter(statusFilter === 'compliant' ? 'all' : 'compliant')}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && setStatusFilter(statusFilter === 'compliant' ? 'all' : 'compliant')}
-          style={{
-            padding: '15px 18px',
-            borderRadius: '12px',
-            background: subCardBg,
-            border: statusFilter === 'compliant' ? '1.5px solid #10b981' : '1px solid rgba(16, 185, 129, 0.35)',
-            cursor: 'pointer',
-          }}
-        >
-          <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', color: '#10b981' }}>
-            On Track
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '6px' }}>
-            <strong style={{ fontSize: '28px', color: '#10b981' }}>{counts.compliant}</strong>
-            <span style={{ fontSize: '12px', color: mutedColor }}>
-              {counts.total > 0 ? Math.round((counts.compliant / counts.total) * 100) : 0}% of total
-            </span>
-          </div>
-        </div>
-
-        <div
-          onClick={() => setStatusFilter(statusFilter === 'partial' ? 'all' : 'partial')}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && setStatusFilter(statusFilter === 'partial' ? 'all' : 'partial')}
-          style={{
-            padding: '15px 18px',
-            borderRadius: '12px',
-            background: subCardBg,
-            border: statusFilter === 'partial' ? '1.5px solid #eab308' : '1px solid rgba(234, 179, 8, 0.35)',
-            cursor: 'pointer',
-          }}
-        >
-          <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', color: '#eab308' }}>
-            Partial / In Progress
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '6px' }}>
-            <strong style={{ fontSize: '28px', color: '#eab308' }}>{counts.partial}</strong>
-            <span style={{ fontSize: '12px', color: mutedColor }}>Active pilots &amp; partial</span>
-          </div>
-        </div>
-
-        <div
-          onClick={() => setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending')}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending')}
-          style={{
-            padding: '15px 18px',
-            borderRadius: '12px',
-            background: subCardBg,
-            border: statusFilter === 'pending' ? '1.5px solid #f87171' : '1px solid rgba(239, 68, 68, 0.35)',
-            cursor: 'pointer',
-          }}
-        >
-          <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', color: '#f87171' }}>
-            Pending
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '6px' }}>
-            <strong style={{ fontSize: '28px', color: '#f87171' }}>{counts.pending}</strong>
-            <span style={{ fontSize: '12px', color: mutedColor }}>Requires closure</span>
-          </div>
+          )}
+          <span style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.12)', color: theme === 'light' ? '#047857' : '#34d399' }}>
+            On Track: {statusCounts.onTrack}
+          </span>
+          <span style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(245, 158, 11, 0.14)', color: theme === 'light' ? '#b45309' : '#fbbf24' }}>
+            Partial: {statusCounts.partial}
+          </span>
+          <span style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(239, 68, 68, 0.12)', color: theme === 'light' ? '#b91c1c' : '#f87171' }}>
+            Pending: {statusCounts.pending}
+          </span>
         </div>
       </div>
 
-      {/* Compliance Table */}
+      {/* Main Compliance Table */}
       <div
         style={{
           borderRadius: '12px',
-          background: subCardBg,
+          background: subBg,
           border: `1px solid ${borderColor}`,
           overflow: 'hidden',
         }}
       >
-        <div className="table-scroll" style={{ width: '100%', overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: '860px', borderCollapse: 'collapse', fontSize: '13px' }}>
+        <div className="table-scroll" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: '780px', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
               <tr style={{ background: headerBg }}>
-                <th style={{ width: '44px', textAlign: 'center', padding: '11px 10px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
-                  #
-                </th>
-                <th style={{ width: '25%', textAlign: 'left', padding: '11px 14px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                <th style={{ textAlign: 'left', padding: '11px 16px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
                   Process Area
                 </th>
-                <th style={{ width: '11%', textAlign: 'left', padding: '11px 14px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
-                  Frequency
-                </th>
-                <th style={{ width: '14%', textAlign: 'left', padding: '11px 14px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                {freqTab === 'all' && (
+                  <th style={{ textAlign: 'center', padding: '11px 12px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                    Frequency
+                  </th>
+                )}
+                <th style={{ textAlign: 'center', padding: '11px 12px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
                   Compliance Status
                 </th>
-                <th style={{ width: '12%', textAlign: 'left', padding: '11px 14px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
-                  Last Updated
+                <th style={{ textAlign: 'center', padding: '11px 12px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                  {freqTab === 'daily'
+                    ? `Check (${formatCompDateShort(activeDate)})`
+                    : freqTab === 'weekly'
+                    ? `Weekly Tick (${formatCompWeekLabel(activeWeek)})`
+                    : freqTab === 'monthly'
+                    ? `Monthly Tick (${formatCompMonthLabel(activeMonth)})`
+                    : freqTab === 'ongoing'
+                    ? 'Last Updated'
+                    : 'Period Tick / Last Updated'}
                 </th>
+                {freqTab === 'daily' && dailyStripDates.length > 0 && (
+                  <th style={{ textAlign: 'center', padding: '11px 12px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                    Daily Log Strip
+                  </th>
+                )}
                 <th style={{ textAlign: 'left', padding: '11px 16px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
-                  Remarks / Update
+                  Remarks / Updates
                 </th>
               </tr>
             </thead>
             <tbody>
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '26px', color: mutedColor }}>
-                    No compliance items match your current filter.
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: mutedColor }}>
+                    No compliance rows found for this frequency. Run <b>TA Dashboard &gt; Publish now</b> in Google Sheets to sync.
                   </td>
                 </tr>
               ) : (
-                filteredItems.map((it) => (
-                  <tr key={`${it.id}-${it.processArea}`}>
-                    <td style={{ textAlign: 'center', padding: '11px 10px', borderBottom: rowBorder, color: mutedColor, fontWeight: 600 }}>
-                      {it.id}
-                    </td>
-                    <td
-                      style={{
-                        padding: '11px 14px',
-                        borderBottom: rowBorder,
-                        fontWeight: 700,
-                        boxShadow: `inset 3px 0 0 ${it.meta.color}`,
-                      }}
-                    >
-                      {it.link ? (
-                        <a
-                          href={it.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ color: '#38bdf8', textDecoration: 'underline', textUnderlineOffset: '3px' }}
-                        >
-                          {it.processArea} ↗
-                        </a>
-                      ) : (
-                        it.processArea
+                filteredItems.map((item, idx) => {
+                  const fKey = normComplianceFreq(item.frequency);
+                  const stStyle = getComplianceStatusStyle(item.complianceStatus, theme);
+                  const evalMode = freqTab === 'all' ? fKey : freqTab;
+                  const periodResult = evalMode !== 'ongoing'
+                    ? evaluatePeriodLogs(item.logs, evalMode, activeDate, activeWeek, activeMonth)
+                    : null;
+
+                  const subLabel =
+                    evalMode === 'weekly' || evalMode === 'monthly'
+                      ? periodResult.checked
+                        ? periodResult.doneDates.join(', ')
+                        : periodResult.scheduledDates.length > 0
+                        ? `Due ${periodResult.scheduledDates.join(', ')}`
+                        : ''
+                      : '';
+
+                  const displayRemarks =
+                    evalMode === 'ongoing' ? (item.remarks || '—') : (periodResult?.remark || '—');
+
+                  return (
+                    <tr key={`${item.processArea}-${idx}`}>
+                      {/* Process Area (with clickable link if present) */}
+                      <td style={{ padding: '11px 16px', borderBottom: rowBorder, fontWeight: 600 }}>
+                        {item.link ? (
+                          <a
+                            href={item.link}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ color: theme === 'light' ? '#0284c7' : '#38bdf8', textDecoration: 'underline' }}
+                          >
+                            {item.processArea}
+                          </a>
+                        ) : (
+                          item.processArea
+                        )}
+                      </td>
+
+                      {/* Frequency Pill (All tab only) */}
+                      {freqTab === 'all' && (
+                        <td style={{ textAlign: 'center', padding: '11px 12px', borderBottom: rowBorder }}>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '3px 9px',
+                              borderRadius: '6px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              background: theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.08)',
+                              color: textColor,
+                            }}
+                          >
+                            {item.frequency}
+                          </span>
+                        </td>
                       )}
-                    </td>
-                    <td style={{ padding: '11px 14px', borderBottom: rowBorder, whiteSpace: 'nowrap' }}>
-                      <span
-                        style={{
-                          display: 'inline-block',
-                          padding: '2px 9px',
-                          borderRadius: '6px',
-                          fontSize: '11.5px',
-                          fontWeight: 600,
-                          background: 'rgba(56, 189, 248, 0.12)',
-                          border: '1px solid rgba(56, 189, 248, 0.35)',
-                          color: '#38bdf8',
-                        }}
-                      >
-                        {it.frequency}
-                      </span>
-                    </td>
-                    <td style={{ padding: '11px 14px', borderBottom: rowBorder, whiteSpace: 'nowrap' }}>
-                      <span
-                        style={{
-                          display: 'inline-block',
-                          padding: '3px 10px',
-                          borderRadius: '999px',
-                          fontSize: '11.5px',
-                          fontWeight: 700,
-                          background: it.meta.bg,
-                          border: `1px solid ${it.meta.border}`,
-                          color: it.meta.color,
-                        }}
-                      >
-                        {it.meta.label}
-                      </span>
-                    </td>
-                    <td className="mono" style={{ padding: '11px 14px', borderBottom: rowBorder, whiteSpace: 'nowrap', fontSize: '12px', color: mutedColor }}>
-                      {it.lastUpdated}
-                    </td>
-                    <td style={{ padding: '11px 16px', borderBottom: rowBorder, lineHeight: 1.45, whiteSpace: 'pre-line' }}>
-                      {it.remarks}
-                    </td>
-                  </tr>
-                ))
+
+                      {/* Compliance Status (Col C — Independent) */}
+                      <td style={{ textAlign: 'center', padding: '11px 12px', borderBottom: rowBorder }}>
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            padding: '3px 10px',
+                            borderRadius: '999px',
+                            fontSize: '11.5px',
+                            fontWeight: 700,
+                            background: stStyle.bg,
+                            border: `1px solid ${stStyle.border}`,
+                            color: stStyle.color,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {item.complianceStatus}
+                        </span>
+                      </td>
+
+                      {/* Period Tick or Last Updated (Col D for Ongoing) */}
+                      <td style={{ textAlign: 'center', padding: '11px 12px', borderBottom: rowBorder }}>
+                        {evalMode === 'ongoing' ? (
+                          <span className="mono" style={{ fontSize: '12.5px', color: mutedColor, whiteSpace: 'nowrap' }}>
+                            {item.lastUpdated || '—'}
+                          </span>
+                        ) : (
+                          renderCheckPill(periodResult.checked, subLabel)
+                        )}
+                      </td>
+
+                      {/* Clickable Daily Strip (Daily tab only) */}
+                      {freqTab === 'daily' && dailyStripDates.length > 0 && (
+                        <td style={{ textAlign: 'center', padding: '10px 12px', borderBottom: rowBorder }}>
+                          <div style={{ display: 'inline-flex', gap: '5px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                            {dailyStripDates.map((dIso) => {
+                              const dEntry = item.logs?.[dIso];
+                              const isTicked = Boolean(dEntry?.checked);
+                              const isSelected = dIso === activeDate;
+                              return (
+                                <button
+                                  key={dIso}
+                                  type="button"
+                                  title={`${formatCompDateWithDay(dIso)}: ${isTicked ? 'Done' : 'Pending'}${dEntry?.remark ? ` — ${dEntry.remark}` : ''}`}
+                                  onClick={() => setSelectedDate(dIso)}
+                                  style={{
+                                    padding: '3px 7px',
+                                    borderRadius: '6px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    border: isSelected
+                                      ? '1.5px solid #38bdf8'
+                                      : isTicked
+                                      ? '1px solid rgba(16, 185, 129, 0.45)'
+                                      : `1px solid ${borderColor}`,
+                                    background: isTicked
+                                      ? (theme === 'light' ? 'rgba(16, 185, 129, 0.14)' : 'rgba(16, 185, 129, 0.18)')
+                                      : 'transparent',
+                                    color: isTicked
+                                      ? (theme === 'light' ? '#047857' : '#34d399')
+                                      : mutedColor,
+                                  }}
+                                >
+                                  {formatCompDateShort(dIso)} {isTicked ? '✓' : '☐'}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </td>
+                      )}
+
+                      {/* Remarks */}
+                      <td style={{ padding: '11px 16px', borderBottom: rowBorder, color: displayRemarks === '—' ? mutedColor : textColor, lineHeight: 1.45 }}>
+                        {displayRemarks}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -4709,7 +5002,6 @@ function ComplianceSection({ compliance = [], theme }) {
     </section>
   );
 }
-
 /* ---------- Daily Recruitment Snapshot Section ---------- */
 
 const MONTH_SHORT_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
