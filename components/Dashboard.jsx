@@ -6650,6 +6650,44 @@ export default function Dashboard({ unitKey = 'overall' }) {
       {({ currentUser, onSignOut }) => (
         <div className="page">
           <style jsx global>{`
+            :root {
+              color-scheme: dark;
+            }
+            html, body, .page {
+              background-color: #0b1120 !important;
+              color: #f8fafc !important;
+            }
+            .kpis > div,
+            .panel,
+            .figs > div {
+              background-color: #111827 !important;
+              border-color: rgba(255, 255, 255, 0.12) !important;
+              color: #f8fafc !important;
+            }
+            .kpis > div.hl {
+              background-color: rgba(234, 179, 8, 0.14) !important;
+              border-color: rgba(234, 179, 8, 0.4) !important;
+            }
+            .chip {
+              background-color: rgba(255, 255, 255, 0.06) !important;
+              border-color: rgba(255, 255, 255, 0.16) !important;
+              color: #e2e8f0 !important;
+            }
+            .chip.on {
+              background-color: #059669 !important;
+              border-color: #10b981 !important;
+              color: #ffffff !important;
+            }
+            table.bu-table,
+            table.jobs {
+              background-color: #0f172a !important;
+              color: #f8fafc !important;
+            }
+            table.bu-table td,
+            table.jobs td {
+              border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+              color: #e2e8f0 !important;
+            }
             .wrap, .top-inner {
               max-width: 1460px !important;
               padding-left: 28px !important;
