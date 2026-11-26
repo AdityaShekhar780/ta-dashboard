@@ -6719,7 +6719,16 @@ export default function Dashboard({ unitKey = 'overall' }) {
             .table-scroll::-webkit-scrollbar-thumb:hover {
               background: rgba(148, 163, 184, 0.7);
             }
-          `}</style>
+     .table-scroll {
+              background: transparent !important;
+              border-color: rgba(255, 255, 255, 0.1) !important;
+            }
+            table,
+            table.sleek-funnel-table,
+            svg {
+              background: transparent !important;
+            }     
+`}</style>
 
           <header className="top">
             <div className="top-inner">
