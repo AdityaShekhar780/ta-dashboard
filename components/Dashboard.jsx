@@ -6737,6 +6737,21 @@ export default function Dashboard({ unitKey = 'overall' }) {
             svg {
               background: transparent !important;
             }     
+table.bu-table,
+            table.bu-table tr,
+            table.bu-table th,
+            table.bu-table td,
+            table.jobs,
+            table.jobs tr,
+            table.jobs th,
+            table.jobs td {
+              border-color: rgba(255, 255, 255, 0.08) !important;
+            }
+            table.bu-table button.link {
+              color: #e2e8f0 !important;
+              border-bottom-color: rgba(255, 255, 255, 0.25) !important;
+              text-decoration-color: rgba(255, 255, 255, 0.25) !important;
+            }
 `}</style>
 
           <header className="top">
