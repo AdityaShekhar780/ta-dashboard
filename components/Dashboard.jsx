@@ -5417,7 +5417,7 @@ function DailyReportSection({ dailyReport, theme }) {
                   cursor: 'pointer',
                 }}
               >
-                <span>Offer Approved Today</span>
+                <span>Offer Released Today</span>
                 {dayOffersCount > 0 && (
                   <span
                     style={{
