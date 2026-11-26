@@ -6657,16 +6657,25 @@ export default function Dashboard({ unitKey = 'overall' }) {
               background-color: #0b1120 !important;
               color: #f8fafc !important;
             }
-            .kpis > div,
+.kpis > div,
             .panel,
             .figs > div {
               background-color: #111827 !important;
               border-color: rgba(255, 255, 255, 0.12) !important;
               color: #f8fafc !important;
             }
+.kpis {
+              background: #111827 !important;
+              border-color: rgba(255, 255, 255, 0.12) !important;
+            }
             .kpis > div.hl {
-              background-color: rgba(234, 179, 8, 0.14) !important;
+              background: rgba(234, 179, 8, 0.14) !important;
+              background-image: none !important;
               border-color: rgba(234, 179, 8, 0.4) !important;
+              color: #f8fafc !important;
+            }
+            .kpis > div.hl span {
+              color: #cbd5e1 !important;
             }
             .chip {
               background-color: rgba(255, 255, 255, 0.06) !important;
