@@ -5013,6 +5013,13 @@ function formatMonthLabel(ym) {
   return `${MONTH_SHORT_NAMES[mIdx]}-${yr.slice(-2)}`;
 }
 
+function formatReadableIsoDate(isoDate) {
+  if (!isoDate || isoDate.length < 10) return isoDate || '—';
+  const [y, m, d] = isoDate.split('-');
+  const mIdx = Math.max(0, Math.min(11, Number(m) - 1));
+  return `${Number(d)} ${MONTH_SHORT_NAMES[mIdx]} ${y}`;
+}
+
 function getPreviousIsoDate(isoDate) {
   if (!isoDate || isoDate.length < 10) return '';
   const [y, m, d] = isoDate.split('-').map(Number);
@@ -5052,6 +5059,9 @@ function getDailyTargetStatus(actual, target) {
 
 function DailyReportSection({ dailyReport, theme }) {
   const [subView, setSubView] = useState('snapshot'); // 'snapshot' | 'offers'
+  const [screenshotMode, setScreenshotMode] = useState(false);
+  const [mtdModal, setMtdModal] = useState(null); // { title, subtitle, candidates }
+  const [mtdSearch, setMtdSearch] = useState('');
 
   const allDates = useMemo(() => {
     const list = Array.isArray(dailyReport?.availableDates) ? dailyReport.availableDates : [];
@@ -5075,7 +5085,6 @@ function DailyReportSection({ dailyReport, theme }) {
   const datesInActiveMonth = useMemo(() => {
     const matching = allDates.filter((d) => d.startsWith(activeMonth));
     if (matching.length > 0) return matching;
-    // Generate all days of activeMonth if only partial dates exist
     if (!activeMonth) return allDates;
     const [y, m] = activeMonth.split('-').map(Number);
     const daysInMonth = new Date(y, m, 0).getDate();
@@ -5092,6 +5101,10 @@ function DailyReportSection({ dailyReport, theme }) {
   const todayStats = dailyReport?.byDate?.[activeDate] || {};
   const yesterdayStats = dailyReport?.byDate?.[yesterdayDate] || {};
   const monthStats = dailyReport?.byMonth?.[activeMonth] || {};
+  const monthJoinedCandidates = useMemo(
+    () => (Array.isArray(monthStats.joinedCandidates) ? monthStats.joinedCandidates : []),
+    [monthStats]
+  );
 
   // Table 1: Daily Target vs. Actual Summary
   const targetRows = useMemo(() => {
@@ -5126,7 +5139,6 @@ function DailyReportSection({ dailyReport, theme }) {
   }, [todayStats, yesterdayStats]);
 
   // Table 3: Recruiter Activity & MTD Closures
-  // Table 3: Recruiter Activity & MTD Closures
   const recruiterTable = useMemo(() => {
     const baseRecruiters = Array.isArray(dailyReport?.recruiters) ? dailyReport.recruiters : [];
     const cvsMap = todayStats.recruiterCvsShared || {};
@@ -5137,6 +5149,7 @@ function DailyReportSection({ dailyReport, theme }) {
       const k = r.key || norm(r.name).replace(/\s*\([^)]*\)\s*$/g, '').replace(/\./g, ' ').replace(/\s+/g, ' ').trim();
       return {
         name: r.name,
+        key: k,
         positionsAssigned: Number(r.positionsAssigned || 0),
         cvsShared: Number(cvsMap[k] || 0),
         interviewsScheduled: Number(intMap[k] || 0),
@@ -5168,20 +5181,98 @@ function DailyReportSection({ dailyReport, theme }) {
     return { rows, totals };
   }, [dailyReport, todayStats, monthStats, activeMonth]);
 
-  const cardBg = theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
-  const subCardBg = theme === 'light' ? '#f8fafc' : 'rgba(15, 23, 42, 0.55)';
-  const borderColor = theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.1)';
-  const rowBorder = theme === 'light' ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.06)';
-  const textColor = theme === 'light' ? '#0f172a' : '#f1f5f9';
-  const mutedColor = theme === 'light' ? '#64748b' : '#94a3b8';
-  const headerBg = theme === 'light' ? '#f1f5f9' : 'rgba(30, 41, 59, 0.78)';
+  const openMtdCandidatesModal = (recruiterRow) => {
+    setMtdSearch('');
+    if (!recruiterRow) {
+      setMtdModal({
+        title: `Closures (MTD) — All Recruiters (${formatMonthLabel(activeMonth)})`,
+        subtitle: `${recruiterTable.totals.closuresMtd} total joinings in ${formatMonthLabel(activeMonth)}`,
+        candidates: monthJoinedCandidates,
+      });
+      return;
+    }
+    const matching = monthJoinedCandidates.filter((c) => c.recruiterKey === recruiterRow.key);
+    setMtdModal({
+      title: `Closures (MTD) — ${recruiterRow.name}`,
+      subtitle: `${recruiterRow.closuresMtd} joining${recruiterRow.closuresMtd === 1 ? '' : 's'} in ${formatMonthLabel(activeMonth)}`,
+      candidates: matching,
+    });
+  };
+
+  const filteredModalCandidates = useMemo(() => {
+    if (!mtdModal) return [];
+    const q = mtdSearch.trim().toLowerCase();
+    const list = mtdModal.candidates || [];
+    if (!q) return list;
+    return list.filter((c) =>
+      [c.name, c.role, c.businessUnit, c.department, c.recruiter, c.channel, c.source, c.joiningDate]
+        .some((v) => String(v || '').toLowerCase().includes(q))
+    );
+  }, [mtdModal, mtdSearch]);
+
+  const isLight = theme === 'light';
+  const cardBg = isLight ? '#ffffff' : 'rgba(255, 255, 255, 0.03)';
+  const subCardBg = isLight ? '#f8fafc' : 'rgba(15, 23, 42, 0.55)';
+  const borderColor = isLight ? '#cbd5e1' : 'rgba(255, 255, 255, 0.1)';
+  const rowBorder = isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.06)';
+  const textColor = isLight ? '#0f172a' : '#f1f5f9';
+  const mutedColor = isLight ? '#64748b' : '#94a3b8';
+  const headerBg = isLight ? '#f1f5f9' : 'rgba(30, 41, 59, 0.78)';
+  const optionStyle = isLight ? { background: '#ffffff', color: '#0f172a' } : { background: '#0f172a', color: '#f8fafc' };
+
+  const cellPad = screenshotMode ? '4px 8px' : '6px 11px';
+  const thPad = screenshotMode ? '6px 8px' : '8px 11px';
+  const tableFont = screenshotMode ? '11.5px' : '12.5px';
+
+  const renderMtdPill = (count, onClick, isTotal = false) => {
+    if (!count || count <= 0) {
+      return <span className="mono" style={{ color: mutedColor, fontWeight: 600 }}>0</span>;
+    }
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        title="Click to view joined candidate details"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          padding: screenshotMode ? '1px 8px' : '2px 10px',
+          borderRadius: '999px',
+          fontSize: screenshotMode ? '11px' : '12px',
+          fontWeight: 800,
+          cursor: 'pointer',
+          background: isTotal
+            ? (isLight ? 'rgba(16, 185, 129, 0.18)' : 'rgba(16, 185, 129, 0.22)')
+            : (isLight ? 'rgba(14, 165, 233, 0.12)' : 'rgba(56, 189, 248, 0.16)'),
+          border: isTotal
+            ? '1px solid rgba(16, 185, 129, 0.55)'
+            : '1px solid rgba(56, 189, 248, 0.45)',
+          color: isTotal
+            ? (isLight ? '#047857' : '#34d399')
+            : (isLight ? '#0369a1' : '#38bdf8'),
+          lineHeight: 1.3,
+        }}
+      >
+        <span className="mono">{count}</span>
+        {!screenshotMode && <span style={{ fontSize: '10px', opacity: 0.85 }}>↗</span>}
+      </button>
+    );
+  };
+
+  // Split recruiter rows into two side-by-side columns in Screenshot Mode
+  const useTwoColRecruiters = screenshotMode && recruiterTable.rows.length > 6;
+  const splitIdx = Math.ceil(recruiterTable.rows.length / 2);
+  const recruiterHalves = useTwoColRecruiters
+    ? [recruiterTable.rows.slice(0, splitIdx), recruiterTable.rows.slice(splitIdx)]
+    : [recruiterTable.rows];
 
   return (
     <section
       className="panel"
       style={{
-        marginTop: '20px',
-        padding: '22px',
+        marginTop: screenshotMode ? '10px' : '16px',
+        padding: screenshotMode ? '12px 14px' : '16px 18px',
         borderRadius: '14px',
         background: cardBg,
         border: `1px solid ${borderColor}`,
@@ -5190,188 +5281,203 @@ function DailyReportSection({ dailyReport, theme }) {
         width: '100%',
       }}
     >
-      {/* Top Header & Month/Date Controls */}
+      {/* Compact Single-Row Header & Controls */}
       <div
         style={{
           display: 'flex',
           flexWrap: 'wrap',
           justifyContent: 'space-between',
           alignItems: 'center',
-          gap: '16px',
-          marginBottom: '18px',
+          gap: '10px',
+          marginBottom: screenshotMode ? '10px' : '14px',
         }}
       >
-        <div>
-          <p className="kicker" style={{ marginBottom: '3px' }}>
-            Daily TA Operations &amp; Recruiter Pulse
-          </p>
-          <h2 style={{ margin: 0, fontSize: '21px', letterSpacing: '-0.02em' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '10px' }}>
+          <h2 style={{ margin: 0, fontSize: screenshotMode ? '17px' : '19px', letterSpacing: '-0.02em' }}>
             Daily Recruitment Snapshot
           </h2>
-          <p className="muted" style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
-            Snapshot Date: <b>{activeDate || '—'}</b> · Comparing movement against <b>{yesterdayDate || '—'}</b> · MTD Window: <b>{formatMonthLabel(activeMonth)}</b>
-          </p>
+          <span className="muted" style={{ fontSize: '12px' }}>
+            <b>{formatReadableIsoDate(activeDate)}</b> · vs {formatReadableIsoDate(yesterdayDate)} · MTD: <b>{formatMonthLabel(activeMonth)}</b>
+          </span>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
-          {/* Month Dropdown */}
-          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: mutedColor }}>
-            Month
-            <select
-              value={activeMonth}
-              onChange={(e) => {
-                const nextMonth = e.target.value;
-                setSelectedMonth(nextMonth);
-                const firstInMonth = allDates.find((d) => d.startsWith(nextMonth));
-                if (firstInMonth) setSelectedDate(firstInMonth);
-              }}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+          {/* Inline Sub-View Pills (hidden in Screenshot Mode for a clean capture) */}
+          {!screenshotMode && (
+            <div
               style={{
-                height: '38px',
-                padding: '0 12px',
+                display: 'inline-flex',
+                gap: '3px',
+                padding: '3px',
                 borderRadius: '8px',
-                border: '1px solid rgba(56, 189, 248, 0.45)',
-                background: theme === 'light' ? '#f8fafc' : 'rgba(255, 255, 255, 0.06)',
-                color: 'inherit',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
+                background: subCardBg,
+                border: `1px solid ${borderColor}`,
               }}
             >
-              {availableMonths.map((m) => (
-                <option key={m} value={m} style={{ background: '#0f172a', color: '#fff' }}>
-                  {formatMonthLabel(m)}
-                </option>
-              ))}
-            </select>
-          </label>
+              <button
+                type="button"
+                onClick={() => setSubView('snapshot')}
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: subView === 'snapshot' ? '#38bdf8' : 'transparent',
+                  color: subView === 'snapshot' ? '#0f172a' : mutedColor,
+                  fontWeight: 700,
+                  fontSize: '11.5px',
+                  cursor: 'pointer',
+                }}
+              >
+                Snapshot
+              </button>
+              <button
+                type="button"
+                onClick={() => setSubView('offers')}
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: subView === 'offers' ? '#38bdf8' : 'transparent',
+                  color: subView === 'offers' ? '#0f172a' : mutedColor,
+                  fontWeight: 700,
+                  fontSize: '11.5px',
+                  cursor: 'pointer',
+                }}
+              >
+                Offers (Next)
+              </button>
+            </div>
+          )}
+
+          {/* Month Dropdown */}
+          <select
+            aria-label="Month"
+            value={activeMonth}
+            onChange={(e) => {
+              const nextMonth = e.target.value;
+              setSelectedMonth(nextMonth);
+              const firstInMonth = allDates.find((d) => d.startsWith(nextMonth));
+              if (firstInMonth) setSelectedDate(firstInMonth);
+            }}
+            style={{
+              height: '32px',
+              padding: '0 8px',
+              borderRadius: '7px',
+              border: '1px solid rgba(56, 189, 248, 0.45)',
+              background: isLight ? '#f8fafc' : 'rgba(255, 255, 255, 0.06)',
+              color: 'inherit',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            {availableMonths.map((m) => (
+              <option key={m} value={m} style={optionStyle}>
+                {formatMonthLabel(m)}
+              </option>
+            ))}
+          </select>
 
           {/* Date Dropdown */}
-          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: mutedColor }}>
-            Date
-            <select
-              value={activeDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              style={{
-                height: '38px',
-                padding: '0 12px',
-                borderRadius: '8px',
-                border: '1px solid rgba(56, 189, 248, 0.45)',
-                background: theme === 'light' ? '#f8fafc' : 'rgba(255, 255, 255, 0.06)',
-                color: 'inherit',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              {datesInActiveMonth.map((d) => (
-                <option key={d} value={d} style={{ background: '#0f172a', color: '#fff' }}>
-                  {Number(d.slice(-2))} ({d})
-                </option>
-              ))}
-            </select>
-          </label>
+          <select
+            aria-label="Date"
+            value={activeDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            style={{
+              height: '32px',
+              padding: '0 8px',
+              borderRadius: '7px',
+              border: '1px solid rgba(56, 189, 248, 0.45)',
+              background: isLight ? '#f8fafc' : 'rgba(255, 255, 255, 0.06)',
+              color: 'inherit',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            {datesInActiveMonth.map((d) => (
+              <option key={d} value={d} style={optionStyle}>
+                {Number(d.slice(-2))} ({d})
+              </option>
+            ))}
+          </select>
+
+          {/* Screenshot / Compact View Toggle */}
+          <button
+            type="button"
+            onClick={() => setScreenshotMode((v) => !v)}
+            style={{
+              height: '32px',
+              padding: '0 10px',
+              borderRadius: '7px',
+              border: screenshotMode ? '1px solid #10b981' : `1px solid ${borderColor}`,
+              background: screenshotMode
+                ? (isLight ? 'rgba(16, 185, 129, 0.14)' : 'rgba(16, 185, 129, 0.2)')
+                : subCardBg,
+              color: screenshotMode ? (isLight ? '#047857' : '#34d399') : textColor,
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            {screenshotMode ? '✓ Screenshot View' : 'Screenshot View'}
+          </button>
         </div>
       </div>
 
-      {/* Sub-view Switcher (View 1 Active; View 2 Ready for Next Step) */}
-      <div
-        style={{
-          display: 'inline-flex',
-          gap: '4px',
-          padding: '4px',
-          borderRadius: '10px',
-          background: subCardBg,
-          border: `1px solid ${borderColor}`,
-          marginBottom: '20px',
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => setSubView('snapshot')}
-          style={{
-            padding: '7px 14px',
-            borderRadius: '7px',
-            border: 'none',
-            background: subView === 'snapshot' ? '#38bdf8' : 'transparent',
-            color: subView === 'snapshot' ? '#0f172a' : mutedColor,
-            fontWeight: 700,
-            fontSize: '12.5px',
-            cursor: 'pointer',
-          }}
-        >
-          1. Daily Recruitment Snapshot
-        </button>
-        <button
-          type="button"
-          onClick={() => setSubView('offers')}
-          style={{
-            padding: '7px 14px',
-            borderRadius: '7px',
-            border: 'none',
-            background: subView === 'offers' ? '#38bdf8' : 'transparent',
-            color: subView === 'offers' ? '#0f172a' : mutedColor,
-            fontWeight: 700,
-            fontSize: '12.5px',
-            cursor: 'pointer',
-          }}
-        >
-          2. Offer Released Today (Next)
-        </button>
-      </div>
-
-      {subView === 'offers' ? (
+      {subView === 'offers' && !screenshotMode ? (
         <div
           style={{
-            padding: '32px 20px',
-            borderRadius: '12px',
+            padding: '28px 20px',
+            borderRadius: '10px',
             background: subCardBg,
             border: `1px dashed ${borderColor}`,
             textAlign: 'center',
             color: mutedColor,
           }}
         >
-          <strong style={{ display: 'block', fontSize: '15px', color: textColor, marginBottom: '6px' }}>
+          <strong style={{ display: 'block', fontSize: '14px', color: textColor, marginBottom: '4px' }}>
             Offer Released Today — Coming Next
           </strong>
           Share the column mappings for the 13 offer columns whenever you are ready to wire up View 2.
         </div>
       ) : (
         <>
-          {/* Top 2-Column Grid: Table 1 (Target vs Actual) + Table 2 (Stage Pipeline & Movement) */}
+          {/* Top 2-Column Grid: Table 1 (Target vs Actual) + Table 2 (Stage Pipeline) */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-              gap: '18px',
-              marginBottom: '20px',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+              gap: screenshotMode ? '10px' : '14px',
+              marginBottom: screenshotMode ? '10px' : '14px',
             }}
           >
             {/* Table 1: Daily Target vs. Actual */}
             <div
               style={{
-                borderRadius: '12px',
+                borderRadius: '10px',
                 background: subCardBg,
                 border: `1px solid ${borderColor}`,
                 overflow: 'hidden',
               }}
             >
-              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${borderColor}`, fontWeight: 700, fontSize: '13.5px' }}>
+              <div style={{ padding: screenshotMode ? '7px 10px' : '9px 13px', borderBottom: `1px solid ${borderColor}`, fontWeight: 700, fontSize: '12.5px' }}>
                 1. Daily Target vs. Actual Summary
               </div>
               <div className="table-scroll" style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: tableFont }}>
                   <thead>
                     <tr style={{ background: headerBg }}>
-                      <th style={{ textAlign: 'left', padding: '10px 14px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                      <th style={{ textAlign: 'left', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
                         Metric
                       </th>
-                      <th style={{ textAlign: 'center', padding: '10px 12px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                      <th style={{ textAlign: 'center', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
                         Target
                       </th>
-                      <th style={{ textAlign: 'center', padding: '10px 12px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                      <th style={{ textAlign: 'center', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
                         Actual
                       </th>
-                      <th style={{ textAlign: 'center', padding: '10px 14px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                      <th style={{ textAlign: 'center', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
                         Status
                       </th>
                     </tr>
@@ -5379,26 +5485,27 @@ function DailyReportSection({ dailyReport, theme }) {
                   <tbody>
                     {targetRows.map((row) => (
                       <tr key={row.metric}>
-                        <td style={{ padding: '11px 14px', borderBottom: rowBorder, fontWeight: 600 }}>
+                        <td style={{ padding: cellPad, borderBottom: rowBorder, fontWeight: 600 }}>
                           {row.metric}
                         </td>
-                        <td className="mono" style={{ textAlign: 'center', padding: '11px 12px', borderBottom: rowBorder, color: mutedColor, fontWeight: 600 }}>
+                        <td className="mono" style={{ textAlign: 'center', padding: cellPad, borderBottom: rowBorder, color: mutedColor, fontWeight: 600 }}>
                           {row.target}
                         </td>
-                        <td className="mono" style={{ textAlign: 'center', padding: '11px 12px', borderBottom: rowBorder, fontWeight: 800, fontSize: '14px' }}>
+                        <td className="mono" style={{ textAlign: 'center', padding: cellPad, borderBottom: rowBorder, fontWeight: 800 }}>
                           {row.actual}
                         </td>
-                        <td style={{ textAlign: 'center', padding: '11px 14px', borderBottom: rowBorder }}>
+                        <td style={{ textAlign: 'center', padding: cellPad, borderBottom: rowBorder }}>
                           <span
                             style={{
                               display: 'inline-block',
-                              padding: '3px 10px',
+                              padding: '2px 8px',
                               borderRadius: '999px',
-                              fontSize: '11.5px',
+                              fontSize: '11px',
                               fontWeight: 700,
                               background: row.statusMeta.bg,
                               border: `1px solid ${row.statusMeta.border}`,
                               color: row.statusMeta.color,
+                              whiteSpace: 'nowrap',
                             }}
                           >
                             {row.statusMeta.label}
@@ -5414,47 +5521,47 @@ function DailyReportSection({ dailyReport, theme }) {
             {/* Table 2: Stage Pipeline & Movement vs Yesterday */}
             <div
               style={{
-                borderRadius: '12px',
+                borderRadius: '10px',
                 background: subCardBg,
                 border: `1px solid ${borderColor}`,
                 overflow: 'hidden',
               }}
             >
-              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${borderColor}`, fontWeight: 700, fontSize: '13.5px' }}>
+              <div style={{ padding: screenshotMode ? '7px 10px' : '9px 13px', borderBottom: `1px solid ${borderColor}`, fontWeight: 700, fontSize: '12.5px' }}>
                 2. Stage Pipeline &amp; Movement vs. Yesterday
               </div>
               <div className="table-scroll" style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: tableFont }}>
                   <thead>
                     <tr style={{ background: headerBg }}>
-                      <th style={{ textAlign: 'left', padding: '10px 14px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                      <th style={{ textAlign: 'left', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
                         Stage
                       </th>
-                      <th style={{ textAlign: 'center', padding: '10px 12px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
-                        No. of Candidates
+                      <th style={{ textAlign: 'center', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                        Candidates
                       </th>
-                      <th style={{ textAlign: 'center', padding: '10px 14px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
-                        Movement vs Yesterday
+                      <th style={{ textAlign: 'center', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                        vs Yesterday
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {stageRows.map((row) => (
                       <tr key={row.stage}>
-                        <td style={{ padding: '10px 14px', borderBottom: rowBorder, fontWeight: 600 }}>
+                        <td style={{ padding: cellPad, borderBottom: rowBorder, fontWeight: 600 }}>
                           {row.stage}
                         </td>
-                        <td className="mono" style={{ textAlign: 'center', padding: '10px 12px', borderBottom: rowBorder, fontWeight: 800, fontSize: '14px' }}>
+                        <td className="mono" style={{ textAlign: 'center', padding: cellPad, borderBottom: rowBorder, fontWeight: 800 }}>
                           {row.today}
                         </td>
-                        <td style={{ textAlign: 'center', padding: '10px 14px', borderBottom: rowBorder }}>
+                        <td style={{ textAlign: 'center', padding: cellPad, borderBottom: rowBorder }}>
                           {row.delta > 0 ? (
                             <span
                               style={{
                                 display: 'inline-block',
-                                padding: '2px 10px',
+                                padding: '1px 8px',
                                 borderRadius: '999px',
-                                fontSize: '11.5px',
+                                fontSize: '11px',
                                 fontWeight: 700,
                                 background: 'rgba(16, 185, 129, 0.14)',
                                 border: '1px solid rgba(16, 185, 129, 0.45)',
@@ -5464,7 +5571,7 @@ function DailyReportSection({ dailyReport, theme }) {
                               {row.movementLabel}
                             </span>
                           ) : (
-                            <span style={{ fontSize: '12px', color: mutedColor }}>
+                            <span style={{ fontSize: '11.5px', color: mutedColor }}>
                               No Changes
                             </span>
                           )}
@@ -5480,88 +5587,264 @@ function DailyReportSection({ dailyReport, theme }) {
           {/* Table 3: Recruiter Activity & MTD Closures */}
           <div
             style={{
-              borderRadius: '12px',
+              borderRadius: '10px',
               background: subCardBg,
               border: `1px solid ${borderColor}`,
               overflow: 'hidden',
             }}
           >
-            <div style={{ padding: '12px 16px', borderBottom: `1px solid ${borderColor}`, fontWeight: 700, fontSize: '13.5px' }}>
-              3. Recruiter Activity &amp; Closures ({formatMonthLabel(activeMonth)} MTD)
-            </div>
-            <div className="table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', minWidth: '720px', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ background: headerBg }}>
-                    <th style={{ textAlign: 'left', padding: '11px 16px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
-                      Recruiter
-                    </th>
-                    <th style={{ textAlign: 'center', padding: '11px 12px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
-                      Positions Assigned
-                    </th>
-                    <th style={{ textAlign: 'center', padding: '11px 12px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
-                      CVs Shared (TA Shortlist)
-                    </th>
-                    <th style={{ textAlign: 'center', padding: '11px 12px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
-                      Interviews Scheduled
-                    </th>
-                    <th style={{ textAlign: 'center', padding: '11px 16px', fontSize: '11px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
-                      Closures (MTD)
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* Total Row at Top (Matching Excel Snapshot) */}
-                  <tr style={{ background: theme === 'light' ? '#e2e8f0' : 'rgba(56, 189, 248, 0.12)', fontWeight: 800 }}>
-                    <td style={{ padding: '11px 16px', borderBottom: `1px solid ${borderColor}` }}>
-                      Total
-                    </td>
-                    <td className="mono" style={{ textAlign: 'center', padding: '11px 12px', borderBottom: `1px solid ${borderColor}` }}>
-                      {recruiterTable.totals.positionsAssigned}
-                    </td>
-                    <td className="mono" style={{ textAlign: 'center', padding: '11px 12px', borderBottom: `1px solid ${borderColor}` }}>
-                      {recruiterTable.totals.cvsShared}
-                    </td>
-                    <td className="mono" style={{ textAlign: 'center', padding: '11px 12px', borderBottom: `1px solid ${borderColor}` }}>
-                      {recruiterTable.totals.interviewsScheduled}
-                    </td>
-                    <td className="mono" style={{ textAlign: 'center', padding: '11px 16px', borderBottom: `1px solid ${borderColor}`, color: '#10b981' }}>
-                      {recruiterTable.totals.closuresMtd}
-                    </td>
-                  </tr>
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '10px',
+                padding: screenshotMode ? '7px 10px' : '9px 13px',
+                borderBottom: `1px solid ${borderColor}`,
+              }}
+            >
+              <span style={{ fontWeight: 700, fontSize: '12.5px' }}>
+                3. Recruiter Activity &amp; Closures ({formatMonthLabel(activeMonth)} MTD)
+              </span>
 
-                  {recruiterTable.rows.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', padding: '22px', color: mutedColor }}>
-                        No recruiter rows found. Run <b>TA Dashboard &gt; Publish now</b> in Google Sheets to sync.
-                      </td>
-                    </tr>
-                  ) : (
-                    recruiterTable.rows.map((r) => (
-                      <tr key={r.name}>
-                        <td style={{ padding: '10px 16px', borderBottom: rowBorder, fontWeight: 600 }}>
-                          {r.name}
-                        </td>
-                        <td className="mono" style={{ textAlign: 'center', padding: '10px 12px', borderBottom: rowBorder }}>
-                          {r.positionsAssigned}
-                        </td>
-                        <td className="mono" style={{ textAlign: 'center', padding: '10px 12px', borderBottom: rowBorder }}>
-                          {r.cvsShared}
-                        </td>
-                        <td className="mono" style={{ textAlign: 'center', padding: '10px 12px', borderBottom: rowBorder }}>
-                          {r.interviewsScheduled}
-                        </td>
-                        <td className="mono" style={{ textAlign: 'center', padding: '10px 16px', borderBottom: rowBorder, fontWeight: 700 }}>
-                          {r.closuresMtd}
-                        </td>
+              {/* Compact Totals Strip (always visible in 2-col Screenshot View) */}
+              {useTwoColRecruiters && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', fontSize: '11.5px', fontWeight: 700 }}>
+                  <span>Positions: <b className="mono">{recruiterTable.totals.positionsAssigned}</b></span>
+                  <span>CVs Shared: <b className="mono">{recruiterTable.totals.cvsShared}</b></span>
+                  <span>Interviews: <b className="mono">{recruiterTable.totals.interviewsScheduled}</b></span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    Closures MTD: {renderMtdPill(recruiterTable.totals.closuresMtd, () => openMtdCandidatesModal(null), true)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: useTwoColRecruiters ? 'repeat(2, minmax(0, 1fr))' : '1fr',
+                gap: useTwoColRecruiters ? '1px' : '0',
+                background: useTwoColRecruiters ? borderColor : 'transparent',
+              }}
+            >
+              {recruiterHalves.map((halfRows, halfIdx) => (
+                <div key={halfIdx} className="table-scroll" style={{ overflowX: 'auto', background: subCardBg }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: tableFont }}>
+                    <thead>
+                      <tr style={{ background: headerBg }}>
+                        <th style={{ textAlign: 'left', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                          Recruiter
+                        </th>
+                        <th style={{ textAlign: 'center', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                          {useTwoColRecruiters ? 'Pos.' : 'Positions Assigned'}
+                        </th>
+                        <th style={{ textAlign: 'center', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                          {useTwoColRecruiters ? 'CVs' : 'CVs Shared (TA Shortlist)'}
+                        </th>
+                        <th style={{ textAlign: 'center', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                          {useTwoColRecruiters ? 'Int.' : 'Interviews Scheduled'}
+                        </th>
+                        <th style={{ textAlign: 'center', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>
+                          Closures (MTD)
+                        </th>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {/* Total Row at Top (Single-column mode) */}
+                      {!useTwoColRecruiters && (
+                        <tr style={{ background: isLight ? '#e2e8f0' : 'rgba(56, 189, 248, 0.12)', fontWeight: 800 }}>
+                          <td style={{ padding: cellPad, borderBottom: `1px solid ${borderColor}` }}>
+                            Total
+                          </td>
+                          <td className="mono" style={{ textAlign: 'center', padding: cellPad, borderBottom: `1px solid ${borderColor}` }}>
+                            {recruiterTable.totals.positionsAssigned}
+                          </td>
+                          <td className="mono" style={{ textAlign: 'center', padding: cellPad, borderBottom: `1px solid ${borderColor}` }}>
+                            {recruiterTable.totals.cvsShared}
+                          </td>
+                          <td className="mono" style={{ textAlign: 'center', padding: cellPad, borderBottom: `1px solid ${borderColor}` }}>
+                            {recruiterTable.totals.interviewsScheduled}
+                          </td>
+                          <td style={{ textAlign: 'center', padding: cellPad, borderBottom: `1px solid ${borderColor}` }}>
+                            {renderMtdPill(recruiterTable.totals.closuresMtd, () => openMtdCandidatesModal(null), true)}
+                          </td>
+                        </tr>
+                      )}
+
+                      {halfRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} style={{ textAlign: 'center', padding: '18px', color: mutedColor }}>
+                            No recruiter rows found. Run <b>TA Dashboard &gt; Publish now</b> in Google Sheets to sync.
+                          </td>
+                        </tr>
+                      ) : (
+                        halfRows.map((r) => (
+                          <tr key={r.name}>
+                            <td style={{ padding: cellPad, borderBottom: rowBorder, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                              {r.name}
+                            </td>
+                            <td className="mono" style={{ textAlign: 'center', padding: cellPad, borderBottom: rowBorder }}>
+                              {r.positionsAssigned}
+                            </td>
+                            <td className="mono" style={{ textAlign: 'center', padding: cellPad, borderBottom: rowBorder }}>
+                              {r.cvsShared}
+                            </td>
+                            <td className="mono" style={{ textAlign: 'center', padding: cellPad, borderBottom: rowBorder }}>
+                              {r.interviewsScheduled}
+                            </td>
+                            <td style={{ textAlign: 'center', padding: cellPad, borderBottom: rowBorder }}>
+                              {renderMtdPill(r.closuresMtd, () => openMtdCandidatesModal(r), false)}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
             </div>
           </div>
         </>
+      )}
+
+      {/* Closures (MTD) Candidate Details Modal */}
+      {mtdModal && (
+        <div
+          onClick={() => setMtdModal(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(2, 6, 23, 0.72)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            zIndex: 9999,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '1060px',
+              maxHeight: '84vh',
+              display: 'flex',
+              flexDirection: 'column',
+              borderRadius: '14px',
+              background: isLight ? '#ffffff' : '#0f172a',
+              border: `1px solid ${borderColor}`,
+              color: textColor,
+              overflow: 'hidden',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.45)',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '14px 18px',
+                borderBottom: `1px solid ${borderColor}`,
+                background: headerBg,
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px' }}>{mtdModal.title}</h3>
+                <p style={{ margin: '2px 0 0', fontSize: '12px', color: mutedColor }}>
+                  {mtdModal.subtitle} · Showing <b>{filteredModalCandidates.length}</b> candidate{filteredModalCandidates.length === 1 ? '' : 's'}
+                </p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="text"
+                  value={mtdSearch}
+                  onChange={(e) => setMtdSearch(e.target.value)}
+                  placeholder="Search candidate, role, BU, recruiter..."
+                  style={{
+                    height: '32px',
+                    width: '240px',
+                    padding: '0 10px',
+                    borderRadius: '7px',
+                    border: `1px solid ${borderColor}`,
+                    background: isLight ? '#ffffff' : 'rgba(15, 23, 42, 0.85)',
+                    color: textColor,
+                    fontSize: '12px',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setMtdModal(null)}
+                  style={{
+                    height: '32px',
+                    padding: '0 10px',
+                    borderRadius: '7px',
+                    border: `1px solid ${borderColor}`,
+                    background: 'transparent',
+                    color: textColor,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✕ Close
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body Table */}
+            <div style={{ overflow: 'auto', flex: 1 }}>
+              {filteredModalCandidates.length === 0 ? (
+                <div style={{ padding: '32px 20px', textAlign: 'center', color: mutedColor, fontSize: '13px' }}>
+                  {mtdModal.candidates.length === 0
+                    ? 'Candidate details will populate right after you run TA Dashboard > Publish now in Google Sheets.'
+                    : 'No candidates match your search.'}
+                </div>
+              ) : (
+                <table style={{ width: '100%', minWidth: '880px', borderCollapse: 'collapse', fontSize: '12.5px' }}>
+                  <thead>
+                    <tr style={{ background: subCardBg, position: 'sticky', top: 0 }}>
+                      <th style={{ textAlign: 'center', padding: '9px 10px', fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>#</th>
+                      <th style={{ textAlign: 'left', padding: '9px 12px', fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>Candidate</th>
+                      <th style={{ textAlign: 'left', padding: '9px 12px', fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>Role</th>
+                      <th style={{ textAlign: 'left', padding: '9px 12px', fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>BU / Department</th>
+                      <th style={{ textAlign: 'left', padding: '9px 12px', fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>Recruiter</th>
+                      <th style={{ textAlign: 'center', padding: '9px 10px', fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>Joining Date</th>
+                      <th style={{ textAlign: 'center', padding: '9px 10px', fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>Offer Date</th>
+                      <th style={{ textAlign: 'left', padding: '9px 12px', fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>Channel / Source</th>
+                      <th style={{ textAlign: 'right', padding: '9px 12px', fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}` }}>CTC</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredModalCandidates.map((c, idx) => (
+                      <tr key={`${c.name}-${c.joiningDate}-${idx}`}>
+                        <td className="mono" style={{ textAlign: 'center', padding: '8px 10px', borderBottom: rowBorder, color: mutedColor }}>{idx + 1}</td>
+                        <td style={{ padding: '8px 12px', borderBottom: rowBorder, fontWeight: 700 }}>{c.name}</td>
+                        <td style={{ padding: '8px 12px', borderBottom: rowBorder }}>{c.role}</td>
+                        <td style={{ padding: '8px 12px', borderBottom: rowBorder }}>
+                          <div>{c.businessUnit}</div>
+                          <div style={{ fontSize: '11px', color: mutedColor }}>{c.department}</div>
+                        </td>
+                        <td style={{ padding: '8px 12px', borderBottom: rowBorder, fontWeight: 600 }}>{c.recruiter}</td>
+                        <td className="mono" style={{ textAlign: 'center', padding: '8px 10px', borderBottom: rowBorder, whiteSpace: 'nowrap' }}>{formatReadableIsoDate(c.joiningDate)}</td>
+                        <td className="mono" style={{ textAlign: 'center', padding: '8px 10px', borderBottom: rowBorder, whiteSpace: 'nowrap', color: mutedColor }}>{formatReadableIsoDate(c.offerDate)}</td>
+                        <td style={{ padding: '8px 12px', borderBottom: rowBorder }}>
+                          <div>{c.channel}</div>
+                          <div style={{ fontSize: '11px', color: mutedColor }}>{c.source}</div>
+                        </td>
+                        <td className="mono" style={{ textAlign: 'right', padding: '8px 12px', borderBottom: rowBorder, fontWeight: 700, whiteSpace: 'nowrap' }}>{c.ctc}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );
