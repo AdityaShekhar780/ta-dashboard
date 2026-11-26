@@ -5014,7 +5014,8 @@ function formatMonthLabel(ym) {
 }
 
 function formatReadableIsoDate(isoDate) {
-  if (!isoDate || isoDate.length < 10) return isoDate || '—';
+  if (!isoDate || isoDate === '—') return '—';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(isoDate))) return String(isoDate);
   const [y, m, d] = isoDate.split('-');
   const mIdx = Math.max(0, Math.min(11, Number(m) - 1));
   return `${Number(d)} ${MONTH_SHORT_NAMES[mIdx]} ${y}`;
@@ -5057,10 +5058,35 @@ function getDailyTargetStatus(actual, target) {
   };
 }
 
+function getOfferApprovalPillStyle(status, isLight) {
+  const s = String(status || '').trim().toLowerCase();
+  if (s.includes('approv')) {
+    return {
+      color: isLight ? '#047857' : '#34d399',
+      bg: isLight ? 'rgba(16, 185, 129, 0.14)' : 'rgba(16, 185, 129, 0.18)',
+      border: 'rgba(16, 185, 129, 0.45)',
+    };
+  }
+  if (s.includes('reject') || s.includes('hold') || s.includes('decline') || s.includes('drop')) {
+    return {
+      color: isLight ? '#b91c1c' : '#f87171',
+      bg: isLight ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.16)',
+      border: 'rgba(239, 68, 68, 0.42)',
+    };
+  }
+  return {
+    color: isLight ? '#b45309' : '#fbbf24',
+    bg: isLight ? 'rgba(245, 158, 11, 0.14)' : 'rgba(245, 158, 11, 0.18)',
+    border: 'rgba(245, 158, 11, 0.45)',
+  };
+}
+
 function DailyReportSection({ dailyReport, theme }) {
   const [subView, setSubView] = useState('snapshot'); // 'snapshot' | 'offers'
+  const [offerScope, setOfferScope] = useState('day'); // 'day' | 'month'
+  const [offerSearch, setOfferSearch] = useState('');
   const [screenshotMode, setScreenshotMode] = useState(false);
-  const [mtdModal, setMtdModal] = useState(null); // { title, subtitle, candidates }
+  const [mtdModal, setMtdModal] = useState(null);
   const [mtdSearch, setMtdSearch] = useState('');
 
   const allDates = useMemo(() => {
@@ -5105,6 +5131,37 @@ function DailyReportSection({ dailyReport, theme }) {
     () => (Array.isArray(monthStats.joinedCandidates) ? monthStats.joinedCandidates : []),
     [monthStats]
   );
+
+  // Offer Approved Today rows filtered by Offer Shared Date (Col F)
+  const approvedOfferRows = useMemo(() => {
+    const dayList = Array.isArray(todayStats.approvedOffers) ? todayStats.approvedOffers : [];
+    const monthList = Array.isArray(monthStats.approvedOffers) ? monthStats.approvedOffers : [];
+    const base = offerScope === 'month' ? monthList : dayList;
+    const q = offerSearch.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter((row) =>
+      [
+        row.businessUnit,
+        row.department,
+        row.jobName,
+        row.candidateName,
+        row.candidateStatus,
+        row.channel,
+        row.approvalStatus,
+        row.approvedBy,
+      ].some((v) => String(v || '').toLowerCase().includes(q))
+    );
+  }, [todayStats, monthStats, offerScope, offerSearch]);
+
+  const offerSummary = useMemo(() => {
+    let approved = 0;
+    let pending = 0;
+    approvedOfferRows.forEach((r) => {
+      if (String(r.approvalStatus || '').toLowerCase().includes('approv')) approved++;
+      else pending++;
+    });
+    return { total: approvedOfferRows.length, approved, pending };
+  }, [approvedOfferRows]);
 
   // Table 1: Daily Target vs. Actual Summary
   const targetRows = useMemo(() => {
@@ -5157,7 +5214,6 @@ function DailyReportSection({ dailyReport, theme }) {
       };
     });
 
-    // Count all joinings across the selected month from Master Offered (not row-by-row sum)
     const byDateMap = dailyReport?.byDate || {};
     const wholeMonthJoinings = activeMonth
       ? Object.keys(byDateMap).reduce((sum, dateKey) => {
@@ -5260,12 +5316,13 @@ function DailyReportSection({ dailyReport, theme }) {
     );
   };
 
-  // Split recruiter rows into two side-by-side columns in Screenshot Mode
   const useTwoColRecruiters = screenshotMode && recruiterTable.rows.length > 6;
   const splitIdx = Math.ceil(recruiterTable.rows.length / 2);
   const recruiterHalves = useTwoColRecruiters
     ? [recruiterTable.rows.slice(0, splitIdx), recruiterTable.rows.slice(splitIdx)]
     : [recruiterTable.rows];
+
+  const dayOffersCount = Array.isArray(todayStats.approvedOffers) ? todayStats.approvedOffers.length : 0;
 
   return (
     <section
@@ -5294,15 +5351,28 @@ function DailyReportSection({ dailyReport, theme }) {
       >
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '10px' }}>
           <h2 style={{ margin: 0, fontSize: screenshotMode ? '17px' : '19px', letterSpacing: '-0.02em' }}>
-            Daily Recruitment Snapshot
+            {subView === 'offers' ? 'Offer Approved Today' : 'Daily Recruitment Snapshot'}
           </h2>
           <span className="muted" style={{ fontSize: '12px' }}>
-            <b>{formatReadableIsoDate(activeDate)}</b> · vs {formatReadableIsoDate(yesterdayDate)} · MTD: <b>{formatMonthLabel(activeMonth)}</b>
+            {subView === 'offers' ? (
+              <>
+                {offerScope === 'month' ? (
+                  <>Month: <b>{formatMonthLabel(activeMonth)}</b></>
+                ) : (
+                  <>Offer Shared Date: <b>{formatReadableIsoDate(activeDate)}</b></>
+                )}
+                {' · '}Total: <b>{offerSummary.total}</b> · Approved: <b>{offerSummary.approved}</b>
+              </>
+            ) : (
+              <>
+                <b>{formatReadableIsoDate(activeDate)}</b> · vs {formatReadableIsoDate(yesterdayDate)} · MTD: <b>{formatMonthLabel(activeMonth)}</b>
+              </>
+            )}
           </span>
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
-          {/* Inline Sub-View Pills (hidden in Screenshot Mode for a clean capture) */}
+          {/* Inline Sub-View Pills */}
           {!screenshotMode && (
             <div
               style={{
@@ -5334,6 +5404,9 @@ function DailyReportSection({ dailyReport, theme }) {
                 type="button"
                 onClick={() => setSubView('offers')}
                 style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
                   padding: '5px 10px',
                   borderRadius: '6px',
                   border: 'none',
@@ -5344,7 +5417,20 @@ function DailyReportSection({ dailyReport, theme }) {
                   cursor: 'pointer',
                 }}
               >
-                Offers (Next)
+                <span>Offer Approved Today</span>
+                {dayOffersCount > 0 && (
+                  <span
+                    style={{
+                      padding: '0 6px',
+                      borderRadius: '999px',
+                      fontSize: '10.5px',
+                      background: subView === 'offers' ? 'rgba(15, 23, 42, 0.2)' : 'rgba(56, 189, 248, 0.18)',
+                      color: subView === 'offers' ? '#0f172a' : '#38bdf8',
+                    }}
+                  >
+                    {dayOffersCount}
+                  </span>
+                )}
               </button>
             </div>
           )}
@@ -5425,21 +5511,182 @@ function DailyReportSection({ dailyReport, theme }) {
         </div>
       </div>
 
-      {subView === 'offers' && !screenshotMode ? (
+      {subView === 'offers' ? (
         <div
           style={{
-            padding: '28px 20px',
             borderRadius: '10px',
             background: subCardBg,
-            border: `1px dashed ${borderColor}`,
-            textAlign: 'center',
-            color: mutedColor,
+            border: `1px solid ${borderColor}`,
+            overflow: 'hidden',
           }}
         >
-          <strong style={{ display: 'block', fontSize: '14px', color: textColor, marginBottom: '4px' }}>
-            Offer Released Today — Coming Next
-          </strong>
-          Share the column mappings for the 13 offer columns whenever you are ready to wire up View 2.
+          {/* Offer Approved Today Toolbar */}
+          {!screenshotMode && (
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '9px 13px',
+                borderBottom: `1px solid ${borderColor}`,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    gap: '3px',
+                    padding: '2px',
+                    borderRadius: '7px',
+                    background: cardBg,
+                    border: `1px solid ${borderColor}`,
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOfferScope('day')}
+                    style={{
+                      padding: '4px 9px',
+                      borderRadius: '5px',
+                      border: 'none',
+                      background: offerScope === 'day' ? '#059669' : 'transparent',
+                      color: offerScope === 'day' ? '#ffffff' : mutedColor,
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Selected Date ({dayOffersCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOfferScope('month')}
+                    style={{
+                      padding: '4px 9px',
+                      borderRadius: '5px',
+                      border: 'none',
+                      background: offerScope === 'month' ? '#059669' : 'transparent',
+                      color: offerScope === 'month' ? '#ffffff' : mutedColor,
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Full {formatMonthLabel(activeMonth)} ({(monthStats.approvedOffers || []).length})
+                  </button>
+                </div>
+
+                <span
+                  style={{
+                    padding: '3px 9px',
+                    borderRadius: '999px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    background: 'rgba(16, 185, 129, 0.14)',
+                    color: isLight ? '#047857' : '#34d399',
+                  }}
+                >
+                  Approved: {offerSummary.approved}
+                </span>
+                {offerSummary.pending > 0 && (
+                  <span
+                    style={{
+                      padding: '3px 9px',
+                      borderRadius: '999px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      background: 'rgba(245, 158, 11, 0.14)',
+                      color: isLight ? '#b45309' : '#fbbf24',
+                    }}
+                  >
+                    Pending / Other: {offerSummary.pending}
+                  </span>
+                )}
+              </div>
+
+              <input
+                type="text"
+                value={offerSearch}
+                onChange={(e) => setOfferSearch(e.target.value)}
+                placeholder="Search candidate, job, BU, approver..."
+                style={{
+                  height: '30px',
+                  width: '230px',
+                  padding: '0 10px',
+                  borderRadius: '7px',
+                  border: `1px solid ${borderColor}`,
+                  background: isLight ? '#ffffff' : 'rgba(15, 23, 42, 0.85)',
+                  color: textColor,
+                  fontSize: '12px',
+                }}
+              />
+            </div>
+          )}
+
+          {/* 10-Column Offer Approved Today Table (Matches Sheet Col A–J) */}
+          <div className="table-scroll" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: screenshotMode ? '840px' : '980px', borderCollapse: 'collapse', fontSize: tableFont }}>
+              <thead>
+                <tr style={{ background: headerBg }}>
+                  <th style={{ textAlign: 'left', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}`, whiteSpace: 'nowrap' }}>Business Unit</th>
+                  <th style={{ textAlign: 'left', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}`, whiteSpace: 'nowrap' }}>Department</th>
+                  <th style={{ textAlign: 'left', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}`, whiteSpace: 'nowrap' }}>Job Name</th>
+                  <th style={{ textAlign: 'left', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}`, whiteSpace: 'nowrap' }}>Candidate Name</th>
+                  <th style={{ textAlign: 'center', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}`, whiteSpace: 'nowrap' }}>Candidate Status</th>
+                  <th style={{ textAlign: 'center', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}`, whiteSpace: 'nowrap' }}>Offer Shared Date</th>
+                  <th style={{ textAlign: 'center', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}`, whiteSpace: 'nowrap' }}>Date Of Joining</th>
+                  <th style={{ textAlign: 'left', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}`, whiteSpace: 'nowrap' }}>Channel</th>
+                  <th style={{ textAlign: 'center', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}`, whiteSpace: 'nowrap' }}>Approval Status</th>
+                  <th style={{ textAlign: 'left', padding: thPad, fontSize: '10.5px', textTransform: 'uppercase', color: mutedColor, borderBottom: `1px solid ${borderColor}`, whiteSpace: 'nowrap' }}>Approved By</th>
+                </tr>
+              </thead>
+              <tbody>
+                {approvedOfferRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} style={{ textAlign: 'center', padding: '24px', color: mutedColor }}>
+                      No offers found for {offerScope === 'month' ? formatMonthLabel(activeMonth) : formatReadableIsoDate(activeDate)}. Add rows to the <b>Offer Released Today</b> tab and run <b>TA Dashboard &gt; Publish now</b>.
+                    </td>
+                  </tr>
+                ) : (
+                  approvedOfferRows.map((row, idx) => {
+                    const pill = getOfferApprovalPillStyle(row.approvalStatus, isLight);
+                    return (
+                      <tr key={`${row.candidateName}-${row.offerSharedDate}-${idx}`}>
+                        <td style={{ padding: cellPad, borderBottom: rowBorder }}>{row.businessUnit}</td>
+                        <td style={{ padding: cellPad, borderBottom: rowBorder, color: mutedColor }}>{row.department}</td>
+                        <td style={{ padding: cellPad, borderBottom: rowBorder, fontWeight: 600 }}>{row.jobName}</td>
+                        <td style={{ padding: cellPad, borderBottom: rowBorder, fontWeight: 700, whiteSpace: 'nowrap' }}>{row.candidateName}</td>
+                        <td style={{ textAlign: 'center', padding: cellPad, borderBottom: rowBorder, whiteSpace: 'nowrap' }}>{row.candidateStatus}</td>
+                        <td className="mono" style={{ textAlign: 'center', padding: cellPad, borderBottom: rowBorder, whiteSpace: 'nowrap' }}>{formatReadableIsoDate(row.offerSharedDate)}</td>
+                        <td className="mono" style={{ textAlign: 'center', padding: cellPad, borderBottom: rowBorder, whiteSpace: 'nowrap' }}>{formatReadableIsoDate(row.dateOfJoining)}</td>
+                        <td style={{ padding: cellPad, borderBottom: rowBorder, whiteSpace: 'nowrap' }}>{row.channel}</td>
+                        <td style={{ textAlign: 'center', padding: cellPad, borderBottom: rowBorder }}>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '2px 9px',
+                              borderRadius: '999px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              background: pill.bg,
+                              border: `1px solid ${pill.border}`,
+                              color: pill.color,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {row.approvalStatus}
+                          </span>
+                        </td>
+                        <td style={{ padding: cellPad, borderBottom: rowBorder, fontWeight: 600, whiteSpace: 'nowrap' }}>{row.approvedBy}</td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <>
@@ -5608,7 +5855,6 @@ function DailyReportSection({ dailyReport, theme }) {
                 3. Recruiter Activity &amp; Closures ({formatMonthLabel(activeMonth)} MTD)
               </span>
 
-              {/* Compact Totals Strip (always visible in 2-col Screenshot View) */}
               {useTwoColRecruiters && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', fontSize: '11.5px', fontWeight: 700 }}>
                   <span>Positions: <b className="mono">{recruiterTable.totals.positionsAssigned}</b></span>
@@ -5652,7 +5898,6 @@ function DailyReportSection({ dailyReport, theme }) {
                       </tr>
                     </thead>
                     <tbody>
-                      {/* Total Row at Top (Single-column mode) */}
                       {!useTwoColRecruiters && (
                         <tr style={{ background: isLight ? '#e2e8f0' : 'rgba(56, 189, 248, 0.12)', fontWeight: 800 }}>
                           <td style={{ padding: cellPad, borderBottom: `1px solid ${borderColor}` }}>
@@ -5741,7 +5986,6 @@ function DailyReportSection({ dailyReport, theme }) {
               boxShadow: '0 24px 60px rgba(0,0,0,0.45)',
             }}
           >
-            {/* Modal Header */}
             <div
               style={{
                 display: 'flex',
@@ -5796,7 +6040,6 @@ function DailyReportSection({ dailyReport, theme }) {
               </div>
             </div>
 
-            {/* Modal Body Table */}
             <div style={{ overflow: 'auto', flex: 1 }}>
               {filteredModalCandidates.length === 0 ? (
                 <div style={{ padding: '32px 20px', textAlign: 'center', color: mutedColor, fontSize: '13px' }}>
