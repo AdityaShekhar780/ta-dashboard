@@ -6147,10 +6147,12 @@ function JobHealthBadge({ health }) {
 
 /* ---------- Expandable Business Unit Jobs Table ---------- */
 
-function BuJobsRow({ buLabel, allJobs, onOpenJobModal }) {
+function BuJobsRow({ buLabel, allJobs, onOpenJobModal, selectedHm = 'all' }) {
   const buJobs = useMemo(() => {
-    return (allJobs || []).filter((j) => j.businessUnit === buLabel).sort((a, b) => norm(a.department).localeCompare(norm(b.department)));
-  }, [buLabel, allJobs]);
+    return (allJobs || [])
+      .filter((j) => j.businessUnit === buLabel && (selectedHm === 'all' || norm(j.hiringManager) === norm(selectedHm)))
+      .sort((a, b) => norm(a.department).localeCompare(norm(b.department)));
+  }, [buLabel, allJobs, selectedHm]);
 
   if (!buJobs.length) return null;
 
@@ -6437,6 +6439,7 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const [notice, setNotice] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [bu, setBu] = useState('all');
+  const [selectedHm, setSelectedHm] = useState('all');
   const [showAll, setShowAll] = useState(false);
   const [modalData, setModalData] = useState(null);
   const [showPositionsSplitModal, setShowPositionsSplitModal] = useState(false);
@@ -6461,8 +6464,10 @@ export default function Dashboard({ unitKey = 'overall' }) {
     });
   }, []);
 
-  const openBuModal = useCallback((buLabel, unitJobs, metricType) => {
-    const buJobs = (unitJobs || []).filter((j) => j.businessUnit === buLabel);
+const openBuModal = useCallback((buLabel, unitJobs, metricType) => {
+    const buJobs = (unitJobs || []).filter(
+      (j) => j.businessUnit === buLabel && (selectedHm === 'all' || norm(j.hiringManager) === norm(selectedHm))
+    );
     const candidates = buJobs.flatMap((j) =>
       (j.candidates || []).map((c) => ({
         ...c,
@@ -6474,11 +6479,11 @@ export default function Dashboard({ unitKey = 'overall' }) {
     );
     setModalData({
       title: `${buLabel} — All ${METRIC_LABELS[metricType]} Candidates`,
-      subtitle: buLabel,
+      subtitle: selectedHm === 'all' ? buLabel : `${buLabel} · HM: ${selectedHm}`,
       candidates,
       metricType,
     });
-  }, []);
+  }, [selectedHm]);
 
   const openMomModal = useCallback((monthLabel, candidates, metricType) => {
     setModalData({
@@ -6622,6 +6627,44 @@ export default function Dashboard({ unitKey = 'overall' }) {
   const allTotals = useMemo(() => (data ? sumManpower(data.businessUnits) : null), [data]);
   const muTotals = useMemo(() => (datasets.mu ? sumManpower(datasets.mu.businessUnits) : null), [datasets.mu]);
   const tetrTotals = useMemo(() => (datasets.tetr ? sumManpower(datasets.tetr.businessUnits) : null), [datasets.tetr]);
+
+const hiringManagerOptions = useMemo(() => {
+    if (!data || !Array.isArray(data.jobs)) return [];
+    const set = new Set();
+    data.jobs.forEach((j) => {
+      if (j.isManualForm) return;
+      if (bu !== 'all' && j.businessUnit !== bu) return;
+      const hm = String(j.hiringManager || '').trim();
+      if (hm && hm !== '—' && hm !== '-') set.add(hm);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [data, bu]);
+
+  useEffect(() => {
+    if (selectedHm !== 'all' && !hiringManagerOptions.includes(selectedHm)) {
+      setSelectedHm('all');
+    }
+  }, [hiringManagerOptions, selectedHm]);
+
+  const getFilteredBuManpower = useCallback((buLabel, unitJobs, defaultManpower) => {
+    if (selectedHm === 'all') return defaultManpower;
+    const matched = (unitJobs || []).filter(
+      (j) => !j.isManualForm && j.businessUnit === buLabel && norm(j.hiringManager) === norm(selectedHm)
+    );
+    return matched.reduce(
+      (acc, j) => {
+        const isOpen = norm(j.status) !== 'closed';
+        acc.openRoles += isOpen ? 1 : 0;
+        acc.total += Number(j.total) || 0;
+        acc.yetToOffer += Number(j.yetToOffer) || 0;
+        acc.offered += Number(j.offered) || 0;
+        acc.joined += Number(j.joined) || 0;
+        acc.pending += Number(j.pending) || 0;
+        return acc;
+      },
+      { openRoles: 0, total: 0, yetToOffer: 0, offered: 0, joined: 0, pending: 0 }
+    );
+  }, [selectedHm]);
 
   const cvLess5Jobs = useMemo(() => {
     if (!data || !Array.isArray(data.jobs)) return [];
@@ -6970,37 +7013,65 @@ table.bu-table,
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '12px' }}>
                     <h2 style={{ margin: 0 }}>Manpower by Business Unit</h2>
 
-                    <button
-                      type="button"
-                      onClick={() => setShowCvLess5Modal(true)}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        padding: '8px 14px',
-                        borderRadius: '8px',
-                        background: cvLess5Jobs.length > 0 ? 'rgba(239, 68, 68, 0.14)' : 'rgba(148, 163, 184, 0.12)',
-                        border: cvLess5Jobs.length > 0 ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(148, 163, 184, 0.3)',
-                        color: cvLess5Jobs.length > 0 ? '#f87171' : 'inherit',
-                        fontWeight: 700,
-                        fontSize: '13px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <span>Jobs with &lt; 5 CVs</span>
-                      <span
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <select
+                        value={selectedHm}
+                        onChange={(e) => setSelectedHm(e.target.value)}
+                        aria-label="Filter Manpower by Hiring Manager"
                         style={{
-                          padding: '2px 9px',
-                          borderRadius: '999px',
-                          background: cvLess5Jobs.length > 0 ? '#ef4444' : 'rgba(148, 163, 184, 0.25)',
-                          color: '#ffffff',
-                          fontWeight: 800,
-                          fontSize: '12px',
+                          height: '36px',
+                          padding: '0 12px',
+                          borderRadius: '8px',
+                          background: 'rgba(255, 255, 255, 0.06)',
+                          color: '#f8fafc',
+                          border: '1px solid rgba(56, 189, 248, 0.45)',
+                          fontWeight: 600,
+                          fontSize: '13px',
+                          cursor: 'pointer',
                         }}
                       >
-                        {fmt(cvLess5Jobs.length)}
-                      </span>
-                    </button>
+                        <option value="all" style={{ background: '#0f172a', color: '#fff' }}>
+                          Hiring Manager: All ({hiringManagerOptions.length})
+                        </option>
+                        {hiringManagerOptions.map((hm) => (
+                          <option key={hm} value={hm} style={{ background: '#0f172a', color: '#fff' }}>
+                            {hm}
+                          </option>
+                        ))}
+                      </select>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowCvLess5Modal(true)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 14px',
+                          borderRadius: '8px',
+                          background: cvLess5Jobs.length > 0 ? 'rgba(239, 68, 68, 0.14)' : 'rgba(148, 163, 184, 0.12)',
+                          border: cvLess5Jobs.length > 0 ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(148, 163, 184, 0.3)',
+                          color: cvLess5Jobs.length > 0 ? '#f87171' : 'inherit',
+                          fontWeight: 700,
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <span>Jobs with &lt; 5 CVs</span>
+                        <span
+                          style={{
+                            padding: '2px 9px',
+                            borderRadius: '999px',
+                            background: cvLess5Jobs.length > 0 ? '#ef4444' : 'rgba(148, 163, 184, 0.25)',
+                            color: '#ffffff',
+                            fontWeight: 800,
+                            fontSize: '12px',
+                          }}
+                        >
+                          {fmt(cvLess5Jobs.length)}
+                        </span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="table-scroll">
@@ -7019,26 +7090,29 @@ table.bu-table,
                       <tbody>
                         {activeUnit === 'overall' ? (
                           <>
-                            {datasets.mu.businessUnits.map((b) => (
-                              <Fragment key={`mu-${b.label}`}>
-                                <tr className={bu === b.label ? 'sel' : ''}>
-                                  <td>
-                                    <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
-                                      {b.label} {bu === b.label ? '▼' : '▶'}
-                                    </button>
-                                  </td>
-                                  <td className="n">{fmt(b.manpower.openRoles)}</td>
-                                  <td className="n">{fmt(b.manpower.total)}</td>
-                                  <td className="n"><MetricCellButton value={b.manpower.yetToOffer} onClick={() => openBuModal(b.label, datasets.mu.jobs, 'yetToOffer')} /></td>
-                                  <td className="n"><MetricCellButton value={b.manpower.offered} onClick={() => openBuModal(b.label, datasets.mu.jobs, 'offered')} /></td>
-                                  <td className="n"><MetricCellButton value={b.manpower.joined} onClick={() => openBuModal(b.label, datasets.mu.jobs, 'joined')} /></td>
-                                  <td className="n">{fmt(b.manpower.pending)}</td>
-                                </tr>
-                                {bu === b.label && (
-                                  <BuJobsRow buLabel={b.label} allJobs={datasets.mu.jobs} onOpenJobModal={openJobModal} />
-                                )}
-                              </Fragment>
-                            ))}
+                            {datasets.mu.businessUnits.map((b) => {
+                              const mp = getFilteredBuManpower(b.label, datasets.mu.jobs, b.manpower);
+                              return (
+                                <Fragment key={`mu-${b.label}`}>
+                                  <tr className={bu === b.label ? 'sel' : ''}>
+                                    <td>
+                                      <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
+                                        {b.label} {bu === b.label ? '▼' : '▶'}
+                                      </button>
+                                    </td>
+                                    <td className="n">{fmt(mp.openRoles)}</td>
+                                    <td className="n">{fmt(mp.total)}</td>
+                                    <td className="n"><MetricCellButton value={mp.yetToOffer} onClick={() => openBuModal(b.label, datasets.mu.jobs, 'yetToOffer')} /></td>
+                                    <td className="n"><MetricCellButton value={mp.offered} onClick={() => openBuModal(b.label, datasets.mu.jobs, 'offered')} /></td>
+                                    <td className="n"><MetricCellButton value={mp.joined} onClick={() => openBuModal(b.label, datasets.mu.jobs, 'joined')} /></td>
+                                    <td className="n">{fmt(mp.pending)}</td>
+                                  </tr>
+                                  {bu === b.label && (
+                                    <BuJobsRow buLabel={b.label} allJobs={datasets.mu.jobs} onOpenJobModal={openJobModal} selectedHm={selectedHm} />
+                                  )}
+                                </Fragment>
+                              );
+                            })}
                             {muTotals && (
                               <tr
                                 className="bu-subtotal-row mu-subtotal"
@@ -7061,26 +7135,29 @@ table.bu-table,
                                 <td className="n" style={{ color: '#34d399', fontWeight: 800 }}>{fmt(muTotals.pending)}</td>
                               </tr>
                             )}
-                            {datasets.tetr.businessUnits.map((b) => (
-                              <Fragment key={`tetr-${b.label}`}>
-                                <tr className={bu === b.label ? 'sel' : ''}>
-                                  <td>
-                                    <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
-                                      {b.label} {bu === b.label ? '▼' : '▶'}
-                                    </button>
-                                  </td>
-                                  <td className="n">{fmt(b.manpower.openRoles)}</td>
-                                  <td className="n">{fmt(b.manpower.total)}</td>
-                                  <td className="n"><MetricCellButton value={b.manpower.yetToOffer} onClick={() => openBuModal(b.label, datasets.tetr.jobs, 'yetToOffer')} /></td>
-                                  <td className="n"><MetricCellButton value={b.manpower.offered} onClick={() => openBuModal(b.label, datasets.tetr.jobs, 'offered')} /></td>
-                                  <td className="n"><MetricCellButton value={b.manpower.joined} onClick={() => openBuModal(b.label, datasets.tetr.jobs, 'joined')} /></td>
-                                  <td className="n">{fmt(b.manpower.pending)}</td>
-                                </tr>
-                                {bu === b.label && (
-                                  <BuJobsRow buLabel={b.label} allJobs={datasets.tetr.jobs} onOpenJobModal={openJobModal} />
-                                )}
-                              </Fragment>
-                            ))}
+                            {datasets.tetr.businessUnits.map((b) => {
+                              const mp = getFilteredBuManpower(b.label, datasets.tetr.jobs, b.manpower);
+                              return (
+                                <Fragment key={`tetr-${b.label}`}>
+                                  <tr className={bu === b.label ? 'sel' : ''}>
+                                    <td>
+                                      <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
+                                        {b.label} {bu === b.label ? '▼' : '▶'}
+                                      </button>
+                                    </td>
+                                    <td className="n">{fmt(mp.openRoles)}</td>
+                                    <td className="n">{fmt(mp.total)}</td>
+                                    <td className="n"><MetricCellButton value={mp.yetToOffer} onClick={() => openBuModal(b.label, datasets.tetr.jobs, 'yetToOffer')} /></td>
+                                    <td className="n"><MetricCellButton value={mp.offered} onClick={() => openBuModal(b.label, datasets.tetr.jobs, 'offered')} /></td>
+                                    <td className="n"><MetricCellButton value={mp.joined} onClick={() => openBuModal(b.label, datasets.tetr.jobs, 'joined')} /></td>
+                                    <td className="n">{fmt(mp.pending)}</td>
+                                  </tr>
+                                  {bu === b.label && (
+                                    <BuJobsRow buLabel={b.label} allJobs={datasets.tetr.jobs} onOpenJobModal={openJobModal} selectedHm={selectedHm} />
+                                  )}
+                                </Fragment>
+                              );
+                            })}
                             {tetrTotals && (
                               <tr
                                 className="bu-subtotal-row tetr-subtotal"
@@ -7105,26 +7182,29 @@ table.bu-table,
                             )}
                           </>
                         ) : (
-                          data.businessUnits.map((b) => (
-                            <Fragment key={b.label}>
-                              <tr className={bu === b.label ? 'sel' : ''}>
-                                <td>
-                                  <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
-                                    {b.label} {bu === b.label ? '▼' : '▶'}
-                                  </button>
-                                </td>
-                                <td className="n">{fmt(b.manpower.openRoles)}</td>
-                                <td className="n">{fmt(b.manpower.total)}</td>
-                                <td className="n"><MetricCellButton value={b.manpower.yetToOffer} onClick={() => openBuModal(b.label, data.jobs, 'yetToOffer')} /></td>
-                                <td className="n"><MetricCellButton value={b.manpower.offered} onClick={() => openBuModal(b.label, data.jobs, 'offered')} /></td>
-                                <td className="n"><MetricCellButton value={b.manpower.joined} onClick={() => openBuModal(b.label, data.jobs, 'joined')} /></td>
-                                <td className="n">{fmt(b.manpower.pending)}</td>
-                              </tr>
-                              {bu === b.label && (
-                                <BuJobsRow buLabel={b.label} allJobs={data.jobs} onOpenJobModal={openJobModal} />
-                              )}
-                            </Fragment>
-                          ))
+                          data.businessUnits.map((b) => {
+                            const mp = getFilteredBuManpower(b.label, data.jobs, b.manpower);
+                            return (
+                              <Fragment key={b.label}>
+                                <tr className={bu === b.label ? 'sel' : ''}>
+                                  <td>
+                                    <button type="button" className="link" onClick={() => { setBu(bu === b.label ? 'all' : b.label); setShowAll(false); }}>
+                                      {b.label} {bu === b.label ? '▼' : '▶'}
+                                    </button>
+                                  </td>
+                                  <td className="n">{fmt(mp.openRoles)}</td>
+                                  <td className="n">{fmt(mp.total)}</td>
+                                  <td className="n"><MetricCellButton value={mp.yetToOffer} onClick={() => openBuModal(b.label, data.jobs, 'yetToOffer')} /></td>
+                                  <td className="n"><MetricCellButton value={mp.offered} onClick={() => openBuModal(b.label, data.jobs, 'offered')} /></td>
+                                  <td className="n"><MetricCellButton value={mp.joined} onClick={() => openBuModal(b.label, data.jobs, 'joined')} /></td>
+                                  <td className="n">{fmt(mp.pending)}</td>
+                                </tr>
+                                {bu === b.label && (
+                                  <BuJobsRow buLabel={b.label} allJobs={data.jobs} onOpenJobModal={openJobModal} selectedHm={selectedHm} />
+                                )}
+                              </Fragment>
+                            );
+                          })
                         )}
                       </tbody>
                       <tfoot>
